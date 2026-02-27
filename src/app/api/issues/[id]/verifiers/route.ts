@@ -1,0 +1,137 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { issueVerifiers, activityLog, issues, users } from "@/lib/db/schema";
+import { getAuthUser } from "@/lib/auth";
+import { eq, and } from "drizzle-orm";
+import { z } from "zod";
+
+const verifiersSchema = z.object({
+  userIds: z.array(z.number()),
+});
+
+// POST /api/issues/[id]/verifiers - Update verifiers
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authUser = getAuthUser(request);
+    
+    if (!authUser) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "UNAUTHORIZED" },
+        { status: 401 }
+      );
+    }
+
+    if (authUser.role === "Viewer") {
+      return NextResponse.json(
+        { error: "You cannot set verifiers", code: "FORBIDDEN" },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await params;
+    const issueId = parseInt(id);
+
+    if (isNaN(issueId)) {
+      return NextResponse.json(
+        { error: "Invalid issue ID", code: "INVALID_ID" },
+        { status: 400 }
+      );
+    }
+
+    const issue = await db.query.issues.findFirst({
+      where: eq(issues.id, issueId),
+    });
+
+    if (!issue) {
+      return NextResponse.json(
+        { error: "Issue not found", code: "NOT_FOUND" },
+        { status: 404 }
+      );
+    }
+
+    const body = await request.json();
+    const validation = verifiersSchema.safeParse(body);
+    
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error.issues[0].message, code: "VALIDATION_ERROR" },
+        { status: 400 }
+      );
+    }
+
+    const { userIds } = validation.data;
+
+    const currentVerifiers = await db.query.issueVerifiers.findMany({
+      where: eq(issueVerifiers.issueId, issueId),
+      with: {
+        user: { columns: { id: true, name: true } },
+      },
+    });
+
+    const currentIds = currentVerifiers.map(v => v.userId);
+    const addedIds = userIds.filter(id => !currentIds.includes(id));
+    const removedIds = currentIds.filter(id => !userIds.includes(id));
+
+    if (removedIds.length > 0) {
+      for (const userId of removedIds) {
+        await db.delete(issueVerifiers).where(
+          and(
+            eq(issueVerifiers.issueId, issueId),
+            eq(issueVerifiers.userId, userId)
+          )
+        );
+      }
+    }
+
+    if (addedIds.length > 0) {
+      await db.insert(issueVerifiers).values(
+        addedIds.map(userId => ({
+          issueId,
+          userId,
+        }))
+      );
+    }
+
+    if (addedIds.length > 0 || removedIds.length > 0) {
+      const addedUsers = await Promise.all(
+        addedIds.map(async (id) => {
+          const user = await db.query.users.findFirst({ where: eq(users.id, id) });
+          return user?.name;
+        })
+      );
+
+      const removedUsers = currentVerifiers
+        .filter(v => removedIds.includes(v.userId))
+        .map(v => v.user.name);
+
+      let action = "updated verifiers";
+      if (addedIds.length > 0 && removedIds.length === 0) {
+        action = `added verifiers ${addedUsers.join(", ")}`;
+      } else if (removedIds.length > 0 && addedIds.length === 0) {
+        action = `removed verifiers ${removedUsers.join(", ")}`;
+      }
+
+      await db.insert(activityLog).values({
+        issueId,
+        userId: authUser.id,
+        action,
+      });
+    }
+
+    await db.update(issues)
+      .set({ updatedAt: new Date() })
+      .where(eq(issues.id, issueId));
+
+    return NextResponse.json({ success: true });
+    
+  } catch (error) {
+    console.error("Update verifiers error:", error);
+    return NextResponse.json(
+      { error: "Internal server error", code: "INTERNAL_ERROR" },
+      { status: 500 }
+    );
+  }
+}

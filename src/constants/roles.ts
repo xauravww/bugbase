@@ -1,0 +1,63 @@
+export const USER_ROLES = {
+  ADMIN: "Admin",
+  DEVELOPER: "Developer",
+  QA: "QA",
+  VIEWER: "Viewer",
+} as const;
+
+export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
+
+export const ROLE_PERMISSIONS = {
+  [USER_ROLES.ADMIN]: {
+    manageUsers: true,
+    createProjects: true,
+    editProjects: true,
+    deleteProjects: true,
+    createIssues: true,
+    editAnyIssue: true,
+    deleteIssues: true,
+    assignIssues: true,
+    verifyIssues: true,
+    comment: true,
+    view: true,
+  },
+  [USER_ROLES.DEVELOPER]: {
+    manageUsers: false,
+    createProjects: false,
+    editProjects: false,
+    deleteProjects: false,
+    createIssues: true,
+    editAnyIssue: false,
+    deleteIssues: false,
+    assignIssues: true,
+    verifyIssues: true,
+    comment: true,
+    view: true,
+  },
+  [USER_ROLES.QA]: {
+    manageUsers: false,
+    createProjects: false,
+    editProjects: false,
+    deleteProjects: false,
+    createIssues: true,
+    editAnyIssue: false,
+    deleteIssues: false,
+    assignIssues: false,
+    verifyIssues: true,
+    comment: true,
+    view: true,
+  },
+  [USER_ROLES.VIEWER]: {
+    manageUsers: false,
+    createProjects: false,
+    editProjects: false,
+    deleteProjects: false,
+    createIssues: false,
+    editAnyIssue: false,
+    deleteIssues: false,
+    assignIssues: false,
+    verifyIssues: false,
+    comment: false,
+    view: true,
+  },
+} as const;
