@@ -435,10 +435,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-full flex flex-col">
       <Header title={`#${issue.id}`} />
-        
-      <div className="p-6">
+
+      <div className="flex-1 overflow-auto">
+        <div className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
             <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color-accent)] flex items-center gap-1">

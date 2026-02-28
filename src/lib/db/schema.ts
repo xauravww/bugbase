@@ -141,6 +141,56 @@ export const emailTemplates = sqliteTable("email_templates", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
+// Milestones table
+export const milestones = sqliteTable("milestones", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status", { enum: ["Not Started", "In Progress", "Completed"] }).notNull().default("Not Started"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  projectIdx: index("idx_milestones_project").on(table.projectId),
+  statusIdx: index("idx_milestones_status").on(table.status),
+}));
+
+// Milestone checklist items table
+export const milestoneChecklistItems = sqliteTable("milestone_checklist_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  milestoneId: integer("milestone_id").notNull().references(() => milestones.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  order: integer("order").notNull().default(0),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  milestoneIdx: index("idx_checklist_milestone").on(table.milestoneId),
+}));
+
+// Milestone checklist completions table
+export const milestoneChecklistCompletions = sqliteTable("milestone_checklist_completions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  checklistItemId: integer("checklist_item_id").notNull().references(() => milestoneChecklistItems.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  notes: text("notes"),
+  completedAt: integer("completed_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  itemIdx: index("idx_completions_item").on(table.checklistItemId),
+  userIdx: index("idx_completions_user").on(table.userId),
+}));
+
+// Milestone notes table
+export const milestoneNotes = sqliteTable("milestone_notes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  milestoneId: integer("milestone_id").notNull().references(() => milestones.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  milestoneIdx: index("idx_notes_milestone").on(table.milestoneId),
+  userIdx: index("idx_notes_user").on(table.userId),
+}));
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
@@ -157,6 +207,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   }),
   members: many(projectMembers),
   issues: many(issues),
+  milestones: many(milestones),
 }));
 
 export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
@@ -259,3 +310,46 @@ export const activityLogRelations = relations(activityLog, ({ one }) => ({
 }));
 
 export const emailTemplatesRelations = relations(emailTemplates, () => ({}));
+
+export const milestonesRelations = relations(milestones, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [milestones.projectId],
+    references: [projects.id],
+  }),
+  creator: one(users, {
+    fields: [milestones.createdBy],
+    references: [users.id],
+  }),
+  checklistItems: many(milestoneChecklistItems),
+  notes: many(milestoneNotes),
+}));
+
+export const milestoneChecklistItemsRelations = relations(milestoneChecklistItems, ({ one, many }) => ({
+  milestone: one(milestones, {
+    fields: [milestoneChecklistItems.milestoneId],
+    references: [milestones.id],
+  }),
+  completions: many(milestoneChecklistCompletions),
+}));
+
+export const milestoneChecklistCompletionsRelations = relations(milestoneChecklistCompletions, ({ one }) => ({
+  checklistItem: one(milestoneChecklistItems, {
+    fields: [milestoneChecklistCompletions.checklistItemId],
+    references: [milestoneChecklistItems.id],
+  }),
+  user: one(users, {
+    fields: [milestoneChecklistCompletions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const milestoneNotesRelations = relations(milestoneNotes, ({ one }) => ({
+  milestone: one(milestones, {
+    fields: [milestoneNotes.milestoneId],
+    references: [milestones.id],
+  }),
+  user: one(users, {
+    fields: [milestoneNotes.userId],
+    references: [users.id],
+  }),
+}));
