@@ -175,23 +175,21 @@ export function Sidebar() {
             </div>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 min-w-0">
             <Link
               href="/settings"
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] rounded-md transition-colors touch-target"
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] rounded-md transition-colors touch-target min-w-0"
               onClick={() => breakpoint === 'mobile' && close()}
             >
-              <Settings className="w-3.5 h-3.5" />
-              <span className="desktop-only">Settings</span>
-              <span className="mobile-only tablet-only">Set</span>
+              <Settings className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="hidden md:inline">Settings</span>
             </Link>
             <button
               onClick={() => { logout(); if (breakpoint === 'mobile') close(); }}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-xs text-[var(--color-danger)] hover:bg-[var(--color-hover-bg)] rounded-md transition-colors touch-target"
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-[var(--color-danger)] hover:bg-[var(--color-hover-bg)] rounded-md transition-colors touch-target min-w-0"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="desktop-only">Logout</span>
-              <span className="mobile-only tablet-only">Log</span>
+              <LogOut className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="hidden md:inline">Logout</span>
             </button>
           </div>
         </div>
