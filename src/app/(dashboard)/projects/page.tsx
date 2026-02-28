@@ -6,6 +6,7 @@ import { Plus, FolderKanban, Users, Bug, Archive, Search, ChevronLeft, ChevronRi
 import { Header } from "@/components/layout";
 import { Button, Modal, Input, PageLoader, Badge, Avatar, Select } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
+import { useClickOutside } from "@/hooks/useClickOutside";
 
 interface Project {
   id: number;
@@ -48,6 +49,8 @@ export default function ProjectsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editError, setEditError] = useState("");
+
+  const qaDropdownRef = useClickOutside<HTMLDivElement>(() => setShowQaDropdown(false));
 
   const fetchProjects = useCallback(async (searchTerm: string = "", page: number = 1) => {
     try {
@@ -174,27 +177,24 @@ export default function ProjectsPage() {
       if (!res.ok) throw new Error(data.error || "Failed to update project");
 
       // Update QA member
-      if (selectedQA) {
-        const qaId = parseInt(selectedQA);
-        const currentQa = projectMembers.find(m => m.role === "qa");
+      const currentQa = projectMembers.find(m => m.role === "qa");
+      const newQaId = selectedQA ? parseInt(selectedQA) : null;
 
-        if (currentQa && currentQa.user.id !== qaId) {
-          // Remove old QA
-          await fetch(`/api/projects/${editingProject.id}/members`, {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ userId: currentQa.user.id }),
-          });
-        }
+      if (currentQa && currentQa.user.id !== newQaId) {
+        // Remove old QA
+        await fetch(`/api/projects/${editingProject.id}/members?userId=${currentQa.user.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
 
-        if (!currentQa || currentQa.user.id !== qaId) {
-          // Add new QA
-          await fetch(`/api/projects/${editingProject.id}/members`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ userId: qaId, role: "qa" }),
-          });
-        }
+      if (newQaId && (!currentQa || currentQa.user.id !== newQaId)) {
+        // Add new QA
+        await fetch(`/api/projects/${editingProject.id}/members`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ userId: newQaId, role: "qa" }),
+        });
       }
 
       setShowEditModal(false);
@@ -404,7 +404,7 @@ export default function ProjectsPage() {
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative" ref={qaDropdownRef}>
             <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Assign QA</label>
             <div className="relative">
               <input

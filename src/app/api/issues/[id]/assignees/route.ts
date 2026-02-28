@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { issueAssignees, activityLog, issues, users } from "@/lib/db/schema";
+import { issueAssignees, activityLog, issues, users, projectMembers } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -24,7 +24,7 @@ export async function POST(
       );
     }
 
-    if (authUser.role === "Viewer" || authUser.role === "QA") {
+    if (authUser.role === "Viewer") {
       return NextResponse.json(
         { error: "You cannot assign issues", code: "FORBIDDEN" },
         { status: 403 }
@@ -88,7 +88,7 @@ export async function POST(
       }
     }
 
-    // Add new assignees
+    // Add new assignees and ensure they are project members
     if (addedIds.length > 0) {
       await db.insert(issueAssignees).values(
         addedIds.map(userId => ({
@@ -96,6 +96,24 @@ export async function POST(
           userId,
         }))
       );
+
+      // Ensure assignees are added as project members
+      for (const userId of addedIds) {
+        const existingMembership = await db.query.projectMembers.findFirst({
+          where: and(
+            eq(projectMembers.projectId, issue.projectId),
+            eq(projectMembers.userId, userId)
+          ),
+        });
+
+        if (!existingMembership) {
+          await db.insert(projectMembers).values({
+            projectId: issue.projectId,
+            userId,
+            role: "member",
+          });
+        }
+      }
     }
 
     // Log activity

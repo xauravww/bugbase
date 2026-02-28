@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight } from "lucide-react";
+import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight, Download } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityBadge, Avatar, Badge } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES } from "@/constants";
+import { useClickOutside } from "@/hooks/useClickOutside";
 
 interface Member {
   id: number;
@@ -80,6 +81,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [verifierSearch, setVerifierSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const assigneeDropdownRef = useClickOutside<HTMLDivElement>(() => setShowAssigneeDropdown(false));
+  const verifierDropdownRef = useClickOutside<HTMLDivElement>(() => setShowVerifierDropdown(false));
 
   const issueId = resolvedParams.id;
 
@@ -276,7 +280,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       if (res.ok) {
         const data = await res.json();
         const commentId = data.comment?.id;
-        
+
         if (commentId && commentScreenshots.length > 0) {
           for (const url of commentScreenshots) {
             await fetch(`/api/issues/${issueId}/attachments`, {
@@ -353,13 +357,23 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       <Header title={`#${issue.id}`} />
 
       <div className="p-6">
-        <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] mb-4">
-          <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color items-center gap--accent)] flex1">
-            <ChevronLeft className="w-4 h-4" />
-            {issue.project.name}
-          </Link>
-          <span>/</span>
-          <span className="text-[var(--color-text-primary)]">#{issue.id}</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+            <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color-accent)] flex items-center gap-1">
+              <ChevronLeft className="w-4 h-4" />
+              {issue.project.name}
+            </Link>
+            <span>/</span>
+            <span className="text-[var(--color-text-primary)]">#{issue.id}</span>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => window.open(`/api/issues/${issue.id}/export${token ? `?token=${token}` : ''}`, "_blank")}
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Export PDF
+          </Button>
         </div>
 
         <div className="flex gap-6">
@@ -430,11 +444,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   {issue.attachments.map((att, index) => (
                     <div
                       key={att.id}
-                      onClick={() => { 
-                        console.log("Opening lightbox for attachment:", att.url); 
-                        setLightboxImages(issue.attachments || []); 
-                        setLightboxIndex(index); 
-                        setLightboxImage(att.url); 
+                      onClick={() => {
+                        console.log("Opening lightbox for attachment:", att.url);
+                        setLightboxImages(issue.attachments || []);
+                        setLightboxIndex(index);
+                        setLightboxImage(att.url);
                       }}
                       className="block w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all hover:scale-105 cursor-pointer"
                     >
@@ -561,11 +575,10 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 <div>
                   <button
                     onClick={handleVerify}
-                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border ${
-                      isVerified
-                        ? "bg-green-50 border-green-300 text-green-700"
-                        : "border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface)]"
-                    }`}
+                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border ${isVerified
+                      ? "bg-green-50 border-green-300 text-green-700"
+                      : "border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface)]"
+                      }`}
                   >
                     <Check className={`w-4 h-4 ${isVerified ? "text-green-600" : ""}`} />
                     {isVerified ? "Verified" : "Mark as Verified"}
@@ -647,7 +660,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   <span className="text-sm text-[var(--color-text-placeholder)]">Unassigned</span>
                 )}
                 {canEdit && (
-                  <div className="relative mt-2">
+                  <div className="relative mt-2" ref={assigneeDropdownRef}>
                     <button
                       onClick={() => { setShowAssigneeDropdown(!showAssigneeDropdown); setAssigneeSearch(""); fetchMembers(""); }}
                       className="flex items-center gap-1 text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
@@ -721,7 +734,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   <span className="text-sm text-[var(--color-text-placeholder)]">No verifiers set</span>
                 )}
                 {canEdit && (
-                  <div className="relative mt-2">
+                  <div className="relative mt-2" ref={verifierDropdownRef}>
                     <button
                       onClick={() => { setShowVerifierDropdown(!showVerifierDropdown); setVerifierSearch(""); fetchMembers(""); }}
                       className="flex items-center gap-1 text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
@@ -860,25 +873,25 @@ function formatDate(dateString: string): string {
 }
 
 // Lightbox Modal
-function LightboxModal({ 
-  image, 
-  images, 
-  index, 
-  onClose, 
-  onPrev, 
-  onNext 
-}: { 
-  image: string; 
+function LightboxModal({
+  image,
+  images,
+  index,
+  onClose,
+  onPrev,
+  onNext
+}: {
+  image: string;
   images: Attachment[];
   index: number;
-  onClose: () => void; 
+  onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
 }) {
   if (!image) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
       onClick={onClose}
     >
@@ -888,7 +901,7 @@ function LightboxModal({
       >
         <X className="w-6 h-6" />
       </button>
-      
+
       {images.length > 1 && (
         <>
           <button
@@ -905,11 +918,11 @@ function LightboxModal({
           </button>
         </>
       )}
-      
+
       <div className="max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-        <img 
-          src={image} 
-          alt="Full size" 
+        <img
+          src={image}
+          alt="Full size"
           className="max-w-full max-h-[85vh] object-contain rounded-lg"
         />
         {images.length > 1 && (

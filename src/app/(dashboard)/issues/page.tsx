@@ -3,9 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Calendar, Download } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
+import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 
@@ -100,6 +100,17 @@ export default function MyIssuesPage() {
     return { date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }), isOverdue };
   };
 
+  const handleExportPdf = () => {
+    const params = new URLSearchParams();
+    params.set("assignedToMe", "true");
+    if (search) params.set("search", search);
+    if (filterType !== "all") params.set("type", filterType);
+    if (filterStatus !== "all") params.set("status", filterStatus);
+    if (filterPriority !== "all") params.set("priority", filterPriority);
+    if (token) params.set("token", token);
+    window.open(`/api/issues/export?${params.toString()}`, "_blank");
+  };
+
   if (isLoading) return <PageLoader />;
 
   return (
@@ -118,6 +129,14 @@ export default function MyIssuesPage() {
               className="w-full pl-10 pr-4 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-accent)]"
             />
           </div>
+          <Button
+            variant="secondary"
+            onClick={handleExportPdf}
+            className="flex items-center gap-2 whitespace-nowrap"
+          >
+            <Download className="w-4 h-4" />
+            Export PDF
+          </Button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-4">
@@ -127,7 +146,7 @@ export default function MyIssuesPage() {
             value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-32 md:w-36" />
           <Select options={[{ value: "all", label: "All Priorities" }, ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p }))]}
             value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="w-32 md:w-36" />
-          <span className="text-sm text-[var(--color-text-secondary)] ml-auto">
+          <span className="text-sm text-[var(--color-text-secondary)] ml-auto text-right">
             {pagination.total} issue{pagination.total !== 1 ? "s" : ""}
           </span>
         </div>

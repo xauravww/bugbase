@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, List, LayoutGrid, ChevronLeft, Image, X } from "lucide-react";
+import { Plus, List, LayoutGrid, ChevronLeft, Image, X, Download } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -178,6 +178,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const canCreateIssue = user?.role !== "Viewer";
 
+  const handleExportPdf = () => {
+    const params = new URLSearchParams();
+    params.set("projectId", projectId);
+    if (filterType !== "all") params.set("type", filterType);
+    if (filterStatus !== "all") params.set("status", filterStatus);
+    if (filterPriority !== "all") params.set("priority", filterPriority);
+    if (token) params.set("token", token);
+    window.open(`/api/issues/export?${params.toString()}`, "_blank");
+  };
+
   if (isLoading) {
     return <PageLoader />;
   }
@@ -256,6 +266,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <span className="text-sm text-[var(--color-text-secondary)]">
             {filteredIssues.length} issue{filteredIssues.length !== 1 ? "s" : ""}
           </span>
+          <Button
+            variant="secondary"
+            onClick={handleExportPdf}
+            className="flex items-center gap-2 ml-auto"
+          >
+            <Download className="w-4 h-4" />
+            Export PDF
+          </Button>
         </div>
 
         {/* List View */}

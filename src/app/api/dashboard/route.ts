@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { issues, activityLog, projectMembers } from "@/lib/db/schema";
+import { issues, activityLog, projectMembers, issueAssignees } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, and, sql, desc, inArray } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -63,8 +63,8 @@ export async function GET(request: NextRequest) {
         .where(
           and(
             inArray(issues.projectId, projectIds),
-            sql`${issues.status} IN ('Closed', 'Verified')`,
-            sql`${issues.updatedAt} >= ${today.toISOString()}`
+            sql`${issues.status} IN('Closed', 'Verified')`,
+            sql`${issues.updatedAt} >= ${today.toISOString()} `
           )
         );
       stats.resolvedToday = resolvedTodayResult[0]?.count || 0;
@@ -82,32 +82,40 @@ export async function GET(request: NextRequest) {
     }> = [];
 
     if (projectIds.length > 0) {
-      const projectIssues = await db.query.issues.findMany({
-        where: and(
-          inArray(issues.projectId, projectIds),
-          sql`${issues.status} != 'Closed'`
-        ),
-        with: {
-          project: { columns: { name: true } },
-        },
-        orderBy: desc(issues.updatedAt),
-        limit: 10,
+      const assignments = await db.query.issueAssignees.findMany({
+        where: eq(issueAssignees.userId, authUser.id),
       });
+      const assignedIssueIds = assignments.map(a => a.issueId);
 
-      recentIssues = projectIssues.map(issue => ({
-        id: issue.id,
-        title: issue.title,
-        type: issue.type,
-        status: issue.status,
-        priority: issue.priority,
-        projectName: issue.project?.name || "Unknown",
-        updatedAt: issue.updatedAt?.toISOString() || new Date().toISOString(),
-      }));
+      if (assignedIssueIds.length > 0) {
+        const projectIssues = await db.query.issues.findMany({
+          where: and(
+            inArray(issues.id, assignedIssueIds),
+            inArray(issues.projectId, projectIds),
+            sql`${issues.status} != 'Closed'`
+          ),
+          with: {
+            project: { columns: { name: true } },
+          },
+          orderBy: desc(issues.updatedAt),
+          limit: 10,
+        });
+
+        recentIssues = projectIssues.map(issue => ({
+          id: issue.id,
+          title: issue.title,
+          type: issue.type,
+          status: issue.status,
+          priority: issue.priority,
+          projectName: issue.project?.name || "Unknown",
+          updatedAt: issue.updatedAt?.toISOString() || new Date().toISOString(),
+        }));
+      }
     }
 
     // Get recent activities
     let activities: Awaited<ReturnType<typeof db.query.activityLog.findMany>> = [];
-    
+
     // Get issue IDs for user's projects first
     const projectIssuesResult = await db
       .select({ id: issues.id })
@@ -144,7 +152,7 @@ export async function GET(request: NextRequest) {
       recentIssues,
       recentActivities,
     });
-    
+
   } catch (error) {
     console.error("Dashboard error:", error);
     return NextResponse.json(

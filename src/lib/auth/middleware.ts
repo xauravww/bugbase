@@ -8,12 +8,16 @@ export type AuthenticatedRequest = NextRequest & {
 
 export function getAuthUser(request: NextRequest): JWTPayload | null {
   const authHeader = request.headers.get("authorization");
-  const token = extractToken(authHeader);
-  
+  let token = extractToken(authHeader);
+
+  if (!token && request.nextUrl) {
+    token = request.nextUrl.searchParams.get("token");
+  }
+
   if (!token) {
     return null;
   }
-  
+
   return verifyToken(token);
 }
 
@@ -22,14 +26,14 @@ export function withAuth(
 ) {
   return async (request: NextRequest): Promise<NextResponse> => {
     const user = getAuthUser(request);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
         { status: 401 }
       );
     }
-    
+
     (request as AuthenticatedRequest).user = user;
     return handler(request as AuthenticatedRequest);
   };

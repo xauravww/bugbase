@@ -9,8 +9,8 @@ const updateProjectSchema = z.object({
   name: z.string().min(2).optional(),
   description: z.string().optional(),
   archived: z.boolean().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  startDate: z.string().nullable().optional(),
+  endDate: z.string().nullable().optional(),
 });
 
 // GET /api/projects/[id] - Get project details
@@ -180,8 +180,12 @@ export async function PUT(
     }
 
     const updates: Record<string, unknown> = { ...validation.data };
-    if (validation.data.startDate) updates.startDate = new Date(validation.data.startDate);
-    if (validation.data.endDate) updates.endDate = new Date(validation.data.endDate);
+    if (validation.data.startDate !== undefined) {
+      updates.startDate = validation.data.startDate ? new Date(validation.data.startDate) : null;
+    }
+    if (validation.data.endDate !== undefined) {
+      updates.endDate = validation.data.endDate ? new Date(validation.data.endDate) : null;
+    }
 
     const [updatedProject] = await db.update(projects)
       .set(updates)
