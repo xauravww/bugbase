@@ -52,6 +52,7 @@ export const issues = sqliteTable("issues", {
   expectedResult: text("expected_result"),
   actualResult: text("actual_result"),
   status: text("status", { enum: ["Open", "In Progress", "In Review", "Verified", "Closed"] }).notNull().default("Open"),
+  isVerified: integer("is_verified", { mode: "boolean" }).notNull().default(false),
   priority: text("priority", { enum: ["Low", "Medium", "High", "Critical"] }).notNull().default("Medium"),
   reporterId: integer("reporter_id").notNull().references(() => users.id),
   startDate: integer("start_date", { mode: "timestamp" }),
@@ -61,6 +62,7 @@ export const issues = sqliteTable("issues", {
 }, (table) => ({
   projectIdx: index("idx_issues_project").on(table.projectId),
   statusIdx: index("idx_issues_status").on(table.status),
+  isVerifiedIdx: index("idx_issues_verified").on(table.isVerified),
   reporterIdx: index("idx_issues_reporter").on(table.reporterId),
   createdAtIdx: index("idx_issues_created_at").on(table.createdAt),
 }));
