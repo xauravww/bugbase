@@ -36,7 +36,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center modal-responsive">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/30"
@@ -47,7 +47,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
       <div
         ref={modalRef}
         className={cn(
-          "relative bg-white rounded-lg border border-[var(--color-border)] shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden",
+          "relative bg-white rounded-lg border border-[var(--color-border)] shadow-lg max-w-lg w-full mx-4 max-h-[90vh] overflow-hidden modal-content-responsive",
           className
         )}
       >
@@ -59,7 +59,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             </h2>
             <button
               onClick={onClose}
-              className="p-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-bg)] rounded transition-colors"
+              className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-hover-bg)] rounded transition-colors touch-target"
             >
               <X className="w-5 h-5" />
             </button>

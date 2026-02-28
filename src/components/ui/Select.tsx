@@ -23,7 +23,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={id}
           className={cn(
-            "w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md transition-colors duration-150",
+            "w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md transition-colors duration-150 touch-target",
             "focus:outline-none focus:border-[var(--color-accent)]",
             "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[var(--color-surface)]",
             error && "border-[var(--color-danger)] focus:border-[var(--color-danger)]",

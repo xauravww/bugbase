@@ -72,9 +72,9 @@ export default function DashboardPage() {
     <div>
       <Header title="Dashboard" />
 
-      <div className="p-6 max-w-[1100px]">
+      <div className="p-4 md:p-6 max-w-[1100px]">
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
           <StatCard
             icon={Bug}
             label="Open Bugs"
@@ -101,21 +101,21 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {/* Recent Activity */}
           <div className="bg-white border border-[var(--color-border)] rounded-lg">
             <div className="px-4 py-3 border-b border-[var(--color-border)]">
               <h2 className="font-semibold text-[var(--color-text-primary)]">Recent Activity</h2>
             </div>
-            <div className="p-4">
+            <div className="p-3 md:p-4">
               {activities.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-secondary)] text-center py-8">
+                <p className="text-sm text-[var(--color-text-secondary)] text-center py-6 md:py-8">
                   No recent activity
                 </p>
               ) : (
                 <ul className="space-y-3">
                   {activities.slice(0, 10).map((activity) => (
-                    <li key={activity.id} className="flex items-start gap-3 text-sm">
+                    <li key={activity.id} className="flex items-start gap-2 md:gap-3 text-sm">
                       <Avatar name={activity.userName} size="sm" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[var(--color-text-primary)]">
@@ -144,9 +144,9 @@ export default function DashboardPage() {
                 View all <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
-            <div className="p-4">
+            <div className="p-3 md:p-4">
               {recentIssues.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-secondary)] text-center py-8">
+                <p className="text-sm text-[var(--color-text-secondary)] text-center py-6 md:py-8">
                   No open issues assigned to you
                 </p>
               ) : (
@@ -155,7 +155,7 @@ export default function DashboardPage() {
                     <li key={issue.id}>
                       <Link
                         href={`/issues/${issue.id}`}
-                        className="flex items-center gap-3 p-2 -mx-2 rounded hover:bg-[var(--color-hover-bg)] transition-colors"
+                        className="flex items-center gap-2 md:gap-3 p-2 -mx-2 rounded hover:bg-[var(--color-hover-bg)] transition-colors"
                       >
                         <PriorityDot priority={issue.priority} />
                         <div className="flex-1 min-w-0">

@@ -203,11 +203,12 @@ export default function TeamPage() {
       <Header title="Team">
         <Button onClick={() => setShowInviteModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          Add User
+          <span className="mobile-hidden">Add User</span>
+          <span className="desktop-hidden">Add</span>
         </Button>
       </Header>
 
-      <div className="p-6 max-w-[1100px]">
+      <div className="p-4 max-w-[1100px]">
         <div className="mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
@@ -216,7 +217,7 @@ export default function TeamPage() {
               placeholder="Search users..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full md:w-64 pl-10 pr-4 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-accent)]"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-accent)]"
             />
           </div>
         </div>
@@ -233,13 +234,52 @@ export default function TeamPage() {
             {!search && (
               <Button onClick={() => setShowInviteModal(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Add User
+                <span className="mobile-hidden">Add User</span>
+                <span className="desktop-hidden">Add</span>
               </Button>
             )}
           </div>
         ) : (
           <>
-            <div className="bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
+            {/* Mobile view */}
+            <div className="md:hidden space-y-3">
+              {members.map((member) => (
+                <div key={member.id} className="bg-white border border-[var(--color-border)] rounded-lg p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={member.name} size="sm" />
+                      <div>
+                        <h4 className="font-medium text-[var(--color-text-primary)]">{member.name}</h4>
+                        <p className="text-sm text-[var(--color-text-secondary)]">{member.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openEditModal(member)}
+                        className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-surface)] rounded touch-target"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteModal(member)}
+                        className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:bg-red-50 rounded touch-target"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <Badge variant="default">{member.role}</Badge>
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      Joined: {new Date(member.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop view */}
+            <div className="hidden md:block bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -275,13 +315,13 @@ export default function TeamPage() {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => openEditModal(member)}
-                              className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-surface)] rounded"
+                              className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-surface)] rounded touch-target"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => openDeleteModal(member)}
-                              className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:bg-red-50 rounded"
+                              className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:bg-red-50 rounded touch-target"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -295,7 +335,7 @@ export default function TeamPage() {
             </div>
 
             {pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
                 <span className="text-sm text-[var(--color-text-secondary)]">
                   Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
                 </span>
@@ -303,7 +343,7 @@ export default function TeamPage() {
                   <button
                     onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
                     disabled={pagination.page === 1}
-                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -313,7 +353,7 @@ export default function TeamPage() {
                   <button
                     onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
                     disabled={pagination.page >= pagination.totalPages}
-                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>

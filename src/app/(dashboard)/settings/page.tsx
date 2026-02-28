@@ -400,15 +400,15 @@ export default function SettingsPage() {
   if (!user) return <PageLoader />;
 
   return (
-    <div>
+    <div className="w-full">
       <Header title="Settings" />
 
-      <div className="p-4 md:p-6 max-w-5xl">
+      <div className="p-4 max-w-5xl mx-auto w-full">
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-[var(--color-border)]">
+        <div className="flex flex-wrap gap-2 mb-6 border-b border-[var(--color-border)]">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px touch-target ${
               activeTab === "profile"
                 ? "border-[var(--color-accent)] text-[var(--color-accent)]"
                 : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -420,7 +420,7 @@ export default function SettingsPage() {
             <>
               <button
                 onClick={() => setActiveTab("logs")}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-2 ${
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-2 touch-target ${
                   activeTab === "logs"
                     ? "border-[var(--color-accent)] text-[var(--color-accent)]"
                     : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -431,7 +431,7 @@ export default function SettingsPage() {
               </button>
               <button
                 onClick={() => setActiveTab("emails")}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-2 ${
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-2 touch-target ${
                   activeTab === "emails"
                     ? "border-[var(--color-accent)] text-[var(--color-accent)]"
                     : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -456,7 +456,7 @@ export default function SettingsPage() {
 
         {/* Profile Tab */}
         {activeTab === "profile" && (
-          <div className="max-w-lg">
+          <div className="max-w-full">
             <section className="mb-8">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">Profile</h2>
               <form onSubmit={handleUpdateProfile} className="space-y-4">
@@ -465,7 +465,7 @@ export default function SettingsPage() {
                 <div className="text-sm text-[var(--color-text-secondary)]">
                   Role: <span className="font-medium text-[var(--color-text-primary)]">{user.role}</span>
                 </div>
-                <Button type="submit" disabled={isUpdating}>Update Profile</Button>
+                <Button type="submit" disabled={isUpdating} className="w-full sm:w-auto">Update Profile</Button>
               </form>
             </section>
 
@@ -475,7 +475,7 @@ export default function SettingsPage() {
                 <Input id="currentPassword" label="Current Password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
                 <Input id="newPassword" label="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
                 <Input id="confirmPassword" label="Confirm New Password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
-                <Button type="submit" disabled={isUpdating}>Change Password</Button>
+                <Button type="submit" disabled={isUpdating} className="w-full sm:w-auto">Change Password</Button>
               </form>
             </section>
           </div>

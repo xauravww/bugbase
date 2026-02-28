@@ -222,12 +222,13 @@ export default function ProjectsPage() {
         {user?.role === "Admin" && (
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            New Project
+            <span className="mobile-hidden">New Project</span>
+            <span className="desktop-hidden">New</span>
           </Button>
         )}
       </Header>
 
-      <div className="p-4 md:p-6 max-w-[1100px]">
+      <div className="p-4 max-w-[1100px]">
         <div className="mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
@@ -236,7 +237,7 @@ export default function ProjectsPage() {
               placeholder="Search projects..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full md:w-64 pl-10 pr-4 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-accent)]"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-accent)]"
             />
           </div>
         </div>
@@ -253,13 +254,64 @@ export default function ProjectsPage() {
             {!search && user?.role === "Admin" && (
               <Button onClick={() => setShowCreateModal(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Create Project
+                <span className="mobile-hidden">Create Project</span>
+                <span className="desktop-hidden">Create</span>
               </Button>
             )}
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Mobile view */}
+            <div className="md:hidden space-y-4">
+              {projects.map((project) => {
+                const isAdmin = project.members.some(m => m.user.id === user?.id && m.role === "admin") || user?.role === "Admin";
+                return (
+                  <div
+                    key={project.id}
+                    className="relative bg-white border border-[var(--color-border)] rounded-lg p-4"
+                  >
+                    <Link href={`/projects/${project.id}`} className="block">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 className="font-semibold text-[var(--color-text-primary)]">{project.name}</h3>
+                          <Badge variant="default" className="mt-1">{project.key}</Badge>
+                        </div>
+                        {project.archived && <Archive className="w-4 h-4 text-[var(--color-text-secondary)]" />}
+                      </div>
+
+                      {project.description && (
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-3 line-clamp-2">{project.description}</p>
+                      )}
+
+                      {(project.startDate || project.endDate) && (
+                        <div className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)] mb-3">
+                          <Calendar className="w-3 h-3" />
+                          {formatDate(project.startDate)} - {formatDate(project.endDate)}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                          <span className="flex items-center gap-1"><Bug className="w-4 h-4" />{project.openIssueCount} open</span>
+                          <span className="flex items-center gap-1"><Users className="w-4 h-4" />{project.members.length}</span>
+                        </div>
+                      </div>
+                    </Link>
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); openEditModal(project); }}
+                        className="absolute top-2 right-2 p-1.5 rounded bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)]"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop view */}
+            <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {projects.map((project) => {
                 const isAdmin = project.members.some(m => m.user.id === user?.id && m.role === "admin") || user?.role === "Admin";
                 return (
@@ -316,7 +368,7 @@ export default function ProjectsPage() {
                   <button
                     onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
                     disabled={pagination.page === 1}
-                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
@@ -326,7 +378,7 @@ export default function ProjectsPage() {
                   <button
                     onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
                     disabled={pagination.page >= pagination.totalPages}
-                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -355,15 +407,15 @@ export default function ProjectsPage() {
               value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="startDate" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Start Date</label>
-              <input type="date" id="startDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+              <input type="date" id="startDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
                 value={createForm.startDate} onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })} />
             </div>
             <div>
               <label htmlFor="endDate" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">End Date</label>
-              <input type="date" id="endDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+              <input type="date" id="endDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
                 value={createForm.endDate} onChange={(e) => setCreateForm({ ...createForm, endDate: e.target.value })} />
             </div>
           </div>
@@ -391,15 +443,15 @@ export default function ProjectsPage() {
               value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="editStartDate" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Start Date</label>
-              <input type="date" id="editStartDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+              <input type="date" id="editStartDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
                 value={editForm.startDate} onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })} />
             </div>
             <div>
               <label htmlFor="editEndDate" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">End Date</label>
-              <input type="date" id="editEndDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+              <input type="date" id="editEndDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
                 value={editForm.endDate} onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })} />
             </div>
           </div>
@@ -413,7 +465,7 @@ export default function ProjectsPage() {
                 value={qaSearch}
                 onChange={(e) => { setQaSearch(e.target.value); setShowQaDropdown(true); }}
                 onFocus={() => setShowQaDropdown(true)}
-                className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+                className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
               />
               {selectedQA && (
                 <button
@@ -450,7 +502,7 @@ export default function ProjectsPage() {
               id="archived"
               checked={editForm.archived}
               onChange={(e) => setEditForm({ ...editForm, archived: e.target.checked })}
-              className="rounded"
+              className="rounded touch-target"
             />
             <label htmlFor="archived" className="text-sm text-[var(--color-text-primary)]">Archive this project</label>
           </div>

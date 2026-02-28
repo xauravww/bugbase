@@ -117,9 +117,9 @@ export default function MyIssuesPage() {
     <div>
       <Header title="My Issues" />
 
-      <div className="p-4 md:p-6 max-w-[1100px]">
-        <div className="flex flex-col md:flex-row gap-4 mb-4">
-          <div className="relative flex-1">
+      <div className="p-4 max-w-[1100px]">
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
             <input
               type="text"
@@ -132,26 +132,90 @@ export default function MyIssuesPage() {
           <Button
             variant="secondary"
             onClick={handleExportPdf}
-            className="flex items-center gap-2 whitespace-nowrap"
+            className="flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4" />
-            Export PDF
+            <span className="mobile-hidden">Export PDF</span>
+            <span className="desktop-hidden">Export</span>
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-4">
-          <Select options={[{ value: "all", label: "All Types" }, ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t }))]}
-            value={filterType} onChange={(e) => setFilterType(e.target.value)} className="w-28 md:w-32" />
-          <Select options={[{ value: "all", label: "All Statuses" }, ...Object.values(ISSUE_STATUSES).map((s) => ({ value: s, label: s }))]}
-            value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-32 md:w-36" />
-          <Select options={[{ value: "all", label: "All Priorities" }, ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p }))]}
-            value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="w-32 md:w-36" />
-          <span className="text-sm text-[var(--color-text-secondary)] ml-auto text-right">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Select 
+            options={[{ value: "all", label: "All Types" }, ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t }))]}
+            value={filterType} 
+            onChange={(e) => setFilterType(e.target.value)} 
+            className="w-full sm:w-28 md:w-32" 
+          />
+          <Select 
+            options={[{ value: "all", label: "All Statuses" }, ...Object.values(ISSUE_STATUSES).map((s) => ({ value: s, label: s }))]}
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value)} 
+            className="w-full sm:w-32 md:w-36" 
+          />
+          <Select 
+            options={[{ value: "all", label: "All Priorities" }, ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p }))]}
+            value={filterPriority} 
+            onChange={(e) => setFilterPriority(e.target.value)} 
+            className="w-full sm:w-32 md:w-36" 
+          />
+          <span className="text-sm text-[var(--color-text-secondary)] ml-auto text-right self-center">
             {pagination.total} issue{pagination.total !== 1 ? "s" : ""}
           </span>
         </div>
 
-        <div className="bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
+        {/* Mobile-friendly issue list */}
+        <div className="md:hidden space-y-3 mb-4">
+          {issues.length === 0 ? (
+            <div className="bg-white border border-[var(--color-border)] rounded-lg p-8 text-center">
+              <p className="text-[var(--color-text-secondary)]">No issues found</p>
+            </div>
+          ) : (
+            issues.map((issue) => {
+              const dueInfo = formatDate(issue.dueDate);
+              return (
+                <div 
+                  key={issue.id} 
+                  className="bg-white border border-[var(--color-border)] rounded-lg p-4 cursor-pointer"
+                  onClick={() => router.push(`/issues/${issue.id}`)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-mono text-[var(--color-text-secondary)]">#{issue.id}</span>
+                        <TypeBadge type={issue.type} />
+                      </div>
+                      <h3 className="font-medium text-[var(--color-text-primary)] text-sm mb-2 truncate">{issue.title}</h3>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        <StatusBadge status={issue.status} />
+                        <div className="flex items-center gap-1">
+                          <PriorityDot priority={issue.priority} />
+                          <span className="text-xs">{issue.priority}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-[var(--color-text-secondary)]">
+                        <div>Project: {issue.project.name}</div>
+                        {issue.assignees.length > 0 && (
+                          <div className="mt-1">
+                            Assignees: {issue.assignees.map(a => a.user.name).join(", ")}
+                          </div>
+                        )}
+                        {dueInfo && (
+                          <div className={`mt-1 ${dueInfo.isOverdue && issue.status !== "Verified" && issue.status !== "Closed" ? "text-[var(--color-danger)]" : ""}`}>
+                            Due: {dueInfo.date}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop table view */}
+        <div className="hidden md:block bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -208,13 +272,19 @@ export default function MyIssuesPage() {
               Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
             </span>
             <div className="flex items-center gap-2">
-              <button onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))} disabled={pagination.page === 1}
-                className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed">
+              <button 
+                onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))} 
+                disabled={pagination.page === 1}
+                className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+              >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="text-sm text-[var(--color-text-secondary)]">Page {pagination.page} of {pagination.totalPages}</span>
-              <button onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))} disabled={pagination.page >= pagination.totalPages}
-                className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed">
+              <button 
+                onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))} 
+                disabled={pagination.page >= pagination.totalPages}
+                className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+              >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
