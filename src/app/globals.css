@@ -295,6 +295,10 @@ body {
   .tablet-hidden {
     display: none !important;
   }
+  
+  .desktop-hidden {
+    display: none !important;
+  }
 }
 
 @media (min-width: 1025px) {
@@ -307,6 +311,10 @@ body {
   }
   
   .tablet-only {
+    display: none !important;
+  }
+  
+  .desktop-hidden {
     display: none !important;
   }
 }

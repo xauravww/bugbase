@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { Search, Menu } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search, Menu, Plus } from "lucide-react";
 import { Input } from "@/components/ui";
 import { useMobileSidebar } from "@/hooks/useMobileSidebar";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
@@ -9,11 +9,18 @@ import { useBreakpoint } from "@/hooks/useBreakpoint";
 interface HeaderProps {
   title: string;
   children?: React.ReactNode;
+  onMobileAction?: () => void;
+  showMobileAdd?: boolean;
 }
 
-export function Header({ title, children }: HeaderProps) {
+export function Header({ title, children, onMobileAction, showMobileAdd }: HeaderProps) {
   const { toggle } = useMobileSidebar();
   const breakpoint = useBreakpoint();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close mobile sidebar when clicking outside on mobile
   useEffect(() => {
@@ -26,6 +33,24 @@ export function Header({ title, children }: HeaderProps) {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [breakpoint]);
+
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <header className="sticky top-0 z-10 bg-white border-b border-[var(--color-border)] mobile-header">
+        <button
+          className="p-2 rounded-md hover:bg-[var(--color-hover-bg)] transition-colors touch-target"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <h1 className="text-lg font-semibold text-[var(--color-text-primary)] truncate">
+          {title}
+        </h1>
+        <div className="w-10"></div>
+      </header>
+    );
+  }
 
   return (
     <>
@@ -42,7 +67,17 @@ export function Header({ title, children }: HeaderProps) {
           <h1 className="text-lg font-semibold text-[var(--color-text-primary)] truncate">
             {title}
           </h1>
-          <div className="w-10"></div> {/* Spacer for alignment */}
+          <div className="flex items-center justify-center">
+            {showMobileAdd && onMobileAction && (
+              <button
+                onClick={onMobileAction}
+                className="p-2 rounded-md bg-[var(--color-text-primary)] text-white touch-target flex items-center justify-center"
+                aria-label="Add"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </header>
       )}
 

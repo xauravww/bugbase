@@ -261,7 +261,11 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <Header title="Projects">
+      <Header 
+        title="Projects"
+        showMobileAdd={user?.role === "Admin"}
+        onMobileAction={() => setShowCreateModal(true)}
+      >
         {user?.role === "Admin" && (
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="w-4 h-4 mr-2" />

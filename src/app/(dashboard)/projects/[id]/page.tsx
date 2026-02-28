@@ -510,7 +510,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   return (
     <div>
       <Header title={project.name}>
-        <div className="flex items-center gap-2">
+        {/* Desktop controls in header */}
+        <div className="hidden md:flex items-center gap-2">
           <div className="flex bg-[var(--color-surface)] rounded-md p-1">
             <button
               onClick={() => setActiveTab("issues")}
@@ -546,7 +547,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               {canCreateIssue && (
                 <Button onClick={() => setShowCreateModal(true)} className="touch-target">
                   <Plus className="w-4 h-4 mr-2" />
-                  New Issue
+                  <span className="mobile-hidden">New Issue</span>
+                  <span className="desktop-hidden">New</span>
                 </Button>
               )}
             </>
@@ -554,7 +556,21 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           {activeTab === "milestones" && user?.role === "Admin" && (
             <Button onClick={() => setShowCreateMilestoneModal(true)} className="touch-target">
               <Plus className="w-4 h-4 mr-2" />
-              New Milestone
+              <span className="mobile-hidden">New Milestone</span>
+              <span className="desktop-hidden">New</span>
+            </Button>
+          )}
+        </div>
+        {/* Mobile: just show create button in header */}
+        <div className="md:hidden flex items-center gap-1">
+          {activeTab === "issues" && canCreateIssue && (
+            <Button onClick={() => setShowCreateModal(true)} className="touch-target px-2">
+              <Plus className="w-4 h-4" />
+            </Button>
+          )}
+          {activeTab === "milestones" && user?.role === "Admin" && (
+            <Button onClick={() => setShowCreateMilestoneModal(true)} className="touch-target px-2">
+              <Plus className="w-4 h-4" />
             </Button>
           )}
         </div>
@@ -565,10 +581,55 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] mb-4">
           <Link href="/projects" className="hover:text-[var(--color-accent)] flex items-center gap-1">
             <ChevronLeft className="w-4 h-4" />
-            Projects
+            <span className="mobile-hidden">Projects</span>
           </Link>
           <span>/</span>
-          <span className="text-[var(--color-text-primary)]">{project.name}</span>
+          <span className="text-[var(--color-text-primary)] truncate">{project.name}</span>
+        </div>
+
+        {/* Mobile Controls - Tabs and View Mode */}
+        <div className="md:hidden mb-4 space-y-3">
+          {/* Tabs */}
+          <div className="flex bg-[var(--color-surface)] rounded-md p-1">
+            <button
+              onClick={() => setActiveTab("issues")}
+              className={`flex-1 px-3 py-2 text-sm rounded touch-target flex items-center justify-center gap-1 ${activeTab === "issues" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
+            >
+              <List className="w-4 h-4" />
+              <span>Issues</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("milestones")}
+              className={`flex-1 px-3 py-2 text-sm rounded touch-target flex items-center justify-center gap-1 ${activeTab === "milestones" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
+            >
+              <Flag className="w-4 h-4" />
+              <span>Milestones</span>
+            </button>
+          </div>
+          {/* View Mode Toggle - only show for issues */}
+          {activeTab === "issues" && (
+            <div className="flex items-center justify-between">
+              <div className="flex bg-[var(--color-surface)] rounded-md p-1">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`px-3 py-1.5 text-sm rounded touch-target flex items-center gap-1 ${viewMode === "list" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
+                >
+                  <List className="w-4 h-4" />
+                  <span>List</span>
+                </button>
+                <button
+                  onClick={() => setViewMode("board")}
+                  className={`px-3 py-1.5 text-sm rounded touch-target flex items-center gap-1 ${viewMode === "board" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  <span>Board</span>
+                </button>
+              </div>
+              <span className="text-sm text-[var(--color-text-secondary)]">
+                {issuesPagination.total} issue{issuesPagination.total !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
         </div>
 
         {activeTab === "issues" && (
