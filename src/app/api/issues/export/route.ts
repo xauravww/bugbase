@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { issues, issueAssignees, projectMembers } from "@/lib/db/schema";
+import { issues, issueAssignees, projectMembers, attachments } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, desc, and, inArray, like, or } from "drizzle-orm";
 import PDFDocument from "pdfkit";
@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
                 project: true,
                 reporter: { columns: { id: true, name: true, email: true } },
                 assignees: { with: { user: { columns: { id: true, name: true, email: true } } } },
+                attachments: true,
             },
             orderBy: desc(issues.updatedAt),
         });
