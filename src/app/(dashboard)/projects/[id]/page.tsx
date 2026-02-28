@@ -489,17 +489,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <div className="flex bg-[var(--color-surface)] rounded-md p-1">
             <button
               onClick={() => setActiveTab("issues")}
-              className={`px-3 py-1.5 text-sm rounded ${activeTab === "issues" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
+              className={`px-3 py-1.5 text-sm rounded touch-target ${activeTab === "issues" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
             >
               <List className="w-4 h-4" />
-              Issues
+              <span className="ml-1">Issues</span>
             </button>
             <button
               onClick={() => setActiveTab("milestones")}
-              className={`px-3 py-1.5 text-sm rounded ${activeTab === "milestones" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
+              className={`px-3 py-1.5 text-sm rounded touch-target ${activeTab === "milestones" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
             >
               <Flag className="w-4 h-4" />
-              Milestones
+              <span className="ml-1">Milestones</span>
             </button>
           </div>
           {activeTab === "issues" && (
@@ -507,19 +507,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <div className="flex bg-[var(--color-surface)] rounded-md p-1">
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`px-3 py-1.5 text-sm rounded ${viewMode === "list" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
+                  className={`px-3 py-1.5 text-sm rounded touch-target ${viewMode === "list" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
                 >
                   <List className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode("board")}
-                  className={`px-3 py-1.5 text-sm rounded ${viewMode === "board" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
+                  className={`px-3 py-1.5 text-sm rounded touch-target ${viewMode === "board" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
                 >
                   <LayoutGrid className="w-4 h-4" />
                 </button>
               </div>
               {canCreateIssue && (
-                <Button onClick={() => setShowCreateModal(true)}>
+                <Button onClick={() => setShowCreateModal(true)} className="touch-target">
                   <Plus className="w-4 h-4 mr-2" />
                   New Issue
                 </Button>
@@ -527,7 +527,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </>
           )}
           {activeTab === "milestones" && user?.role === "Admin" && (
-            <Button onClick={() => setShowCreateMilestoneModal(true)}>
+            <Button onClick={() => setShowCreateMilestoneModal(true)} className="touch-target">
               <Plus className="w-4 h-4 mr-2" />
               New Milestone
             </Button>
@@ -535,7 +535,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </Header>
 
-      <div className="p-6">
+      <div className="p-6 mobile-p-4">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] mb-4">
           <Link href="/projects" className="hover:text-[var(--color-accent)] flex items-center gap-1">
@@ -549,151 +549,159 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         {activeTab === "issues" && (
           <>
             {/* Filters */}
-            <div className="flex items-center gap-4 mb-6">
-              <Select
-                options={[
-                  { value: "all", label: "All Types" },
-                  ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t })),
-                ]}
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-32"
-              />
-              <Select
-                options={[
-                  { value: "all", label: "All Statuses" },
-                  ...Object.values(ISSUE_STATUSES).map((s) => ({ value: s, label: s })),
-                ]}
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-36"
-              />
-              <Select
-                options={[
-                  { value: "all", label: "All Priorities" },
-                  ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p })),
-                ]}
-                value={filterPriority}
-                onChange={(e) => setFilterPriority(e.target.value)}
-                className="w-36"
-              />
-              <span className="text-sm text-[var(--color-text-secondary)]">
-                {filteredIssues.length} issue{filteredIssues.length !== 1 ? "s" : ""}
-              </span>
-              <Button
-                variant="secondary"
-                onClick={handleExportPdf}
-                className="flex items-center gap-2 ml-auto"
-              >
-                <Download className="w-4 h-4" />
-                Export PDF
-              </Button>
+            <div className="flex flex-wrap items-center gap-3 mb-6 mobile-flex-col">
+              <div className="flex flex-wrap items-center gap-3">
+                <Select
+                  options={[
+                    { value: "all", label: "All Types" },
+                    ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t })),
+                  ]}
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-32 mobile-full-width"
+                />
+                <Select
+                  options={[
+                    { value: "all", label: "All Statuses" },
+                    ...Object.values(ISSUE_STATUSES).map((s) => ({ value: s, label: s })),
+                  ]}
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-36 mobile-full-width"
+                />
+                <Select
+                  options={[
+                    { value: "all", label: "All Priorities" },
+                    ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p })),
+                  ]}
+                  value={filterPriority}
+                  onChange={(e) => setFilterPriority(e.target.value)}
+                  className="w-36 mobile-full-width"
+                />
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm text-[var(--color-text-secondary)] whitespace-nowrap">
+                  {filteredIssues.length} issue{filteredIssues.length !== 1 ? "s" : ""}
+                </span>
+                <Button
+                  variant="secondary"
+                  onClick={handleExportPdf}
+                  className="flex items-center gap-2 ml-auto touch-target"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="mobile-hidden">Export PDF</span>
+                </Button>
+              </div>
             </div>
 
             {/* List View */}
             {viewMode === "list" && (
               <div className="bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-                      <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">ID</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Title</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Type</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Status</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Priority</th>
-                      <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Assignees</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredIssues.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="text-center py-12 text-[var(--color-text-secondary)]">
-                          No issues found
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[800px]">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">ID</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Title</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Type</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Status</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Priority</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Assignees</th>
                       </tr>
-                    ) : (
-                      filteredIssues.map((issue) => (
-                        <tr
-                          key={issue.id}
-                          className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)] cursor-pointer"
-                          onClick={() => router.push(`/issues/${issue.id}`)}
-                        >
-                          <td className="px-4 py-3 text-sm font-mono text-[var(--color-text-secondary)]">
-                            #{issue.id}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-medium text-[var(--color-text-primary)]">
-                            {issue.title}
-                          </td>
-                          <td className="px-4 py-3">
-                            <TypeBadge type={issue.type} />
-                          </td>
-                          <td className="px-4 py-3">
-                            <StatusBadge status={issue.status} />
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <PriorityDot priority={issue.priority} />
-                              <span className="text-sm text-[var(--color-text-secondary)]">{issue.priority}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            {issue.assignees.length > 0 ? (
-                              <AvatarGroup names={issue.assignees.map((a) => a.user.name)} />
-                            ) : (
-                              <span className="text-sm text-[var(--color-text-placeholder)]">Unassigned</span>
-                            )}
+                    </thead>
+                    <tbody>
+                      {filteredIssues.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-12 text-[var(--color-text-secondary)]">
+                            No issues found
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        filteredIssues.map((issue) => (
+                          <tr
+                            key={issue.id}
+                            className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)] cursor-pointer"
+                            onClick={() => router.push(`/issues/${issue.id}`)}
+                          >
+                            <td className="px-4 py-3 text-sm font-mono text-[var(--color-text-secondary)]">
+                              #{issue.id}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-medium text-[var(--color-text-primary)]">
+                              {issue.title}
+                            </td>
+                            <td className="px-4 py-3">
+                              <TypeBadge type={issue.type} />
+                            </td>
+                            <td className="px-4 py-3">
+                              <StatusBadge status={issue.status} />
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <PriorityDot priority={issue.priority} />
+                                <span className="text-sm text-[var(--color-text-secondary)]">{issue.priority}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {issue.assignees.length > 0 ? (
+                                <AvatarGroup names={issue.assignees.map((a) => a.user.name)} />
+                              ) : (
+                                <span className="text-sm text-[var(--color-text-placeholder)]">Unassigned</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
             {/* Board View */}
             {viewMode === "board" && (
-              <div className="flex gap-4 overflow-x-auto pb-4">
-                {Object.entries(groupedIssues).map(([status, statusIssues]) => (
-                  <div
-                    key={status}
-                    className="flex-shrink-0 w-72 bg-[var(--color-surface)] rounded-lg p-3"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-medium text-sm text-[var(--color-text-primary)]">
-                        {status}
-                      </h3>
-                      <span className="text-xs text-[var(--color-text-secondary)] bg-white px-2 py-0.5 rounded">
-                        {statusIssues.length}
-                      </span>
+              <div className="overflow-x-auto pb-4">
+                <div className="flex gap-4 min-w-max">
+                  {Object.entries(groupedIssues).map(([status, statusIssues]) => (
+                    <div
+                      key={status}
+                      className="flex-shrink-0 w-72 bg-[var(--color-surface)] rounded-lg p-3"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-medium text-sm text-[var(--color-text-primary)]">
+                          {status}
+                        </h3>
+                        <span className="text-xs text-[var(--color-text-secondary)] bg-white px-2 py-0.5 rounded">
+                          {statusIssues.length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {statusIssues.map((issue) => (
+                          <Link
+                            key={issue.id}
+                            href={`/issues/${issue.id}`}
+                            className="block bg-white border border-[var(--color-border)] rounded-lg p-3 hover:border-[var(--color-accent)] transition-colors"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <span className="text-xs font-mono text-[var(--color-text-secondary)]">
+                                #{issue.id}
+                              </span>
+                              <TypeBadge type={issue.type} />
+                            </div>
+                            <h4 className="text-sm font-medium text-[var(--color-text-primary)] mb-2 line-clamp-2">
+                              {issue.title}
+                            </h4>
+                            <div className="flex items-center justify-between">
+                              <PriorityDot priority={issue.priority} />
+                              {issue.assignees.length > 0 && (
+                                <AvatarGroup names={issue.assignees.map((a) => a.user.name)} max={2} />
+                              )}
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      {statusIssues.map((issue) => (
-                        <Link
-                          key={issue.id}
-                          href={`/issues/${issue.id}`}
-                          className="block bg-white border border-[var(--color-border)] rounded-lg p-3 hover:border-[var(--color-accent)] transition-colors"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <span className="text-xs font-mono text-[var(--color-text-secondary)]">
-                              #{issue.id}
-                            </span>
-                            <TypeBadge type={issue.type} />
-                          </div>
-                          <h4 className="text-sm font-medium text-[var(--color-text-primary)] mb-2 line-clamp-2">
-                            {issue.title}
-                          </h4>
-                          <div className="flex items-center justify-between">
-                            <PriorityDot priority={issue.priority} />
-                            {issue.assignees.length > 0 && (
-                              <AvatarGroup names={issue.assignees.map((a) => a.user.name)} max={2} />
-                            )}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </>

@@ -54,7 +54,9 @@ export function Sidebar() {
     <>
       {/* Mobile sidebar overlay */}
       <div 
-        className={cn("mobile-sidebar-overlay", { open: isOpen && breakpoint === 'mobile' })}
+        className={cn("mobile-sidebar-overlay", {
+          "open": isOpen && breakpoint === 'mobile'
+        })}
         onClick={close}
       />
       

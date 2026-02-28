@@ -484,13 +484,13 @@ export default function SettingsPage() {
         {/* Activity Logs Tab */}
         {activeTab === "logs" && user.role === "Admin" && (
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
               <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Activity Logs</h2>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-start sm:self-auto">
                 <span className="text-xs text-[var(--color-text-secondary)]">Auto-refresh</span>
                 <button
                   onClick={() => setLogsAutoRefresh(!logsAutoRefresh)}
-                  className={`p-1 rounded transition-colors ${logsAutoRefresh ? "text-green-600" : "text-gray-400"}`}
+                  className={`p-1 rounded transition-colors touch-target ${logsAutoRefresh ? "text-green-600" : "text-gray-400"}`}
                 >
                   {logsAutoRefresh ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
                 </button>
@@ -498,8 +498,8 @@ export default function SettingsPage() {
             </div>
 
             <div className="bg-[var(--color-surface)] rounded-lg p-4 mb-4 space-y-3">
-              <div className="flex flex-wrap gap-3">
-                <div className="flex-1 min-w-[200px]">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                <div className="flex-1 min-w-[200px] w-full sm:w-auto">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
                     <input
@@ -515,7 +515,7 @@ export default function SettingsPage() {
                 <select
                   value={logsAction}
                   onChange={(e) => { setLogsAction(e.target.value); setLogsPagination(p => ({ ...p, page: 1 })); }}
-                  className="px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+                  className="px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] min-w-[150px]"
                 >
                   <option value="">All Actions</option>
                   <option value="created">Created</option>
@@ -535,10 +535,10 @@ export default function SettingsPage() {
                   onChange={(e) => { setLogsDateTo(e.target.value); setLogsPagination(p => ({ ...p, page: 1 })); }}
                   className="px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
                 />
-                <Button variant="secondary" size="sm" onClick={() => { clearLogsFilters(); fetchLogs(1); }}>
+                <Button variant="secondary" size="sm" onClick={() => { clearLogsFilters(); fetchLogs(1); }} className="w-full sm:w-auto">
                   Clear
                 </Button>
-                <Button size="sm" onClick={() => fetchLogs(1)}>
+                <Button size="sm" onClick={() => fetchLogs(1)} className="w-full sm:w-auto">
                   <Search className="w-4 h-4 mr-1" /> Search
                 </Button>
               </div>
@@ -553,9 +553,9 @@ export default function SettingsPage() {
                 <div className="space-y-2">
                   {logs.map((log) => (
                     <div key={log.id} className="bg-white border border-[var(--color-border)] rounded-lg p-4 hover:shadow-sm transition-shadow">
-                      <div className="flex items-start gap-4">
+                      <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4">
                         <Avatar name={log.user.name} size="md" />
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 w-full">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <span className="font-semibold text-sm text-[var(--color-text-primary)]">{log.user.name}</span>
                             <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded ${
@@ -577,7 +577,7 @@ export default function SettingsPage() {
                               {log.issue.project.name} - {log.issue.title}
                             </Link>
                           )}
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
                             <span className="text-xs text-[var(--color-text-secondary)] bg-[var(--color-surface)] px-2 py-1 rounded">
                               {new Date(log.createdAt).toLocaleString()}
                             </span>
@@ -589,20 +589,20 @@ export default function SettingsPage() {
                 </div>
 
                 {logsPagination.totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-[var(--color-border)]">
-                    <span className="text-sm text-[var(--color-text-secondary)]">
+                  <div className="flex flex-col sm:flex-row items-center justify-between mt-6 pt-4 border-t border-[var(--color-border)] gap-4">
+                    <span className="text-sm text-[var(--color-text-secondary)] text-center sm:text-left">
                       Showing {((logsPagination.page - 1) * logsPagination.limit) + 1} to {Math.min(logsPagination.page * logsPagination.limit, logsPagination.total)} of {logsPagination.total} logs
                     </span>
                     <div className="flex items-center gap-2">
                       <button onClick={() => fetchLogs(logsPagination.page - 1)} disabled={logsPagination.page === 1}
-                        className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50">
+                        className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 touch-target">
                         <ChevronLeft className="w-4 h-4" />
                       </button>
                       <span className="text-sm text-[var(--color-text-secondary)] px-3">
                         Page {logsPagination.page} of {logsPagination.totalPages}
                       </span>
                       <button onClick={() => fetchLogs(logsPagination.page + 1)} disabled={logsPagination.page >= logsPagination.totalPages}
-                        className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50">
+                        className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 touch-target">
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
@@ -616,14 +616,14 @@ export default function SettingsPage() {
         {/* Email Templates Tab */}
         {activeTab === "emails" && user.role === "Admin" && (
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">Email Templates</h2>
                 <p className="text-sm text-[var(--color-text-secondary)] mt-1">
                   Configure email notifications for various events. Use {"{{variable}}"} for dynamic content.
                 </p>
               </div>
-              <Button size="sm" onClick={() => setShowAddModal(true)}>
+              <Button size="sm" onClick={() => setShowAddModal(true)} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-1" /> Add Custom Template
               </Button>
             </div>
@@ -636,13 +636,13 @@ export default function SettingsPage() {
                   <div key={template.id} className="bg-white border border-[var(--color-border)] rounded-lg p-4">
                     {editingTemplate?.event === template.event ? (
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                           <h3 className="font-medium">{EMAIL_EVENTS[template.event] || template.event}</h3>
                           <div className="flex gap-2">
-                            <button onClick={handleSaveTemplate} className="p-1.5 text-[var(--color-success)] hover:bg-green-50 rounded">
+                            <button onClick={handleSaveTemplate} className="p-1.5 text-[var(--color-success)] hover:bg-green-50 rounded touch-target">
                               <Save className="w-4 h-4" />
                             </button>
-                            <button onClick={() => setEditingTemplate(null)} className="p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] rounded">
+                            <button onClick={() => setEditingTemplate(null)} className="p-1.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] rounded touch-target">
                               <X className="w-4 h-4" />
                             </button>
                           </div>
@@ -670,8 +670,8 @@ export default function SettingsPage() {
                       </div>
                     ) : (
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-medium">{EMAIL_EVENTS[template.event] || template.event}</h3>
                             {template.enabled ? (
                               <Badge variant="default" className="bg-green-50 text-green-700">Enabled</Badge>
@@ -682,14 +682,14 @@ export default function SettingsPage() {
                           <div className="flex gap-1">
                             <button
                               onClick={() => setPreviewTemplate(template)}
-                              className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-surface)] rounded"
+                              className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-surface)] rounded touch-target"
                               title="Preview"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => setEditingTemplate(template)}
-                              className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-surface)] rounded"
+                              className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-surface)] rounded touch-target"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
@@ -713,20 +713,20 @@ export default function SettingsPage() {
         {/* Preview Modal */}
         {previewTemplate && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-[var(--color-border)] gap-2">
                 <div>
                   <h3 className="font-semibold text-[var(--color-text-primary)]">Email Preview</h3>
                   <p className="text-sm text-[var(--color-text-secondary)]">{EMAIL_EVENTS[previewTemplate.event] || previewTemplate.event}</p>
                 </div>
                 <button
                   onClick={() => setPreviewTemplate(null)}
-                  className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface)] rounded"
+                  className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface)] rounded touch-target self-start sm:self-auto"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="p-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="p-4 overflow-y-auto flex-grow">
                 {(() => {
                   const sampleData = {
                     issue_title: "Login page not loading",
@@ -843,17 +843,17 @@ export default function SettingsPage() {
         {/* Add Custom Template Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-              <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full flex flex-col">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border-b border-[var(--color-border)] gap-2">
                 <h3 className="font-semibold text-[var(--color-text-primary)]">Add Custom Template</h3>
                 <button
                   onClick={() => { setShowAddModal(false); setNewTemplate({ event: "", subject: "", body: "" }); }}
-                  className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface)] rounded"
+                  className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface)] rounded touch-target self-start sm:self-auto"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="p-4 space-y-4 flex-grow overflow-y-auto">
                 <Input
                   label="Event Name"
                   placeholder="e.g., custom_notification"
@@ -871,11 +871,11 @@ export default function SettingsPage() {
                   onChange={(body) => setNewTemplate({ ...newTemplate, body })}
                   label="Body"
                 />
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button variant="secondary" onClick={() => { setShowAddModal(false); setNewTemplate({ event: "", subject: "", body: "" }); }}>
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
+                  <Button variant="secondary" onClick={() => { setShowAddModal(false); setNewTemplate({ event: "", subject: "", body: "" }); }} className="w-full sm:w-auto">
                     Cancel
                   </Button>
-                  <Button onClick={handleCreateTemplate}>
+                  <Button onClick={handleCreateTemplate} className="w-full sm:w-auto">
                     Create Template
                   </Button>
                 </div>

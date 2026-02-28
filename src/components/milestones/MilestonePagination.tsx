@@ -21,8 +21,8 @@ export function MilestonePagination({ pagination, onPageChange }: MilestonePagin
   }
 
   return (
-    <div className="flex items-center justify-between py-4">
-      <div className="text-sm text-[var(--color-text-secondary)]">
+    <div className="flex flex-col sm:flex-row items-center justify-between py-4 gap-4">
+      <div className="text-sm text-[var(--color-text-secondary)] text-center sm:text-left">
         Showing page {page} of {totalPages} ({total} total milestones)
       </div>
       
@@ -32,10 +32,10 @@ export function MilestonePagination({ pagination, onPageChange }: MilestonePagin
           size="sm"
           onClick={() => onPageChange(page - 1)}
           disabled={!hasPrev}
-          className="flex items-center gap-1"
+          className="flex items-center gap-1 touch-target"
         >
           <ChevronLeft className="w-4 h-4" />
-          Previous
+          <span className="mobile-hidden">Previous</span>
         </Button>
         
         <div className="flex items-center gap-1">
@@ -56,7 +56,7 @@ export function MilestonePagination({ pagination, onPageChange }: MilestonePagin
               <button
                 key={pageNum}
                 onClick={() => onPageChange(pageNum)}
-                className={`w-8 h-8 rounded text-sm ${
+                className={`w-8 h-8 rounded text-sm touch-target ${
                   pageNum === page
                     ? "bg-[var(--color-accent)] text-white"
                     : "bg-white border border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface)]"
@@ -73,9 +73,9 @@ export function MilestonePagination({ pagination, onPageChange }: MilestonePagin
           size="sm"
           onClick={() => onPageChange(page + 1)}
           disabled={!hasNext}
-          className="flex items-center gap-1"
+          className="flex items-center gap-1 touch-target"
         >
-          Next
+          <span className="mobile-hidden">Next</span>
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>

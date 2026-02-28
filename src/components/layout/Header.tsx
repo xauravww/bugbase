@@ -31,7 +31,7 @@ export function Header({ title, children }: HeaderProps) {
     <>
       {/* Mobile header */}
       {breakpoint === 'mobile' && (
-        <header className="mobile-header sticky top-0 z-10 bg-white border-b border-[var(--color-border)]">
+        <header className="sticky top-0 z-10 bg-white border-b border-[var(--color-border)] mobile-header">
           <button
             onClick={toggle}
             className="p-2 rounded-md hover:bg-[var(--color-hover-bg)] transition-colors touch-target"

@@ -435,11 +435,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pb-20">
       <Header title={`#${issue.id}`} />
         
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="p-4 max-w-7xl mx-auto w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
           <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
             <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color-accent)] flex items-center gap-1">
               <ChevronLeft className="w-4 h-4" />
@@ -448,7 +448,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
             <span>/</span>
             <span className="text-[var(--color-text-primary)]">#{issue.id}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canEdit && !isEditing && (
               <Button
                 variant="secondary"
@@ -534,7 +534,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
 
-        <div className="flex gap-6">
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
           <div className="flex-1 min-w-0">
             <div className="mb-6">
               <div className="flex items-center gap-3 mb-2">
@@ -678,7 +678,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                     <div className="flex-1 min-w-0">
                       {item.type === "comment" ? (
                         <div className="bg-white border border-[var(--color-border)] rounded-lg p-3">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
                             <span className="font-medium text-sm text-[var(--color-text-primary)]">
                               {item.user.name}
                             </span>
@@ -695,7 +695,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                                 <div
                                   key={att.id}
                                   onClick={() => { setLightboxImages(item.attachments || []); setLightboxIndex(idx); setLightboxImage(att.url); }}
-                                  className="block w-14 h-14 md:w-16 md:h-16 rounded overflow-hidden border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all hover:scale-105 cursor-pointer"
+                                  className="block w-14 h-14 md:w-16 md:h-16 rounded overflow-hidden border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all hover:scale-105 cursor-pointer touch-target"
                                 >
                                   <img src={att.url} alt="attachment" className="w-full h-full object-cover" />
                                 </div>
@@ -728,7 +728,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               <form onSubmit={handleSubmitComment} className="flex gap-3">
                 <Avatar name={user?.name || ""} size="sm" />
                 <div className="flex-1 space-y-2">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
                       className="flex-1 px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
@@ -748,18 +748,18 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                       type="button"
                       onClick={() => commentFileInputRef.current?.click()}
                       disabled={isUploadingComment}
-                      className="p-2 border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface)] text-[var(--color-text-secondary)]"
+                      className="p-2 border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface)] text-[var(--color-text-secondary)] touch-target"
                     >
                       <Image className="w-4 h-4" />
                     </button>
-                    <Button type="submit" disabled={(!commentText.trim() && commentScreenshots.length === 0) || isSubmitting}>
+                    <Button type="submit" disabled={(!commentText.trim() && commentScreenshots.length === 0) || isSubmitting} className="touch-target">
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>
                   {commentScreenshots.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {commentScreenshots.map((url, index) => (
-                        <div key={index} className="relative w-12 h-12 rounded overflow-hidden border border-[var(--color-border)] cursor-pointer hover:border-[var(--color-accent)] transition-all hover:scale-105">
+                        <div key={index} className="relative w-12 h-12 rounded overflow-hidden border border-[var(--color-border)] cursor-pointer hover:border-[var(--color-accent)] transition-all hover:scale-105 touch-target">
                           <img
                             src={url}
                             alt={`screenshot-${index}`}
@@ -773,7 +773,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                           <button
                             type="button"
                             onClick={() => setCommentScreenshots(commentScreenshots.filter((_, i) => i !== index))}
-                            className="absolute top-0 right-0 bg-black/50 text-white p-0.5 rounded-bl"
+                            className="absolute top-0 right-0 bg-black/50 text-white p-0.5 rounded-bl touch-target"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -786,13 +786,13 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
             )}
           </div>
 
-          <div className="w-72 flex-shrink-0">
+          <div className="w-full lg:w-72 flex-shrink-0">
             <div className="bg-white border border-[var(--color-border)] rounded-lg p-4 space-y-4">
               {canVerify && (
                 <div>
                   <button
                     onClick={handleVerify}
-                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border ${isVerified
+                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border touch-target ${isVerified
                       ? "bg-green-50 border-green-300 text-green-700"
                       : "border-[var(--color-border)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface)]"
                       }`}

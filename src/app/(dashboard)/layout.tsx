@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Sidebar } from "@/components/layout";
 import { PageLoader } from "@/components/ui";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
+import { MobileSidebarProvider } from "@/hooks/useMobileSidebar";
 
 export default function DashboardLayout({
   children,
@@ -35,11 +36,13 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="h-screen flex bg-white overflow-hidden">
-      <Sidebar />
-      <main className={`flex-1 overflow-auto ${breakpoint === 'mobile' ? 'ml-0' : 'ml-[var(--sidebar-width)]'}`}>
-        {children}
-      </main>
-    </div>
+    <MobileSidebarProvider>
+      <div className="h-screen flex bg-white overflow-hidden">
+        <Sidebar />
+        <main className={`flex-1 overflow-auto ${breakpoint === 'mobile' ? 'ml-0' : 'ml-[var(--sidebar-width)]'}`}>
+          {children}
+        </main>
+      </div>
+    </MobileSidebarProvider>
   );
 }
