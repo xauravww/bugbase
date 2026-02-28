@@ -8,6 +8,7 @@ import { z } from "zod";
 const attachmentSchema = z.object({
   url: z.string().url(),
   deleteHash: z.string().optional(),
+  commentId: z.number().optional(),
 });
 
 // POST /api/issues/[id]/attachments - Add attachment to issue
@@ -17,7 +18,7 @@ export async function POST(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -69,7 +70,7 @@ export async function POST(
 
     const body = await request.json();
     const validation = attachmentSchema.safeParse(body);
-    
+
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.issues[0].message, code: "VALIDATION_ERROR" },
@@ -77,13 +78,14 @@ export async function POST(
       );
     }
 
-    const { url, deleteHash } = validation.data;
+    const { url, deleteHash, commentId } = validation.data;
 
     const [attachment] = await db.insert(attachments).values({
       issueId,
       url,
       imgbbDeleteHash: deleteHash,
       uploadedBy: authUser.id,
+      ...(commentId ? { commentId } : {}),
     }).returning();
 
     await db.insert(activityLog).values({
@@ -97,7 +99,7 @@ export async function POST(
       .where(eq(issues.id, issueId));
 
     return NextResponse.json({ attachment }, { status: 201 });
-    
+
   } catch (error) {
     console.error("Add attachment error:", error);
     return NextResponse.json(

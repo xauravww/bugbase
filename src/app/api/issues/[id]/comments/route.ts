@@ -6,7 +6,7 @@ import { getAuthUser } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 
 const createCommentSchema = z.object({
-  body: z.string().min(1, "Comment cannot be empty"),
+  body: z.string(),
 });
 
 // GET /api/issues/[id]/comments - Get comments for an issue
@@ -16,7 +16,7 @@ export async function GET(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -46,7 +46,7 @@ export async function GET(
     });
 
     return NextResponse.json({ comments: issueComments });
-    
+
   } catch (error) {
     console.error("Get comments error:", error);
     return NextResponse.json(
@@ -63,7 +63,7 @@ export async function POST(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -117,7 +117,7 @@ export async function POST(
 
     const body = await request.json();
     const validation = createCommentSchema.safeParse(body);
-    
+
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.issues[0].message, code: "VALIDATION_ERROR" },
@@ -155,7 +155,7 @@ export async function POST(
     });
 
     return NextResponse.json({ comment: commentWithUser }, { status: 201 });
-    
+
   } catch (error) {
     console.error("Create comment error:", error);
     return NextResponse.json(

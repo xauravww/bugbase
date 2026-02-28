@@ -9,7 +9,10 @@ import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 const updateIssueSchema = z.object({
   title: z.string().min(2).optional(),
   type: z.enum([ISSUE_TYPES.BUG, ISSUE_TYPES.FEATURE]).optional(),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
+  stepsToReproduce: z.string().nullable().optional(),
+  expectedResult: z.string().nullable().optional(),
+  actualResult: z.string().nullable().optional(),
   status: z.enum([
     ISSUE_STATUSES.OPEN,
     ISSUE_STATUSES.IN_PROGRESS,
@@ -32,7 +35,7 @@ export async function GET(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -112,7 +115,7 @@ export async function GET(
     }
 
     return NextResponse.json({ issue });
-    
+
   } catch (error) {
     console.error("Get issue error:", error);
     return NextResponse.json(
@@ -129,7 +132,7 @@ export async function PUT(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -181,7 +184,7 @@ export async function PUT(
 
     const body = await request.json();
     const validation = updateIssueSchema.safeParse(body);
-    
+
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.issues[0].message, code: "VALIDATION_ERROR" },
@@ -222,7 +225,7 @@ export async function PUT(
       .returning();
 
     return NextResponse.json({ issue: updatedIssue });
-    
+
   } catch (error) {
     console.error("Update issue error:", error);
     return NextResponse.json(
@@ -239,7 +242,7 @@ export async function DELETE(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -247,9 +250,9 @@ export async function DELETE(
       );
     }
 
-    if (authUser.role !== "Admin") {
+    if (authUser.role === "Viewer") {
       return NextResponse.json(
-        { error: "Only admins can delete issues", code: "FORBIDDEN" },
+        { error: "Viewers cannot delete issues", code: "FORBIDDEN" },
         { status: 403 }
       );
     }
@@ -264,10 +267,29 @@ export async function DELETE(
       );
     }
 
+    const existingIssue = await db.query.issues.findFirst({
+      where: eq(issues.id, issueId),
+    });
+
+    if (!existingIssue) {
+      return NextResponse.json(
+        { error: "Issue not found", code: "NOT_FOUND" },
+        { status: 404 }
+      );
+    }
+
+    // Only admins or the reporter can delete
+    if (authUser.role !== "Admin" && existingIssue.reporterId !== authUser.id) {
+      return NextResponse.json(
+        { error: "Only admins or the reporter can delete issues", code: "FORBIDDEN" },
+        { status: 403 }
+      );
+    }
+
     await db.delete(issues).where(eq(issues.id, issueId));
 
     return NextResponse.json({ success: true });
-    
+
   } catch (error) {
     console.error("Delete issue error:", error);
     return NextResponse.json(

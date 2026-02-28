@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { issues, projectMembers } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
-// @ts-ignore
 import PDFDocument from "pdfkit";
 
 // GET /api/issues/[id]/export
@@ -141,7 +140,7 @@ export async function GET(
             }
         });
 
-        return new NextResponse(pdfBuffer as any, {
+        return new NextResponse(new Uint8Array(pdfBuffer), {
             status: 200,
             headers: {
                 "Content-Type": "application/pdf",

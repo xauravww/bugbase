@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight, Download } from "lucide-react";
+import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight, Download, Clipboard, Trash2, Pencil } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityBadge, Avatar, Badge } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -81,6 +81,15 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [verifierSearch, setVerifierSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    stepsToReproduce: "",
+    expectedResult: "",
+    actualResult: "",
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   const assigneeDropdownRef = useClickOutside<HTMLDivElement>(() => setShowAssigneeDropdown(false));
   const verifierDropdownRef = useClickOutside<HTMLDivElement>(() => setShowVerifierDropdown(false));
@@ -225,23 +234,30 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const uploadImageFile = async (file: File): Promise<{ url: string; deleteHash?: string } | null> => {
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (res.ok) return await res.json();
+    } catch (error) {
+      console.error("Failed to upload:", error);
+    }
+    return null;
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("image", file);
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
+      const data = await uploadImageFile(file);
+      if (data) {
         await fetch(`/api/issues/${issueId}/attachments`, {
           method: "POST",
           headers: {
@@ -262,19 +278,72 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const handlePasteUpload = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+        setIsUploading(true);
+        try {
+          const data = await uploadImageFile(file);
+          if (data) {
+            await fetch(`/api/issues/${issueId}/attachments`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ url: data.url, deleteHash: data.deleteHash }),
+            });
+            fetchIssue();
+          }
+        } finally {
+          setIsUploading(false);
+        }
+        return;
+      }
+    }
+  };
+
+  const handleCommentPaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+        setIsUploadingComment(true);
+        try {
+          const data = await uploadImageFile(file);
+          if (data) {
+            setCommentScreenshots(prev => [...prev, data.url]);
+          }
+        } finally {
+          setIsUploadingComment(false);
+        }
+        return;
+      }
+    }
+  };
+
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim() && commentScreenshots.length === 0 || isSubmitting) return;
+    if ((!commentText.trim() && commentScreenshots.length === 0) || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
+      const bodyText = commentText.trim() || (commentScreenshots.length > 0 ? "(screenshot)" : "");
       const res = await fetch(`/api/issues/${issueId}/comments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ body: commentText }),
+        body: JSON.stringify({ body: bodyText }),
       });
 
       if (res.ok) {
@@ -311,18 +380,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
 
     setIsUploadingComment(true);
     try {
-      const formData = new FormData();
-      formData.append("image", file);
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setCommentScreenshots([...commentScreenshots, data.url]);
+      const data = await uploadImageFile(file);
+      if (data) {
+        setCommentScreenshots(prev => [...prev, data.url]);
       }
     } catch (error) {
       console.error("Failed to upload:", error);
@@ -334,7 +394,29 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
 
   const isVerified = user && issue?.verifications.some(v => v.user.id === user.id);
   const canVerify = user && user.role !== "Viewer" && issue?.status !== "Verified";
-  const canEdit = user?.role === "Admin" || user?.role === "Developer" || user?.role === "QA";
+  const canEdit = user?.role === "Admin" || user?.role === "Developer" || user?.role === "QA" || (user && issue?.reporter.id === user.id);
+  const canDelete = user?.role === "Admin" || (user && issue?.reporter.id === user.id);
+
+  const handleDeleteIssue = async () => {
+    if (!issue) return;
+    const confirmed = window.confirm(`Are you sure you want to delete issue #${issue.id} "${issue.title}"? This action cannot be undone.`);
+    if (!confirmed) return;
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        router.push(`/projects/${issue.project.id}`);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to delete issue");
+      }
+    } catch (error) {
+      console.error("Failed to delete issue:", error);
+      alert("Failed to delete issue");
+    }
+  };
 
   const assigneeIds = issue?.assignees.map(a => a.user.id) || [];
   const verifierIds = issue?.verifiers.map(v => v.user.id) || [];
@@ -366,14 +448,90 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
             <span>/</span>
             <span className="text-[var(--color-text-primary)]">#{issue.id}</span>
           </div>
-          <Button
-            variant="secondary"
-            onClick={() => window.open(`/api/issues/${issue.id}/export${token ? `?token=${token}` : ''}`, "_blank")}
-            className="flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            Export PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            {canEdit && !isEditing && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setEditForm({
+                    title: issue.title,
+                    description: issue.description || "",
+                    stepsToReproduce: issue.stepsToReproduce || "",
+                    expectedResult: issue.expectedResult || "",
+                    actualResult: issue.actualResult || "",
+                  });
+                  setIsEditing(true);
+                }}
+                className="flex items-center gap-2"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit
+              </Button>
+            )}
+            {isEditing && (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsEditing(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    setIsSaving(true);
+                    try {
+                      const res = await fetch(`/api/issues/${issueId}`, {
+                        method: "PUT",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                          title: editForm.title,
+                          description: editForm.description || null,
+                          stepsToReproduce: editForm.stepsToReproduce || null,
+                          expectedResult: editForm.expectedResult || null,
+                          actualResult: editForm.actualResult || null,
+                        }),
+                      });
+                      if (res.ok) {
+                        setIsEditing(false);
+                        fetchIssue();
+                      } else {
+                        const data = await res.json();
+                        alert(data.error || "Failed to save");
+                      }
+                    } catch (err) {
+                      console.error("Failed to save:", err);
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  disabled={isSaving}
+                >
+                  {isSaving ? "Saving..." : "Save"}
+                </Button>
+              </>
+            )}
+            {canDelete && (
+              <Button
+                variant="secondary"
+                onClick={handleDeleteIssue}
+                className="flex items-center gap-2 text-[var(--color-danger)] hover:bg-red-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              onClick={() => window.open(`/api/issues/${issue.id}/export${token ? `?token=${token}` : ''}`, "_blank")}
+              className="flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export PDF
+            </Button>
+          </div>
         </div>
 
         <div className="flex gap-6">
@@ -383,53 +541,102 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 <TypeBadge type={issue.type} />
                 <StatusBadge status={issue.status} />
               </div>
-              <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
-                {issue.title}
-              </h1>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="text-2xl font-semibold text-[var(--color-text-primary)] w-full px-3 py-2 border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+                />
+              ) : (
+                <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
+                  {issue.title}
+                </h1>
+              )}
             </div>
 
-            {issue.description && (
+            {(issue.description || isEditing) && (
               <div className="mb-8">
                 <h3 className="text-sm font-medium text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
                   Description
                 </h3>
-                <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.description}</ReactMarkdown>
-                </div>
+                {isEditing ? (
+                  <textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                    rows={5}
+                    placeholder="Issue description... (Markdown supported)"
+                  />
+                ) : (
+                  <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.description}</ReactMarkdown>
+                  </div>
+                )}
               </div>
             )}
 
             {/* QA Fields for Bugs */}
-            {issue.type === "Bug" && (issue.stepsToReproduce || issue.expectedResult || issue.actualResult) && (
+            {(issue.type === "Bug" || isEditing) && (
               <div className="mb-8 space-y-4">
-                {issue.stepsToReproduce && (
+                {(issue.stepsToReproduce || isEditing) && (
                   <div>
                     <h3 className="text-sm font-medium text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
                       Steps to Reproduce
                     </h3>
-                    <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.stepsToReproduce}</ReactMarkdown>
-                    </div>
+                    {isEditing ? (
+                      <textarea
+                        value={editForm.stepsToReproduce}
+                        onChange={(e) => setEditForm({ ...editForm, stepsToReproduce: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                        rows={4}
+                        placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
+                      />
+                    ) : (
+                      <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.stepsToReproduce}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 )}
-                {issue.expectedResult && (
+                {(issue.expectedResult || isEditing) && (
                   <div>
                     <h3 className="text-sm font-medium text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
                       Expected Result
                     </h3>
-                    <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.expectedResult}</ReactMarkdown>
-                    </div>
+                    {isEditing ? (
+                      <textarea
+                        value={editForm.expectedResult}
+                        onChange={(e) => setEditForm({ ...editForm, expectedResult: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                        rows={3}
+                        placeholder="What should happen..."
+                      />
+                    ) : (
+                      <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.expectedResult}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 )}
-                {issue.actualResult && (
+                {(issue.actualResult || isEditing) && (
                   <div>
                     <h3 className="text-sm font-medium text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
                       Actual Result
                     </h3>
-                    <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.actualResult}</ReactMarkdown>
-                    </div>
+                    {isEditing ? (
+                      <textarea
+                        value={editForm.actualResult}
+                        onChange={(e) => setEditForm({ ...editForm, actualResult: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                        rows={3}
+                        placeholder="What actually happens..."
+                      />
+                    ) : (
+                      <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.actualResult}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -525,9 +732,10 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                     <input
                       type="text"
                       className="flex-1 px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
-                      placeholder="Add a comment... (Markdown supported)"
+                      placeholder="Add a comment... (Paste image with Ctrl+V)"
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
+                      onPaste={handleCommentPaste}
                     />
                     <input
                       type="file"
@@ -551,8 +759,17 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   {commentScreenshots.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {commentScreenshots.map((url, index) => (
-                        <div key={index} className="relative w-12 h-12 rounded overflow-hidden border border-[var(--color-border)]">
-                          <img src={url} alt={`screenshot-${index}`} className="w-full h-full object-cover" />
+                        <div key={index} className="relative w-12 h-12 rounded overflow-hidden border border-[var(--color-border)] cursor-pointer hover:border-[var(--color-accent)] transition-all hover:scale-105">
+                          <img
+                            src={url}
+                            alt={`screenshot-${index}`}
+                            className="w-full h-full object-cover"
+                            onClick={() => {
+                              setLightboxImages(commentScreenshots.map((u, i) => ({ id: i, url: u, createdAt: '' })));
+                              setLightboxIndex(index);
+                              setLightboxImage(url);
+                            }}
+                          />
                           <button
                             type="button"
                             onClick={() => setCommentScreenshots(commentScreenshots.filter((_, i) => i !== index))}
@@ -792,7 +1009,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               </div>
 
               {canEdit && (
-                <div>
+                <div onPaste={handlePasteUpload} tabIndex={0} className="outline-none">
                   <label className="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
                     Upload Screenshot
                   </label>
@@ -817,6 +1034,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                       </>
                     )}
                   </button>
+                  <p className="text-[10px] text-[var(--color-text-placeholder)] mt-1 text-center">or paste with Ctrl+V</p>
                 </div>
               )}
 

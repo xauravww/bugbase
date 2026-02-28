@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { issues, issueAssignees, projectMembers } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, desc, and, inArray, like, or } from "drizzle-orm";
-// @ts-ignore
 import PDFDocument from "pdfkit";
 
 export async function GET(request: NextRequest) {
@@ -170,7 +169,7 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        return new NextResponse(pdfBuffer as any, {
+        return new NextResponse(new Uint8Array(pdfBuffer), {
             status: 200,
             headers: {
                 "Content-Type": "application/pdf",

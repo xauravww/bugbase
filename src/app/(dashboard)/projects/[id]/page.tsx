@@ -133,30 +133,59 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const uploadImageFile = async (file: File): Promise<{ url: string; deleteHash?: string } | null> => {
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (res.ok) return await res.json();
+    } catch (error) {
+      console.error("Failed to upload:", error);
+    }
+    return null;
+  };
+
   const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("image", file);
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setScreenshots([...screenshots, data.url]);
+      const data = await uploadImageFile(file);
+      if (data) {
+        setScreenshots(prev => [...prev, data.url]);
       }
     } catch (error) {
       console.error("Failed to upload:", error);
     } finally {
       setIsUploading(false);
       e.target.value = "";
+    }
+  };
+
+  const handleScreenshotPaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+        setIsUploading(true);
+        try {
+          const data = await uploadImageFile(file);
+          if (data) {
+            setScreenshots(prev => [...prev, data.url]);
+          }
+        } finally {
+          setIsUploading(false);
+        }
+        return;
+      }
     }
   };
 
@@ -504,7 +533,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          <div>
+          <div onPaste={handleScreenshotPaste}>
             <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
               Screenshots
             </label>
@@ -539,6 +568,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 disabled={isUploading}
               />
             </label>
+            <p className="text-[10px] text-[var(--color-text-placeholder)] mt-1 text-center">or paste with Ctrl+V</p>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
