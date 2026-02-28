@@ -21,7 +21,7 @@ A bug tracking system built with Next.js, TypeScript, Drizzle ORM, and SQLite. T
   3. Only authorized users (project QA or admin) can toggle verification
   4. Verified toggle is displayed alongside status in issue list and detail views
 **Plans**: 2 plans in 2 waves
-  - [ ] 01-verification-toggle-01-PLAN.md — Database schema + API changes
+  - [x] 01-verification-toggle-01-PLAN.md — Database schema + API changes
   - [ ] 01-verification-toggle-02-PLAN.md — UI toggle and indicator
 
 ### Phase 2: Project Member Assignment
@@ -30,7 +30,7 @@ A bug tracking system built with Next.js, TypeScript, Drizzle ORM, and SQLite. T
 **Requirements**: ASSIGN-01, ASSIGN-02, ASSIGN-03
 **Success Criteria** (what must be TRUE):
   1. When assigning users to an issue, only project members appear in the selection dropdown
-  2. Verifier selection restricted to project members with QA role (or all project members - need clarification)
+  2. Verifier selection restricted to all project members (admin, member, QA)
   3. API rejects assignment attempts for non-project members with appropriate error
   4. Existing assignments to non-project members are migrated or handled gracefully
 **Plans**: TBD
@@ -39,5 +39,5 @@ A bug tracking system built with Next.js, TypeScript, Drizzle ORM, and SQLite. T
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Verification Toggle | 0/2 | Planned | - |
+| 1. Verification Toggle | 1/2 | In progress | 2026-02-28 |
 | 2. Project Member Assignment | 0/TBD | Not started | - |
