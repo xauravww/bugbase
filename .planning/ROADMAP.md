@@ -6,7 +6,7 @@ A bug tracking system built with Next.js, TypeScript, Drizzle ORM, and SQLite. T
 
 ## Phases
 
-- [ ] **Phase 1: Verification Toggle** - Separate verified status from normal issue status
+- [x] **Phase 1: Verification Toggle** - Separate verified status from normal issue status
 - [ ] **Phase 2: Project Member Assignment** - Restrict assignments to project members only
 
 ## Phase Details
@@ -22,7 +22,7 @@ A bug tracking system built with Next.js, TypeScript, Drizzle ORM, and SQLite. T
   4. Verified toggle is displayed alongside status in issue list and detail views
 **Plans**: 2 plans in 2 waves
   - [x] 01-verification-toggle-01-PLAN.md — Database schema + API changes
-  - [ ] 01-verification-toggle-02-PLAN.md — UI toggle and indicator
+  - [x] 01-verification-toggle-02-PLAN.md — UI toggle and indicator
 
 ### Phase 2: Project Member Assignment
 **Goal**: Issue assignees and verifiers can only be selected from project members
@@ -39,5 +39,5 @@ A bug tracking system built with Next.js, TypeScript, Drizzle ORM, and SQLite. T
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Verification Toggle | 1/2 | In progress | 2026-02-28 |
+| 1. Verification Toggle | 2/2 | ✓ Complete | 2026-02-28 |
 | 2. Project Member Assignment | 0/TBD | Not started | - |
