@@ -307,13 +307,38 @@ export default function SettingsPage() {
       return;
     }
     setIsUpdating(true);
-    setTimeout(() => {
-      setMessage({ type: "success", text: "Password changed successfully" });
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setMessage({ type: "success", text: "Password changed successfully" });
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        setMessage({
+          type: "error",
+          text: data.error || "Failed to change password",
+        });
+      }
+    } catch (error) {
+      console.error("Change password error:", error);
+      setMessage({ type: "error", text: "An error occurred while changing password" });
+    } finally {
       setIsUpdating(false);
-    }, 1000);
+    }
   };
 
   const handleSaveTemplate = async () => {
