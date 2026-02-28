@@ -55,32 +55,36 @@ export async function GET(
       );
     }
 
-    // Get all users in the system (with optional search)
-    let allUsers = await db.select().from(users);
-
-    // Get current project members
+    // Get only project members with their project roles
     const projectMembersList = await db.query.projectMembers.findMany({
       where: eq(projectMembers.projectId, issue.projectId),
+      with: {
+        user: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
     });
-    const memberUserIds = new Set(projectMembersList.map(pm => pm.userId));
+
+    let result = projectMembersList.map(pm => ({
+      id: pm.user.id,
+      name: pm.user.name,
+      email: pm.user.email,
+      role: pm.role, // Use project role, not global role
+    }));
 
     // Filter by search if provided
     if (search) {
       const searchLower = search.toLowerCase();
-      allUsers = allUsers.filter(u => 
+      result = result.filter(u => 
         u.name.toLowerCase().includes(searchLower) || 
         u.email.toLowerCase().includes(searchLower)
       );
     }
-
-    // Map users with their project membership status
-    const result = allUsers.map(u => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      isMember: memberUserIds.has(u.id),
-    }));
 
     return NextResponse.json({ members: result });
     

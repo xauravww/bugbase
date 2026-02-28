@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { issueAssignees, activityLog, issues, users, projectMembers } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 const assigneesSchema = z.object({
@@ -52,6 +52,22 @@ export async function POST(
       );
     }
 
+    // Check project membership
+    const membership = await db.query.projectMembers.findFirst({
+      where: and(
+        eq(projectMembers.projectId, issue.projectId),
+        eq(projectMembers.userId, authUser.id)
+      ),
+    });
+
+    // Only project members can assign issues
+    if (!membership && authUser.role !== "Admin") {
+      return NextResponse.json(
+        { error: "Only project members can assign issues", code: "FORBIDDEN" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const validation = assigneesSchema.safeParse(body);
     
@@ -88,32 +104,32 @@ export async function POST(
       }
     }
 
-    // Add new assignees and ensure they are project members
+    // Add new assignees - must be existing project members
     if (addedIds.length > 0) {
+      // Verify all users are project members
+      const projectMemberRecords = await db.query.projectMembers.findMany({
+        where: and(
+          eq(projectMembers.projectId, issue.projectId),
+          inArray(projectMembers.userId, addedIds)
+        ),
+      });
+
+      const validMemberIds = projectMemberRecords.map(m => m.userId);
+      const invalidIds = addedIds.filter(id => !validMemberIds.includes(id));
+
+      if (invalidIds.length > 0) {
+        return NextResponse.json(
+          { error: "Only project members can be assigned to issues", code: "INVALID_ASSIGNEE" },
+          { status: 400 }
+        );
+      }
+
       await db.insert(issueAssignees).values(
-        addedIds.map(userId => ({
+        validMemberIds.map(userId => ({
           issueId,
           userId,
         }))
       );
-
-      // Ensure assignees are added as project members
-      for (const userId of addedIds) {
-        const existingMembership = await db.query.projectMembers.findFirst({
-          where: and(
-            eq(projectMembers.projectId, issue.projectId),
-            eq(projectMembers.userId, userId)
-          ),
-        });
-
-        if (!existingMembership) {
-          await db.insert(projectMembers).values({
-            projectId: issue.projectId,
-            userId,
-            role: "member",
-          });
-        }
-      }
     }
 
     // Log activity

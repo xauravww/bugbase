@@ -44,6 +44,10 @@ export default function ProjectsPage() {
   const [qaSearch, setQaSearch] = useState("");
   const [qaUsers, setQaUsers] = useState<Array<{ id: number; name: string; email: string }>>([]);
   const [showQaDropdown, setShowQaDropdown] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberUsers, setMemberUsers] = useState<Array<{ id: number; name: string; email: string }>>([]);
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [createForm, setCreateForm] = useState({ name: "", key: "", description: "", startDate: "", endDate: "" });
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
@@ -51,6 +55,7 @@ export default function ProjectsPage() {
   const [editError, setEditError] = useState("");
 
   const qaDropdownRef = useClickOutside<HTMLDivElement>(() => setShowQaDropdown(false));
+  const memberDropdownRef = useClickOutside<HTMLDivElement>(() => setShowMemberDropdown(false));
 
   const fetchProjects = useCallback(async (searchTerm: string = "", page: number = 1) => {
     try {
@@ -129,11 +134,19 @@ export default function ProjectsPage() {
     setProjectMembers(project.members);
     setQaSearch("");
     setShowQaDropdown(false);
+    setMemberSearch("");
+    setShowMemberDropdown(false);
+    setSelectedMembers([]);
 
     // Find current QA
     const qa = project.members.find(m => m.role === "qa");
     setSelectedQA(qa?.user.id.toString() || "");
     setQaSearch(qa?.user.name || "");
+
+    // Find current members (non-qa, non-admin)
+    const members = project.members.filter(m => m.role === "member").map(m => m.user.id.toString());
+    setSelectedMembers(members);
+    setMemberSearch(project.members.filter(m => m.role === "member").map(m => m.user.name).join(", "));
 
     // Fetch all users and filter for QA role
     try {
@@ -145,6 +158,11 @@ export default function ProjectsPage() {
         // Filter users with QA role (case-insensitive)
         const qaList = (data.users || []).filter((u: { role: string }) => u.role?.toLowerCase() === "qa");
         setQaUsers(qaList);
+        // Get all users for member selection (excluding admins and qa from global roles)
+        const allUsers = (data.users || []).filter((u: { role: string }) => 
+          u.role?.toLowerCase() !== "admin"
+        );
+        setMemberUsers(allUsers);
       }
     } catch (error) {
       console.error("Failed to fetch users:", error);
@@ -195,6 +213,31 @@ export default function ProjectsPage() {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ userId: newQaId, role: "qa" }),
         });
+      }
+
+      // Update project members
+      const currentMembers = projectMembers.filter(m => m.role === "member").map(m => m.user.id);
+      const newMemberIds = selectedMembers.map(id => parseInt(id));
+
+      // Remove members that are no longer selected
+      for (const userId of currentMembers) {
+        if (!newMemberIds.includes(userId)) {
+          await fetch(`/api/projects/${editingProject.id}/members?userId=${userId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+      }
+
+      // Add new members
+      for (const userId of newMemberIds) {
+        if (!currentMembers.includes(userId)) {
+          await fetch(`/api/projects/${editingProject.id}/members`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ userId, role: "member" }),
+          });
+        }
       }
 
       setShowEditModal(false);
@@ -470,7 +513,7 @@ export default function ProjectsPage() {
               {selectedQA && (
                 <button
                   type="button"
-                  onClick={() => { setSelectedQA(""); setQaSearch(""); }}
+                  onClick={() => { setSelectedQA(""); setShowQaDropdown(false); setQaSearch(""); }}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
                 >
                   <X className="w-4 h-4" />
@@ -485,13 +528,100 @@ export default function ProjectsPage() {
                     <button
                       key={u.id}
                       type="button"
-                      onClick={() => { setSelectedQA(u.id.toString()); setShowQaDropdown(false); setQaSearch(u.name); }}
+                      onClick={() => { setSelectedQA(u.id.toString()); setShowQaDropdown(false); setQaSearch(""); }}
                       className={`w-full px-3 py-2 text-left text-sm hover:bg-[var(--color-surface)] ${selectedQA === u.id.toString() ? "bg-[var(--color-accent)]/10 text-[var(--color-accent)]" : ""
                         }`}
                     >
                       {u.name} ({u.email})
                     </button>
                   ))}
+              </div>
+            )}
+            {selectedQA && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {(() => {
+                  const qa = qaUsers.find(u => u.id.toString() === selectedQA);
+                  return qa ? (
+                    <span key={qa.id} className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[var(--color-accent)]/10 text-[var(--color-accent)] rounded">
+                      {qa.name}
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedQA(""); setShowQaDropdown(false); setQaSearch(""); }}
+                        className="text-[var(--color-accent)] hover:text-[var(--color-danger)]"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+
+          <div className="relative" ref={memberDropdownRef}>
+            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Add Members</label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search and add members..."
+                value={memberSearch}
+                onChange={(e) => { setMemberSearch(e.target.value); setShowMemberDropdown(true); }}
+                onFocus={() => setShowMemberDropdown(true)}
+                className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
+              />
+              {selectedMembers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setSelectedMembers([]); setMemberSearch(""); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            {showMemberDropdown && memberUsers.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-[var(--color-border)] rounded-md shadow-lg max-h-48 overflow-auto">
+                {memberUsers
+                  .filter(u => !selectedMembers.includes(u.id.toString()))
+                  .filter(u => u.name.toLowerCase().includes(memberSearch.toLowerCase()) || u.email.toLowerCase().includes(memberSearch.toLowerCase()))
+                  .map(u => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => { 
+                        const newMembers = [...selectedMembers, u.id.toString()];
+                        setSelectedMembers(newMembers); 
+                        setMemberSearch("");
+                        setShowMemberDropdown(false);
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--color-surface)]"
+                    >
+                      {u.name} ({u.email})
+                    </button>
+                  ))}
+              </div>
+            )}
+            {selectedMembers.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {selectedMembers.map(memberId => {
+                  const member = memberUsers.find(u => u.id.toString() === memberId);
+                  return member ? (
+                    <span key={memberId} className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-[var(--color-surface)] rounded">
+                      {member.name}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newMembers = selectedMembers.filter(id => id !== memberId);
+                          setSelectedMembers(newMembers);
+                          setMemberSearch("");
+                        }}
+                        className="text-[var(--color-text-secondary)] hover:text-[var(--color-danger)]"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : null;
+                })}
               </div>
             )}
           </div>

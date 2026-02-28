@@ -158,9 +158,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   // Determine user's project membership from members list
   const currentUserMember = user ? members.find(m => m.id === user.id) : null;
   const isVerified = issue?.isVerified ?? false;
+  // All project members can verify (admin, member, or qa)
   const canVerify = user && (
-    user.role === "Admin" || 
-    (currentUserMember && (currentUserMember.role === "qa" || currentUserMember.role === "admin"))
+    user.role === "Admin" || currentUserMember !== undefined
   );
 
   const handleStatusChange = async (newStatus: string) => {
@@ -678,7 +678,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 Activity
               </h3>
 
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                 {timeline.map((item, index) => (
                   <div key={`${item.type}-${item.id}`} className="flex gap-3">
                     <Avatar name={item.user.name} size="sm" />

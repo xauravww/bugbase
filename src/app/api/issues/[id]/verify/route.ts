@@ -39,7 +39,7 @@ export async function POST(
       );
     }
 
-    // Check project membership - only QA or admin project members can verify
+    // Check project membership - all project members can verify
     const membership = await db.query.projectMembers.findFirst({
       where: and(
         eq(projectMembers.projectId, issue.projectId),
@@ -47,13 +47,12 @@ export async function POST(
       ),
     });
 
-    // Allow if user is global Admin OR has project role "qa" or "admin"
-    const isAuthorized = authUser.role === "Admin" || 
-      (membership && (membership.role === "qa" || membership.role === "admin"));
+    // Allow if user is global Admin OR is a project member (admin, member, or qa)
+    const isAuthorized = authUser.role === "Admin" || membership !== undefined;
 
     if (!isAuthorized) {
       return NextResponse.json(
-        { error: "Only project QA or admin members can verify issues", code: "FORBIDDEN" },
+        { error: "Only project members can verify issues", code: "FORBIDDEN" },
         { status: 403 }
       );
     }

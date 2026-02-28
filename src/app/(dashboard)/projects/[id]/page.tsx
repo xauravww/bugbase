@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, List, LayoutGrid, ChevronLeft, Image, X, Download, Flag } from "lucide-react";
+import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +45,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     hasNext: false,
     hasPrev: false
   });
+  const [issuesPagination, setIssuesPagination] = useState<Pagination>({ 
+    page: 1, 
+    limit: 20, 
+    total: 0, 
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
   const [activeTab, setActiveTab] = useState<"issues" | "milestones">("issues");
@@ -78,15 +86,27 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const projectId = resolvedParams.id;
 
-  const fetchProject = async () => {
+  const fetchProject = async (page: number = 1) => {
     try {
-      const res = await fetch(`/api/projects/${projectId}`, {
+      const params = new URLSearchParams();
+      params.set("page", page.toString());
+      params.set("limit", "20");
+      
+      const res = await fetch(`/api/projects/${projectId}?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
         setProject(data.project);
         setIssues(data.issues || []);
+        setIssuesPagination(data.pagination || { 
+          page: 1, 
+          limit: 20, 
+          total: 0, 
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false
+        });
       } else if (res.status === 403 || res.status === 404) {
         router.push("/projects");
       }
@@ -420,6 +440,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     setMilestonesPagination(prev => ({ ...prev, page: newPage }));
   };
 
+  const handleIssuePageChange = (newPage: number) => {
+    fetchProject(newPage);
+    setIssuesPagination(prev => ({ ...prev, page: newPage }));
+  };
+
   const handleAddMilestoneNote = async (content: string) => {
     if (!selectedMilestone || !user) return;
     
@@ -557,7 +582,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t })),
                   ]}
                   value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
+                  onChange={(e) => { setFilterType(e.target.value); setIssuesPagination(prev => ({ ...prev, page: 1 })); fetchProject(1); }}
                   className="w-32 mobile-full-width"
                 />
                 <Select
@@ -566,7 +591,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     ...Object.values(ISSUE_STATUSES).map((s) => ({ value: s, label: s })),
                   ]}
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
+                  onChange={(e) => { setFilterStatus(e.target.value); setIssuesPagination(prev => ({ ...prev, page: 1 })); fetchProject(1); }}
                   className="w-36 mobile-full-width"
                 />
                 <Select
@@ -575,13 +600,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p })),
                   ]}
                   value={filterPriority}
-                  onChange={(e) => setFilterPriority(e.target.value)}
+                  onChange={(e) => { setFilterPriority(e.target.value); setIssuesPagination(prev => ({ ...prev, page: 1 })); fetchProject(1); }}
                   className="w-36 mobile-full-width"
                 />
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="text-sm text-[var(--color-text-secondary)] whitespace-nowrap">
-                  {filteredIssues.length} issue{filteredIssues.length !== 1 ? "s" : ""}
+                  {issuesPagination.total} issue{issuesPagination.total !== 1 ? "s" : ""}
                 </span>
                 <Button
                   variant="secondary"
@@ -701,6 +726,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {issuesPagination.totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
+                <span className="text-sm text-[var(--color-text-secondary)]">
+                  Showing {((issuesPagination.page - 1) * issuesPagination.limit) + 1} to {Math.min(issuesPagination.page * issuesPagination.limit, issuesPagination.total)} of {issuesPagination.total}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleIssuePageChange(issuesPagination.page - 1)}
+                    disabled={!issuesPagination.hasPrev}
+                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm text-[var(--color-text-secondary)]">
+                    Page {issuesPagination.page} of {issuesPagination.totalPages}
+                  </span>
+                  <button
+                    onClick={() => handleIssuePageChange(issuesPagination.page + 1)}
+                    disabled={!issuesPagination.hasNext}
+                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             )}

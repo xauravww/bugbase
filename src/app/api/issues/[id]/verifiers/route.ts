@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { issueVerifiers, activityLog, issues, users } from "@/lib/db/schema";
+import { issueVerifiers, activityLog, issues, users, projectMembers } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 const verifiersSchema = z.object({
@@ -52,6 +52,22 @@ export async function POST(
       );
     }
 
+    // Check project membership
+    const membership = await db.query.projectMembers.findFirst({
+      where: and(
+        eq(projectMembers.projectId, issue.projectId),
+        eq(projectMembers.userId, authUser.id)
+      ),
+    });
+
+    // Only project members can set verifiers
+    if (!membership && authUser.role !== "Admin") {
+      return NextResponse.json(
+        { error: "Only project members can set verifiers", code: "FORBIDDEN" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const validation = verifiersSchema.safeParse(body);
     
@@ -87,8 +103,26 @@ export async function POST(
     }
 
     if (addedIds.length > 0) {
+      // Verify all users are project members
+      const projectMemberRecords = await db.query.projectMembers.findMany({
+        where: and(
+          eq(projectMembers.projectId, issue.projectId),
+          inArray(projectMembers.userId, addedIds)
+        ),
+      });
+
+      const validMemberIds = projectMemberRecords.map(m => m.userId);
+      const invalidIds = addedIds.filter(id => !validMemberIds.includes(id));
+
+      if (invalidIds.length > 0) {
+        return NextResponse.json(
+          { error: "Only project members can be set as verifiers", code: "INVALID_VERIFIER" },
+          { status: 400 }
+        );
+      }
+
       await db.insert(issueVerifiers).values(
-        addedIds.map(userId => ({
+        validMemberIds.map(userId => ({
           issueId,
           userId,
         }))

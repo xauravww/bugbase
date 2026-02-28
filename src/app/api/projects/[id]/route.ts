@@ -30,6 +30,9 @@ export async function GET(
 
     const { id } = await params;
     const projectId = parseInt(id);
+    const searchParams = request.nextUrl.searchParams;
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "20");
 
     if (isNaN(projectId)) {
       return NextResponse.json(
@@ -37,6 +40,15 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    if (page < 1 || limit < 1 || limit > 100) {
+      return NextResponse.json(
+        { error: "Invalid pagination parameters", code: "INVALID_PAGINATION" },
+        { status: 400 }
+      );
+    }
+
+    const offset = (page - 1) * limit;
 
     // Check if user is a member
     const membership = await db.query.projectMembers.findFirst({
@@ -85,7 +97,15 @@ export async function GET(
       );
     }
 
-    // Get project issues
+    // Get total issue count for pagination
+    const totalCountResult = await db
+      .select({ count: issues.id })
+      .from(issues)
+      .where(eq(issues.projectId, projectId));
+    const total = totalCountResult.length;
+    const totalPages = Math.ceil(total / limit);
+
+    // Get paginated project issues
     const projectIssues = await db.query.issues.findMany({
       where: eq(issues.projectId, projectId),
       with: {
@@ -109,15 +129,33 @@ export async function GET(
         },
       },
       orderBy: (issues, { desc }) => [desc(issues.updatedAt)],
+      limit,
+      offset,
     });
+
+    // Get open issue count
+    const openCountResult = await db
+      .select({ count: issues.id })
+      .from(issues)
+      .where(and(eq(issues.projectId, projectId), eq(issues.status, "Closed")));
+    const closedCount = openCountResult.length;
+    const openIssueCount = total - closedCount;
 
     return NextResponse.json({
       project: {
         ...project,
-        issueCount: projectIssues.length,
-        openIssueCount: projectIssues.filter(i => i.status !== "Closed").length,
+        issueCount: total,
+        openIssueCount,
       },
       issues: projectIssues,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
     });
     
   } catch (error) {
