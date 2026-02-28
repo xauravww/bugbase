@@ -1,7 +1,17 @@
 import jwt from "jsonwebtoken";
 import type { UserRole } from "@/constants/roles";
 
-const JWT_SECRET = process.env.JWT_SECRET || "bugbase-secret-key-change-in-production";
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("JWT_SECRET environment variable is required in production");
+    }
+    console.warn("WARNING: Using default JWT secret. Set JWT_SECRET in production!");
+    return "bugbase-secret-key-change-in-production";
+  }
+  return secret;
+})();
 const JWT_EXPIRES_IN = "7d";
 
 export interface JWTPayload {

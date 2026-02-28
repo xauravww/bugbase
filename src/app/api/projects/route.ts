@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { projects, projectMembers, issues } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, desc, inArray, like, or, and } from "drizzle-orm";
+import { eq, desc, inArray, like, and, or, sql } from "drizzle-orm";
 
 const createProjectSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -77,20 +77,28 @@ export async function GET(request: NextRequest) {
     const countResult = await db.select({ id: projects.id }).from(projects).where(whereClause);
     const total = countResult.length;
 
-    // Get issue counts for each project
-    const projectsWithCounts = await Promise.all(
-      userProjects.map(async (project) => {
-        const projectIssues = await db.query.issues.findMany({
-          where: eq(issues.projectId, project.id),
-        });
-        
-        return {
-          ...project,
-          issueCount: projectIssues.length,
-          openIssueCount: projectIssues.filter(i => i.status !== "Closed").length,
-        };
+    // Get counts using single aggregated query
+    const issueCounts = await db
+      .select({
+        projectId: issues.projectId,
+        totalCount: sql<number>`count(${issues.id})`.mapWith(Number),
+        openCount: sql<number>`sum(case when ${issues.status} != 'Closed' then 1 else 0 end)`.mapWith(Number),
       })
-    );
+      .from(issues)
+      .where(inArray(issues.projectId, projectIds))
+      .groupBy(issues.projectId);
+
+    const countMap = new Map(issueCounts.map(c => [c.projectId, c]));
+
+    // Map counts to projects
+    const projectsWithCounts = userProjects.map(project => {
+      const counts = countMap.get(project.id) || { totalCount: 0, openCount: 0 };
+      return {
+        ...project,
+        issueCount: counts.totalCount,
+        openIssueCount: counts.openCount,
+      };
+    });
 
     return NextResponse.json({ 
       projects: projectsWithCounts,

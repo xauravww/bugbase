@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
 
+const ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png", 
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+];
+
+const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"];
+
+function getFileExtension(filename: string): string {
+  return filename.toLowerCase().slice(filename.lastIndexOf("."));
+}
+
+function isValidImageType(mimeType: string, filename: string): boolean {
+  const ext = getFileExtension(filename);
+  return ALLOWED_MIME_TYPES.includes(mimeType) || ALLOWED_EXTENSIONS.includes(ext);
+}
+
 // POST /api/upload - Upload image to ImgBB
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +47,24 @@ export async function POST(request: NextRequest) {
     if (!image) {
       return NextResponse.json(
         { error: "No image provided", code: "VALIDATION_ERROR" },
+        { status: 400 }
+      );
+    }
+
+    // Validate file type
+    if (!(image instanceof File)) {
+      return NextResponse.json(
+        { error: "Invalid file", code: "VALIDATION_ERROR" },
+        { status: 400 }
+      );
+    }
+
+    const mimeType = image.type;
+    const filename = image.name;
+
+    if (!isValidImageType(mimeType, filename)) {
+      return NextResponse.json(
+        { error: "Invalid file type. Only images (JPEG, PNG, GIF, WebP, SVG) are allowed", code: "INVALID_FILE_TYPE" },
         { status: 400 }
       );
     }

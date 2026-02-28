@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey, index } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 
 // Users table
@@ -9,7 +9,9 @@ export const users = sqliteTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: text("role", { enum: ["Admin", "Developer", "QA", "Viewer"] }).notNull().default("Developer"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-});
+}, (table) => ({
+  emailIdx: index("idx_users_email").on(table.email),
+}));
 
 // Projects table
 export const projects = sqliteTable("projects", {
@@ -22,7 +24,11 @@ export const projects = sqliteTable("projects", {
   createdBy: integer("created_by").notNull().references(() => users.id),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-});
+}, (table) => ({
+  keyIdx: index("idx_projects_key").on(table.key),
+  creatorIdx: index("idx_projects_created_by").on(table.createdBy),
+  archivedIdx: index("idx_projects_archived").on(table.archived),
+}));
 
 // Project members join table
 export const projectMembers = sqliteTable("project_members", {
@@ -30,7 +36,10 @@ export const projectMembers = sqliteTable("project_members", {
   projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   role: text("role", { enum: ["admin", "member", "qa"] }).notNull().default("member"),
-});
+}, (table) => ({
+  projectUserIdx: index("idx_project_members_project_user").on(table.projectId, table.userId),
+  userIdx: index("idx_project_members_user").on(table.userId),
+}));
 
 // Issues table
 export const issues = sqliteTable("issues", {
@@ -49,7 +58,12 @@ export const issues = sqliteTable("issues", {
   dueDate: integer("due_date", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-});
+}, (table) => ({
+  projectIdx: index("idx_issues_project").on(table.projectId),
+  statusIdx: index("idx_issues_status").on(table.status),
+  reporterIdx: index("idx_issues_reporter").on(table.reporterId),
+  createdAtIdx: index("idx_issues_created_at").on(table.createdAt),
+}));
 
 // Issue assignees join table
 export const issueAssignees = sqliteTable("issue_assignees", {
@@ -82,7 +96,10 @@ export const comments = sqliteTable("comments", {
   userId: integer("user_id").notNull().references(() => users.id),
   body: text("body").notNull(),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-});
+}, (table) => ({
+  issueIdx: index("idx_comments_issue").on(table.issueId),
+  userIdx: index("idx_comments_user").on(table.userId),
+}));
 
 // Attachments table
 export const attachments = sqliteTable("attachments", {
@@ -93,7 +110,10 @@ export const attachments = sqliteTable("attachments", {
   imgbbDeleteHash: text("imgbb_delete_hash"),
   uploadedBy: integer("uploaded_by").notNull().references(() => users.id),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-});
+}, (table) => ({
+  issueIdx: index("idx_attachments_issue").on(table.issueId),
+  commentIdx: index("idx_attachments_comment").on(table.commentId),
+}));
 
 // Activity log table
 export const activityLog = sqliteTable("activity_log", {
@@ -104,7 +124,11 @@ export const activityLog = sqliteTable("activity_log", {
   oldValue: text("old_value"),
   newValue: text("new_value"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-});
+}, (table) => ({
+  issueIdx: index("idx_activity_log_issue").on(table.issueId),
+  userIdx: index("idx_activity_log_user").on(table.userId),
+  createdAtIdx: index("idx_activity_log_created_at").on(table.createdAt),
+}));
 
 // Email templates table
 export const emailTemplates = sqliteTable("email_templates", {
@@ -234,4 +258,4 @@ export const activityLogRelations = relations(activityLog, ({ one }) => ({
   }),
 }));
 
-export const emailTemplatesRelations = relations(emailTemplates, ({}: any) => ({}));
+export const emailTemplatesRelations = relations(emailTemplates, () => ({}));
