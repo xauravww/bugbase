@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, ChevronLeft, ChevronRight, Calendar, Download } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Calendar, Download, Check } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ interface Issue {
   type: string;
   status: string;
   priority: string;
+  isVerified: boolean;
   dueDate: string | null;
   updatedAt: string;
   project: { id: number; name: string; key: string };
@@ -188,6 +189,12 @@ export default function MyIssuesPage() {
                       <h3 className="font-medium text-[var(--color-text-primary)] text-sm mb-2 truncate">{issue.title}</h3>
                       <div className="flex flex-wrap gap-2 mb-2">
                         <StatusBadge status={issue.status} />
+                        {issue.isVerified && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-xs border border-green-200">
+                            <Check className="w-3 h-3" />
+                            Verified
+                          </span>
+                        )}
                         <div className="flex items-center gap-1">
                           <PriorityDot priority={issue.priority} />
                           <span className="text-xs">{issue.priority}</span>
@@ -249,7 +256,14 @@ export default function MyIssuesPage() {
                           <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color-accent)]" onClick={(e) => e.stopPropagation()}>{issue.project.name}</Link>
                         </td>
                         <td className="px-3 md:px-4 py-3"><TypeBadge type={issue.type} /></td>
-                        <td className="px-3 md:px-4 py-3 hidden sm:table-cell"><StatusBadge status={issue.status} /></td>
+                        <td className="px-3 md:px-4 py-3 hidden sm:table-cell">
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={issue.status} />
+                            {issue.isVerified && (
+                              <Check className="w-4 h-4 text-green-600" />
+                            )}
+                          </div>
+                        </td>
                         <td className="px-3 md:px-4 py-3 hidden lg:table-cell"><div className="flex items-center gap-2"><PriorityDot priority={issue.priority} /><span className="text-sm">{issue.priority}</span></div></td>
                         <td className="px-3 md:px-4 py-3 hidden xl:table-cell">
                           {dueInfo && <span className={`text-xs ${dueInfo.isOverdue && issue.status !== "Verified" && issue.status !== "Closed" ? "text-[var(--color-danger)]" : "text-[var(--color-text-secondary)]"}`}>{dueInfo.date}</span>}
