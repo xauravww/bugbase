@@ -35,6 +35,7 @@ interface IssueDetail {
   actualResult: string | null;
   status: string;
   priority: string;
+  isVerified: boolean;
   createdAt: string;
   updatedAt: string;
   project: { id: number; name: string; key: string };
@@ -153,6 +154,14 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }, 300);
     return () => clearTimeout(timer);
   }, [verifierSearch, showVerifierDropdown]);
+
+  // Determine user's project membership from members list
+  const currentUserMember = user ? members.find(m => m.id === user.id) : null;
+  const isVerified = issue?.isVerified ?? false;
+  const canVerify = user && (
+    user.role === "Admin" || 
+    (currentUserMember && (currentUserMember.role === "qa" || currentUserMember.role === "admin"))
+  );
 
   const handleStatusChange = async (newStatus: string) => {
     if (!issue) return;
@@ -392,8 +401,6 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const isVerified = user && issue?.verifications.some(v => v.user.id === user.id);
-  const canVerify = user && user.role !== "Viewer" && issue?.status !== "Verified";
   const canEdit = user?.role === "Admin" || user?.role === "Developer" || user?.role === "QA" || (user && issue?.reporter.id === user.id);
   const canDelete = user?.role === "Admin" || (user && issue?.reporter.id === user.id);
 
@@ -803,7 +810,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 </div>
               )}
 
-              {issue.status === "Verified" && issue.verifications.length > 0 && (
+              {isVerified && issue.verifications.length > 0 && (
                 <div>
                   <label className="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
                     Verified By
