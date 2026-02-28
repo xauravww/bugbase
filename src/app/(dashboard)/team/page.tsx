@@ -200,7 +200,11 @@ export default function TeamPage() {
 
   return (
     <div>
-      <Header title="Team">
+      <Header 
+        title="Team"
+        showMobileAdd={true}
+        onMobileAction={() => setShowInviteModal(true)}
+      >
         <Button onClick={() => setShowInviteModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
           <span className="mobile-hidden">Add User</span>
@@ -260,12 +264,14 @@ export default function TeamPage() {
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => openDeleteModal(member)}
-                        className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:bg-red-50 rounded touch-target"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {user?.id !== member.id && (
+                        <button
+                          onClick={() => openDeleteModal(member)}
+                          className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:bg-red-50 rounded touch-target"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-3">
@@ -319,12 +325,14 @@ export default function TeamPage() {
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => openDeleteModal(member)}
-                              className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:bg-red-50 rounded touch-target"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {user?.id !== member.id && (
+                              <button
+                                onClick={() => openDeleteModal(member)}
+                                className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] hover:bg-red-50 rounded touch-target"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
