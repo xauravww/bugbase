@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight, Download, Clipboard, Trash2, Pencil } from "lucide-react";
+import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight, Download, Clipboard, Trash2, Pencil, Sparkles, Wand2 } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityBadge, Avatar, Badge } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -91,6 +91,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     actualResult: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [refiningField, setRefiningField] = useState<string | null>(null);
 
   const assigneeDropdownRef = useClickOutside<HTMLDivElement>(() => setShowAssigneeDropdown(false));
   const verifierDropdownRef = useClickOutside<HTMLDivElement>(() => setShowVerifierDropdown(false));
@@ -428,6 +429,101 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const assigneeIds = issue?.assignees.map(a => a.user.id) || [];
   const verifierIds = issue?.verifiers.map(v => v.user.id) || [];
 
+  const handleRefine = async (field: "title" | "description" | "stepsToReproduce" | "expectedResult" | "actualResult") => {
+    const content = editForm[field as keyof typeof editForm];
+    if (!content) return;
+
+    setRefiningField(field);
+    try {
+      const res = await fetch("/api/ai/refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content, field }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setEditForm(prev => ({ ...prev, [field]: data.refinedContent }));
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to refine content");
+      }
+    } catch (error) {
+      console.error("AI Refine Error:", error);
+      alert("Failed to refine content");
+    } finally {
+      setRefiningField(null);
+    }
+  };
+
+  const handleRefineComment = async () => {
+    if (!commentText) return;
+    setRefiningField("comment");
+    try {
+      const res = await fetch("/api/ai/refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content: commentText, field: "comment" }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCommentText(data.refinedContent);
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to refine comment");
+      }
+    } catch (error) {
+      console.error("AI Refine Error:", error);
+      alert("Failed to refine comment");
+    } finally {
+      setRefiningField(null);
+    }
+  };
+
+  const handleSuggest = async (field: "title" | "description" | "stepsToReproduce" | "expectedResult" | "actualResult") => {
+    setRefiningField(field);
+    try {
+      const res = await fetch("/api/ai/refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          field,
+          mode: "suggest",
+          context: {
+            title: editForm.title || issue?.title,
+            description: editForm.description || issue?.description,
+            stepsToReproduce: editForm.stepsToReproduce || issue?.stepsToReproduce,
+            expectedResult: editForm.expectedResult || issue?.expectedResult,
+            actualResult: editForm.actualResult || issue?.actualResult
+          }
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setEditForm(prev => ({ ...prev, [field]: data.refinedContent }));
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to suggest content");
+      }
+    } catch (error) {
+      console.error("AI Suggest Error:", error);
+      alert("Failed to suggest content");
+    } finally {
+      setRefiningField(null);
+    }
+  };
+
   if (isLoading) {
     return <PageLoader />;
   }
@@ -444,7 +540,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="min-h-screen flex flex-col pb-20">
       <Header title={`#${issue.id}`} />
-        
+
       <div className="p-4 max-w-7xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
           <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
@@ -549,12 +645,35 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 <StatusBadge status={issue.status} />
               </div>
               {isEditing ? (
-                <input
-                  type="text"
-                  value={editForm.title}
-                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                  className="text-2xl font-semibold text-[var(--color-text-primary)] w-full px-3 py-2 border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    className="text-2xl font-semibold text-[var(--color-text-primary)] w-full px-3 py-2 border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] pr-10"
+                  />
+                  {editForm.title ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRefine("title")}
+                      disabled={refiningField === "title"}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+                      title="AI Refine"
+                    >
+                      <Sparkles className={`w-5 h-5 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSuggest("title")}
+                      disabled={refiningField === "title"}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+                      title="AI Suggest"
+                    >
+                      <Wand2 className={`w-5 h-5 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+                    </button>
+                  )}
+                </div>
               ) : (
                 <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
                   {issue.title}
@@ -568,13 +687,40 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   Description
                 </h3>
                 {isEditing ? (
-                  <textarea
-                    value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
-                    rows={5}
-                    placeholder="Issue description... (Markdown supported)"
-                  />
+                  <div className="space-y-2">
+                    <div className="flex justify-end">
+                      {editForm.description ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRefine("description")}
+                          disabled={refiningField === "description"}
+                          className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                          title="AI Refine"
+                        >
+                          <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                          {refiningField === "description" ? "Refining..." : "AI Refine"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSuggest("description")}
+                          disabled={refiningField === "description"}
+                          className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                          title="AI Suggest"
+                        >
+                          <Wand2 className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                          {refiningField === "description" ? "Suggesting..." : "AI Suggest"}
+                        </button>
+                      )}
+                    </div>
+                    <textarea
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                      rows={5}
+                      placeholder="Issue description... (Markdown supported)"
+                    />
+                  </div>
                 ) : (
                   <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.description}</ReactMarkdown>
@@ -592,13 +738,40 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                       Steps to Reproduce
                     </h3>
                     {isEditing ? (
-                      <textarea
-                        value={editForm.stepsToReproduce}
-                        onChange={(e) => setEditForm({ ...editForm, stepsToReproduce: e.target.value })}
-                        className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
-                        rows={4}
-                        placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
-                      />
+                      <div className="space-y-2">
+                        <div className="flex justify-end">
+                          {editForm.stepsToReproduce ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRefine("stepsToReproduce")}
+                              disabled={refiningField === "stepsToReproduce"}
+                              className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                              title="AI Refine"
+                            >
+                              <Sparkles className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} />
+                              {refiningField === "stepsToReproduce" ? "Refining..." : "AI Refine"}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSuggest("stepsToReproduce")}
+                              disabled={refiningField === "stepsToReproduce"}
+                              className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                              title="AI Suggest"
+                            >
+                              <Wand2 className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} />
+                              {refiningField === "stepsToReproduce" ? "Suggesting..." : "AI Suggest"}
+                            </button>
+                          )}
+                        </div>
+                        <textarea
+                          value={editForm.stepsToReproduce}
+                          onChange={(e) => setEditForm({ ...editForm, stepsToReproduce: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                          rows={4}
+                          placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
+                        />
+                      </div>
                     ) : (
                       <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.stepsToReproduce}</ReactMarkdown>
@@ -607,18 +780,45 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   </div>
                 )}
                 {(issue.expectedResult || isEditing) && (
-                  <div>
+                  <div className="mb-4">
                     <h3 className="text-sm font-medium text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
                       Expected Result
                     </h3>
                     {isEditing ? (
-                      <textarea
-                        value={editForm.expectedResult}
-                        onChange={(e) => setEditForm({ ...editForm, expectedResult: e.target.value })}
-                        className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
-                        rows={3}
-                        placeholder="What should happen..."
-                      />
+                      <div className="space-y-2">
+                        <div className="flex justify-end">
+                          {editForm.expectedResult ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRefine("expectedResult")}
+                              disabled={refiningField === "expectedResult"}
+                              className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                              title="AI Refine"
+                            >
+                              <Sparkles className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} />
+                              {refiningField === "expectedResult" ? "Refining..." : "AI Refine"}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSuggest("expectedResult")}
+                              disabled={refiningField === "expectedResult"}
+                              className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                              title="AI Suggest"
+                            >
+                              <Wand2 className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} />
+                              {refiningField === "expectedResult" ? "Suggesting..." : "AI Suggest"}
+                            </button>
+                          )}
+                        </div>
+                        <textarea
+                          value={editForm.expectedResult}
+                          onChange={(e) => setEditForm({ ...editForm, expectedResult: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                          rows={3}
+                          placeholder="What should happen..."
+                        />
+                      </div>
                     ) : (
                       <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.expectedResult}</ReactMarkdown>
@@ -632,13 +832,40 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                       Actual Result
                     </h3>
                     {isEditing ? (
-                      <textarea
-                        value={editForm.actualResult}
-                        onChange={(e) => setEditForm({ ...editForm, actualResult: e.target.value })}
-                        className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
-                        rows={3}
-                        placeholder="What actually happens..."
-                      />
+                      <div className="space-y-2">
+                        <div className="flex justify-end">
+                          {editForm.actualResult ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRefine("actualResult")}
+                              disabled={refiningField === "actualResult"}
+                              className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                              title="AI Refine"
+                            >
+                              <Sparkles className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} />
+                              {refiningField === "actualResult" ? "Refining..." : "AI Refine"}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSuggest("actualResult")}
+                              disabled={refiningField === "actualResult"}
+                              className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                              title="AI Suggest"
+                            >
+                              <Wand2 className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} />
+                              {refiningField === "actualResult" ? "Suggesting..." : "AI Suggest"}
+                            </button>
+                          )}
+                        </div>
+                        <textarea
+                          value={editForm.actualResult}
+                          onChange={(e) => setEditForm({ ...editForm, actualResult: e.target.value })}
+                          className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                          rows={3}
+                          placeholder="What actually happens..."
+                        />
+                      </div>
                     ) : (
                       <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.actualResult}</ReactMarkdown>
@@ -735,15 +962,28 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               <form onSubmit={handleSubmitComment} className="flex gap-3">
                 <Avatar name={user?.name || ""} size="sm" />
                 <div className="flex-1 space-y-2">
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
-                      placeholder="Add a comment... (Paste image with Ctrl+V)"
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      onPaste={handleCommentPaste}
-                    />
+                  <div className="flex flex-col sm:flex-row gap-2 relative">
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] pr-10"
+                        placeholder="Add a comment... (Paste image with Ctrl+V)"
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        onPaste={handleCommentPaste}
+                      />
+                      {commentText && (
+                        <button
+                          type="button"
+                          onClick={handleRefineComment}
+                          disabled={refiningField === "comment"}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 z-10"
+                          title="AI Refine"
+                        >
+                          <Sparkles className={`w-4 h-4 ${refiningField === "comment" ? "animate-pulse" : ""}`} />
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="file"
                       ref={commentFileInputRef}
@@ -1059,18 +1299,20 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </div>
 
-        {lightboxImage && (
-          <LightboxModal
-            image={lightboxImage}
-            images={lightboxImages}
-            index={lightboxIndex}
-            onClose={() => setLightboxImage(null)}
-            onPrev={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))}
-            onNext={() => setLightboxIndex(Math.min(lightboxImages.length - 1, lightboxIndex + 1))}
-          />
-        )}
-      </div>
-    </div>
+        {
+          lightboxImage && (
+            <LightboxModal
+              image={lightboxImage}
+              images={lightboxImages}
+              index={lightboxIndex}
+              onClose={() => setLightboxImage(null)}
+              onPrev={() => setLightboxIndex(Math.max(0, lightboxIndex - 1))}
+              onNext={() => setLightboxIndex(Math.min(lightboxImages.length - 1, lightboxIndex + 1))}
+            />
+          )
+        }
+      </div >
+    </div >
   );
 }
 

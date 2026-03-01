@@ -9,6 +9,10 @@ const updateMilestoneSchema = z.object({
   title: z.string().min(2).optional(),
   description: z.string().optional(),
   status: z.enum(["Not Started", "In Progress", "Completed"]).optional(),
+  checklistItems: z.array(z.object({
+    id: z.number().optional(), // Existing items have an ID
+    content: z.string().min(1),
+  })).optional(),
 });
 
 // GET /api/projects/[id]/milestones/[milestoneId] - Get milestone details
@@ -18,7 +22,7 @@ export async function GET(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -119,7 +123,7 @@ export async function GET(
         completedCount,
       },
     });
-    
+
   } catch (error) {
     console.error("Get milestone error:", error);
     return NextResponse.json(
@@ -136,7 +140,7 @@ export async function PATCH(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -165,7 +169,7 @@ export async function PATCH(
 
     const body = await request.json();
     const validation = updateMilestoneSchema.safeParse(body);
-    
+
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.issues[0].message, code: "VALIDATION_ERROR" },
@@ -173,15 +177,61 @@ export async function PATCH(
       );
     }
 
-    const updates: Record<string, unknown> = { ...validation.data };
+    const updates: Record<string, any> = {};
+    if (validation.data.title) updates.title = validation.data.title;
+    if (validation.data.description !== undefined) updates.description = validation.data.description;
+    if (validation.data.status) updates.status = validation.data.status;
 
-    const [updatedMilestone] = await db.update(milestones)
-      .set(updates)
-      .where(and(
-        eq(milestones.id, milestoneIdNum),
-        eq(milestones.projectId, projectId)
-      ))
-      .returning();
+    const [updatedMilestone] = await db.transaction(async (tx) => {
+      // 1. Update milestone details
+      const [m] = await tx.update(milestones)
+        .set(updates)
+        .where(and(
+          eq(milestones.id, milestoneIdNum),
+          eq(milestones.projectId, projectId)
+        ))
+        .returning();
+
+      if (!m) return [null];
+
+      // 2. Sync checklist items if provided
+      if (validation.data.checklistItems) {
+        const existingItems = await tx.query.milestoneChecklistItems.findMany({
+          where: eq(milestoneChecklistItems.milestoneId, milestoneIdNum),
+        });
+
+        const newItems = validation.data.checklistItems;
+        const newItemIds = newItems.map(item => item.id).filter(id => id !== undefined) as number[];
+
+        // Delete items that are no longer present
+        const itemsToDelete = existingItems.filter(item => !newItemIds.includes(item.id));
+        for (const item of itemsToDelete) {
+          await tx.delete(milestoneChecklistItems)
+            .where(eq(milestoneChecklistItems.id, item.id));
+        }
+
+        // Update or Insert items
+        for (let i = 0; i < newItems.length; i++) {
+          const item = newItems[i];
+          if (item.id) {
+            // Update
+            await tx.update(milestoneChecklistItems)
+              .set({ content: item.content, order: i })
+              .where(eq(milestoneChecklistItems.id, item.id));
+          } else {
+            // Insert
+            await tx.insert(milestoneChecklistItems)
+              .values({
+                milestoneId: milestoneIdNum,
+                content: item.content,
+                order: i,
+              });
+          }
+        }
+      }
+
+      return [m];
+    });
 
     if (!updatedMilestone) {
       return NextResponse.json(
@@ -191,7 +241,7 @@ export async function PATCH(
     }
 
     return NextResponse.json({ milestone: updatedMilestone });
-    
+
   } catch (error) {
     console.error("Update milestone error:", error);
     return NextResponse.json(
@@ -208,7 +258,7 @@ export async function DELETE(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -242,7 +292,7 @@ export async function DELETE(
       ));
 
     return NextResponse.json({ success: true });
-    
+
   } catch (error) {
     console.error("Delete milestone error:", error);
     return NextResponse.json(

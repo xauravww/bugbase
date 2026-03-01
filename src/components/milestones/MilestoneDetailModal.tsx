@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { Button, Modal, Input, Badge } from "@/components/ui";
 import { ChecklistItem } from "./ChecklistItem";
 import { MilestoneWithDetails } from "@/types/milestone";
-import { Flag, CheckCircle2, Clock, Circle } from "lucide-react";
+import { Flag, CheckCircle2, Clock, Circle, Sparkles, Plus, Trash2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface MilestoneDetailModalProps {
   isOpen: boolean;
@@ -33,14 +34,22 @@ export function MilestoneDetailModal({
   if (!milestone) {
     return null;
   }
-  
-  const [localMilestone, setLocalMilestone] = useState({
+
+  const [localMilestone, setLocalMilestone] = useState<{
+    title: string;
+    description: string;
+    status: "Not Started" | "In Progress" | "Completed";
+    checklistItems: { id?: number; content: string }[];
+  }>({
     title: milestone.title,
     description: milestone.description || "",
-    status: milestone.status,
+    status: milestone.status as any,
+    checklistItems: milestone.checklistItems.map(item => ({ id: item.id, content: item.content }))
   });
   const [newNote, setNewNote] = useState("");
   const [checklistStates, setChecklistStates] = useState<Record<number, { completed: boolean; notes: string }>>({});
+  const [refiningField, setRefiningField] = useState<string | null>(null);
+  const { token } = useAuth();
 
   useEffect(() => {
     if (milestone) {
@@ -48,8 +57,9 @@ export function MilestoneDetailModal({
         title: milestone.title,
         description: milestone.description || "",
         status: milestone.status,
+        checklistItems: milestone.checklistItems.map(item => ({ id: item.id, content: item.content }))
       });
-      
+
       // Initialize checklist states
       const initialStates: Record<number, { completed: boolean; notes: string }> = {};
       milestone.checklistItems.forEach(item => {
@@ -65,10 +75,10 @@ export function MilestoneDetailModal({
   const handleChecklistToggle = (itemId: number, completed: boolean) => {
     const item = milestone.checklistItems.find(i => i.id === itemId);
     if (!item) return;
-    
+
     const notes = checklistStates[itemId]?.notes || "";
     onToggleChecklistItem(itemId, completed, notes);
-    
+
     setChecklistStates(prev => ({
       ...prev,
       [itemId]: { ...prev[itemId], completed }
@@ -80,6 +90,62 @@ export function MilestoneDetailModal({
       ...prev,
       [itemId]: { ...prev[itemId], notes }
     }));
+  };
+
+  const handleRefine = async (field: "title" | "description" | "newNote") => {
+    const content = field === "newNote" ? newNote : localMilestone[field];
+    if (!content) return;
+
+    setRefiningField(field);
+    try {
+      const res = await fetch("/api/ai/refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content, field: field === "newNote" ? "milestone_note" : `milestone_${field}` }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (field === "newNote") {
+          setNewNote(data.refinedContent);
+        } else {
+          setLocalMilestone(prev => ({ ...prev, [field]: data.refinedContent }));
+        }
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to refine content");
+      }
+    } catch (error) {
+      console.error("AI Refine Error:", error);
+      alert("Failed to refine content");
+    } finally {
+      setRefiningField(null);
+    }
+  };
+
+  const handleAddTask = () => {
+    setLocalMilestone(prev => ({
+      ...prev,
+      checklistItems: [...prev.checklistItems, { content: "" }]
+    }));
+  };
+
+  const handleRemoveTask = (index: number) => {
+    setLocalMilestone(prev => ({
+      ...prev,
+      checklistItems: prev.checklistItems.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleTaskContentChange = (index: number, content: string) => {
+    setLocalMilestone(prev => {
+      const newItems = [...prev.checklistItems];
+      newItems[index] = { ...newItems[index], content };
+      return { ...prev, checklistItems: newItems };
+    });
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -95,8 +161,8 @@ export function MilestoneDetailModal({
     }
   };
 
-  const progress = milestone.totalCount > 0 
-    ? Math.round((milestone.completedCount / milestone.totalCount) * 100) 
+  const progress = milestone.totalCount > 0
+    ? Math.round((milestone.completedCount / milestone.totalCount) * 100)
     : 0;
 
   const getStatusIcon = () => {
@@ -132,7 +198,7 @@ export function MilestoneDetailModal({
               {localMilestone.title}
             </h3>
           </div>
-          
+
           <div className="flex items-center gap-2 mb-3">
             <span className={`text-xs px-2 py-1 rounded-full border ${getStatusColor()}`}>
               {localMilestone.status}
@@ -165,11 +231,11 @@ export function MilestoneDetailModal({
             <div className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]">
               {getStatusIcon()}
               <span>
-                {localMilestone.status === "Completed" 
-                  ? "All tasks completed" 
+                {localMilestone.status === "Completed"
+                  ? "All tasks completed"
                   : localMilestone.status === "In Progress"
-                  ? "In progress"
-                  : "Not started yet"}
+                    ? "In progress"
+                    : "Not started yet"}
               </span>
             </div>
           </div>
@@ -177,20 +243,47 @@ export function MilestoneDetailModal({
 
         {/* Edit Form */}
         {canEdit && (
-          <form onSubmit={handleSave} className="space-y-4">
-            <Input
-              id="title"
-              label="Title"
-              placeholder="Milestone title"
-              value={localMilestone.title}
-              onChange={(e) => setLocalMilestone(prev => ({ ...prev, title: e.target.value }))}
-              disabled={!canEdit || isUpdating}
-            />
+          <form onSubmit={handleSave} className="space-y-4 border-t border-[var(--color-border)] pt-6">
+            <h4 className="font-medium text-[var(--color-text-primary)]">Edit Milestone</h4>
+            <div className="relative">
+              <Input
+                id="title"
+                label="Title"
+                placeholder="Milestone title"
+                value={localMilestone.title}
+                onChange={(e) => setLocalMilestone(prev => ({ ...prev, title: e.target.value }))}
+                disabled={!canEdit || isUpdating}
+              />
+              {localMilestone.title && !isUpdating && (
+                <button
+                  type="button"
+                  onClick={() => handleRefine("title")}
+                  disabled={refiningField === "title"}
+                  className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+                  title="AI Refine"
+                >
+                  <Sparkles className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+                </button>
+              )}
+            </div>
 
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
-                Description
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                  Description
+                </label>
+                {localMilestone.description && !isUpdating && (
+                  <button
+                    type="button"
+                    onClick={() => handleRefine("description")}
+                    disabled={refiningField === "description"}
+                    className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                  >
+                    <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                    {refiningField === "description" ? "Refining..." : "AI Refine"}
+                  </button>
+                )}
+              </div>
               <textarea
                 className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
                 placeholder="Describe the milestone..."
@@ -199,6 +292,44 @@ export function MilestoneDetailModal({
                 onChange={(e) => setLocalMilestone(prev => ({ ...prev, description: e.target.value }))}
                 disabled={!canEdit || isUpdating}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+                Tasks (Checklist Items)
+              </label>
+              <div className="space-y-2">
+                {localMilestone.checklistItems.map((item, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-grow px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+                      placeholder={`Task ${index + 1}`}
+                      value={item.content}
+                      onChange={(e) => handleTaskContentChange(index, e.target.value)}
+                      disabled={isUpdating}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTask(index)}
+                      className="px-2 py-2 text-[var(--color-danger)] hover:bg-red-50 rounded-md disabled:opacity-50"
+                      disabled={isUpdating}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleAddTask}
+                  className="w-full flex items-center justify-center gap-2 py-1 text-xs"
+                  disabled={isUpdating}
+                >
+                  <Plus className="w-3 h-3" />
+                  Add Task
+                </Button>
+              </div>
             </div>
 
             <div>
@@ -247,17 +378,30 @@ export function MilestoneDetailModal({
         {/* Notes Section */}
         <div>
           <h4 className="font-medium text-[var(--color-text-primary)] mb-3">Notes</h4>
-          
+
           <form onSubmit={handleAddNoteSubmit} className="mb-4">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                className="flex-grow px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
-                placeholder="Add a note..."
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                disabled={isAddingNote}
-              />
+            <div className="flex gap-2 relative">
+              <div className="flex-grow relative">
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] pr-10"
+                  placeholder="Add a note..."
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  disabled={isAddingNote}
+                />
+                {newNote && !isAddingNote && (
+                  <button
+                    type="button"
+                    onClick={() => handleRefine("newNote")}
+                    disabled={refiningField === "newNote"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 z-10"
+                    title="AI Refine"
+                  >
+                    <Sparkles className={`w-4 h-4 ${refiningField === "newNote" ? "animate-pulse" : ""}`} />
+                  </button>
+                )}
+              </div>
               <Button type="submit" disabled={isAddingNote}>
                 {isAddingNote ? "Adding..." : "Add"}
               </Button>
@@ -278,7 +422,7 @@ export function MilestoneDetailModal({
                 <p className="text-sm text-[var(--color-text-secondary)]">{note.content}</p>
               </div>
             ))}
-            
+
             {(!milestone.notes || milestone.notes.length === 0) && (
               <p className="text-sm text-[var(--color-text-secondary)] italic">No notes yet.</p>
             )}

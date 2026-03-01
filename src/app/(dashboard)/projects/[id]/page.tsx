@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag } from "lucide-react";
+import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag, Sparkles, Wand2 } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,18 +37,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [project, setProject] = useState<Project | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [milestones, setMilestones] = useState<MilestoneWithDetails[]>([]);
-  const [milestonesPagination, setMilestonesPagination] = useState<Pagination>({ 
-    page: 1, 
-    limit: 10, 
-    total: 0, 
+  const [milestonesPagination, setMilestonesPagination] = useState<Pagination>({
+    page: 1,
+    limit: 10,
+    total: 0,
     totalPages: 0,
     hasNext: false,
     hasPrev: false
   });
-  const [issuesPagination, setIssuesPagination] = useState<Pagination>({ 
-    page: 1, 
-    limit: 20, 
-    total: 0, 
+  const [issuesPagination, setIssuesPagination] = useState<Pagination>({
+    page: 1,
+    limit: 20,
+    total: 0,
     totalPages: 0,
     hasNext: false,
     hasPrev: false
@@ -78,6 +78,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isCreatingMilestone, setIsCreatingMilestone] = useState(false);
   const [isUpdatingMilestone, setIsUpdatingMilestone] = useState(false);
   const [isAddingMilestoneNote, setIsAddingMilestoneNote] = useState(false);
+  const [refiningField, setRefiningField] = useState<string | null>(null);
 
   // Filters
   const [filterType, setFilterType] = useState("all");
@@ -91,7 +92,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       const params = new URLSearchParams();
       params.set("page", page.toString());
       params.set("limit", "20");
-      
+
       const res = await fetch(`/api/projects/${projectId}?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -99,10 +100,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         const data = await res.json();
         setProject(data.project);
         setIssues(data.issues || []);
-        setIssuesPagination(data.pagination || { 
-          page: 1, 
-          limit: 20, 
-          total: 0, 
+        setIssuesPagination(data.pagination || {
+          page: 1,
+          limit: 20,
+          total: 0,
           totalPages: 0,
           hasNext: false,
           hasPrev: false
@@ -122,17 +123,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       const params = new URLSearchParams();
       params.set("page", page.toString());
       params.set("limit", "10");
-      
+
       const res = await fetch(`/api/projects/${projectId}/milestones?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
         const data = await res.json();
         setMilestones(data.milestones || []);
-        setMilestonesPagination(data.pagination || { 
-          page: 1, 
-          limit: 10, 
-          total: 0, 
+        setMilestonesPagination(data.pagination || {
+          page: 1,
+          limit: 10,
+          total: 0,
           totalPages: 0,
           hasNext: false,
           hasPrev: false
@@ -204,6 +205,73 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       setCreateError(err instanceof Error ? err.message : "Failed to create issue");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleRefine = async (field: "title" | "description" | "stepsToReproduce" | "expectedResult" | "actualResult") => {
+    const content = createForm[field];
+    if (!content) return;
+
+    setRefiningField(field);
+    try {
+      const res = await fetch("/api/ai/refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content, field }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCreateForm(prev => ({ ...prev, [field]: data.refinedContent }));
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to refine content");
+      }
+    } catch (error) {
+      console.error("AI Refine Error:", error);
+      alert("Failed to refine content");
+    } finally {
+      setRefiningField(null);
+    }
+  };
+
+  const handleSuggest = async (field: "title" | "description" | "stepsToReproduce" | "expectedResult" | "actualResult") => {
+    setRefiningField(field);
+    try {
+      const res = await fetch("/api/ai/refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          field,
+          mode: "suggest",
+          context: {
+            title: createForm.title,
+            description: createForm.description,
+            stepsToReproduce: createForm.stepsToReproduce,
+            expectedResult: createForm.expectedResult,
+            actualResult: createForm.actualResult
+          }
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setCreateForm(prev => ({ ...prev, [field]: data.refinedContent }));
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to suggest content");
+      }
+    } catch (error) {
+      console.error("AI Suggest Error:", error);
+      alert("Failed to suggest content");
+    } finally {
+      setRefiningField(null);
     }
   };
 
@@ -317,19 +385,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
-  const handleUpdateMilestone = async (data: { title: string; description?: string; status: string }) => {
+  const handleUpdateMilestone = async (data: { title: string; description?: string; status: string; checklistItems?: Array<{ id?: number; content: string }> }) => {
     if (!selectedMilestone) return;
-    
+
     // Optimistically update the UI
     const updatedMilestone = {
       ...selectedMilestone,
       ...data,
       updatedAt: new Date()
     };
-    
+
     setSelectedMilestone(updatedMilestone as MilestoneWithDetails);
     setIsUpdatingMilestone(true);
-    
+
     try {
       const res = await fetch(`/api/projects/${projectId}/milestones/${selectedMilestone.id}`, {
         method: "PATCH",
@@ -360,40 +428,40 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const handleToggleChecklistItem = async (itemId: number, completed: boolean, notes: string) => {
     if (!selectedMilestone || !user) return;
-    
+
     // Optimistically update the UI
     const updatedMilestone = {
       ...selectedMilestone,
-      checklistItems: selectedMilestone.checklistItems.map(item => 
-        item.id === itemId 
-          ? { 
-              ...item, 
-              completion: completed 
-                ? { 
-                    id: Date.now(), // temporary ID
-                    checklistItemId: itemId,
-                    userId: user.id,
-                    notes: notes || null,
-                    completedAt: new Date(),
-                    user: {
-                      id: user.id,
-                      name: user.name,
-                      email: user.email,
-                      role: user.role,
-                      createdAt: user.createdAt
-                    }
-                  }
-                : null
-            }
+      checklistItems: selectedMilestone.checklistItems.map(item =>
+        item.id === itemId
+          ? {
+            ...item,
+            completion: completed
+              ? {
+                id: Date.now(), // temporary ID
+                checklistItemId: itemId,
+                userId: user.id,
+                notes: notes || null,
+                completedAt: new Date(),
+                user: {
+                  id: user.id,
+                  name: user.name,
+                  email: user.email,
+                  role: user.role,
+                  createdAt: user.createdAt
+                }
+              }
+              : null
+          }
           : item
       ),
-      completedCount: completed 
-        ? selectedMilestone.completedCount + 1 
+      completedCount: completed
+        ? selectedMilestone.completedCount + 1
         : selectedMilestone.completedCount - 1
     };
-    
+
     setSelectedMilestone(updatedMilestone as MilestoneWithDetails);
-    
+
     try {
       if (completed) {
         // Mark as complete
@@ -447,7 +515,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const handleAddMilestoneNote = async (content: string) => {
     if (!selectedMilestone || !user) return;
-    
+
     // Optimistically update the UI
     const newNote = {
       id: Date.now(), // temporary ID
@@ -463,15 +531,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         createdAt: user.createdAt
       }
     };
-    
+
     const updatedMilestone = {
       ...selectedMilestone,
       notes: [...selectedMilestone.notes, newNote]
     };
-    
+
     setSelectedMilestone(updatedMilestone as MilestoneWithDetails);
     setIsAddingMilestoneNote(true);
-    
+
     try {
       const res = await fetch(`/api/projects/${projectId}/milestones/${selectedMilestone.id}/notes`, {
         method: "POST",
@@ -823,14 +891,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         {activeTab === "milestones" && (
           <div>
-            <MilestoneList 
-              milestones={milestones} 
+            <MilestoneList
+              milestones={milestones}
               onMilestoneClick={(milestone) => {
                 setSelectedMilestone(milestone);
                 setShowMilestoneDetailModal(true);
-              }} 
+              }}
             />
-            <MilestonePagination 
+            <MilestonePagination
               pagination={milestonesPagination}
               onPageChange={handleMilestonePageChange}
             />
@@ -851,14 +919,37 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           )}
 
-          <Input
-            id="title"
-            label="Title"
-            placeholder="Issue title"
-            value={createForm.title}
-            onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-            required
-          />
+          <div className="relative">
+            <Input
+              id="title"
+              label="Title"
+              placeholder="Issue title"
+              value={createForm.title}
+              onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
+              required
+            />
+            {createForm.title ? (
+              <button
+                type="button"
+                onClick={() => handleRefine("title")}
+                disabled={refiningField === "title"}
+                className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+                title="AI Refine"
+              >
+                <Sparkles className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleSuggest("title")}
+                disabled={refiningField === "title"}
+                className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+                title="AI Suggest"
+              >
+                <Wand2 className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+              </button>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <Select
@@ -878,9 +969,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
-              Description
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                Description
+              </label>
+              {createForm.description ? (
+                <button
+                  type="button"
+                  onClick={() => handleRefine("description")}
+                  disabled={refiningField === "description"}
+                  className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                  title="AI Refine"
+                >
+                  <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                  {refiningField === "description" ? "Refining..." : "AI Refine"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleSuggest("description")}
+                  disabled={refiningField === "description"}
+                  className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                  title="AI Suggest"
+                >
+                  <Wand2 className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                  {refiningField === "description" ? "Suggesting..." : "AI Suggest"}
+                </button>
+              )}
+            </div>
             <textarea
               className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
               placeholder="Describe the issue... (Markdown supported)"
@@ -893,9 +1009,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           {createForm.type === "Bug" && (
             <>
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
-                  Steps to Reproduce
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                    Steps to Reproduce
+                  </label>
+                  {createForm.stepsToReproduce ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRefine("stepsToReproduce")}
+                      disabled={refiningField === "stepsToReproduce"}
+                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      title="AI Refine"
+                    >
+                      <Sparkles className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} />
+                      {refiningField === "stepsToReproduce" ? "Refining..." : "AI Refine"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSuggest("stepsToReproduce")}
+                      disabled={refiningField === "stepsToReproduce"}
+                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      title="AI Suggest"
+                    >
+                      <Wand2 className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} />
+                      {refiningField === "stepsToReproduce" ? "Suggesting..." : "AI Suggest"}
+                    </button>
+                  )}
+                </div>
                 <textarea
                   className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
                   placeholder="1. Go to...&#10;2. Click on...&#10;3. See error... (Markdown supported)"
@@ -906,9 +1047,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
-                  Expected Result
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                    Expected Result
+                  </label>
+                  {createForm.expectedResult ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRefine("expectedResult")}
+                      disabled={refiningField === "expectedResult"}
+                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      title="AI Refine"
+                    >
+                      <Sparkles className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} />
+                      {refiningField === "expectedResult" ? "Refining..." : "AI Refine"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSuggest("expectedResult")}
+                      disabled={refiningField === "expectedResult"}
+                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      title="AI Suggest"
+                    >
+                      <Wand2 className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} />
+                      {refiningField === "expectedResult" ? "Suggesting..." : "AI Suggest"}
+                    </button>
+                  )}
+                </div>
                 <textarea
                   className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
                   placeholder="What should happen... (Markdown supported)"
@@ -919,9 +1085,34 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
-                  Actual Result
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                    Actual Result
+                  </label>
+                  {createForm.actualResult ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRefine("actualResult")}
+                      disabled={refiningField === "actualResult"}
+                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      title="AI Refine"
+                    >
+                      <Sparkles className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} />
+                      {refiningField === "actualResult" ? "Refining..." : "AI Refine"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleSuggest("actualResult")}
+                      disabled={refiningField === "actualResult"}
+                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      title="AI Suggest"
+                    >
+                      <Wand2 className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} />
+                      {refiningField === "actualResult" ? "Suggesting..." : "AI Suggest"}
+                    </button>
+                  )}
+                </div>
                 <textarea
                   className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
                   placeholder="What actually happens... (Markdown supported)"

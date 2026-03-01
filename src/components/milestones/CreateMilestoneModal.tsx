@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Button, Input, Modal } from "@/components/ui";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Sparkles, Wand2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CreateMilestoneModalProps {
   isOpen: boolean;
@@ -11,9 +12,9 @@ interface CreateMilestoneModalProps {
   isCreating?: boolean;
 }
 
-export function CreateMilestoneModal({ 
-  isOpen, 
-  onClose, 
+export function CreateMilestoneModal({
+  isOpen,
+  onClose,
   onCreate,
   isCreating = false
 }: CreateMilestoneModalProps) {
@@ -23,6 +24,73 @@ export function CreateMilestoneModal({
     checklistItems: [""],
   });
   const [error, setError] = useState("");
+  const [refiningField, setRefiningField] = useState<string | null>(null);
+  const { token } = useAuth();
+
+  const handleRefine = async (field: "title" | "description") => {
+    const content = formData[field];
+    if (!content) return;
+
+    setRefiningField(field);
+    try {
+      const res = await fetch("/api/ai/refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ content, field: `milestone_${field}` }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setFormData(prev => ({ ...prev, [field]: data.refinedContent }));
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to refine content");
+      }
+    } catch (error) {
+      console.error("AI Refine Error:", error);
+      alert("Failed to refine content");
+    } finally {
+      setRefiningField(null);
+    }
+  };
+
+  const handleSuggest = async (field: "title" | "description") => {
+    setRefiningField(field);
+    try {
+      const res = await fetch("/api/ai/refine", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          field: `milestone_${field}`,
+          mode: "suggest",
+          context: {
+            title: formData.title,
+            description: formData.description,
+            checklistItems: formData.checklistItems.join(", ")
+          }
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setFormData(prev => ({ ...prev, [field]: data.refinedContent }));
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to suggest content");
+      }
+    } catch (error) {
+      console.error("AI Suggest Error:", error);
+      alert("Failed to suggest content");
+    } finally {
+      setRefiningField(null);
+    }
+  };
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({
@@ -81,19 +149,67 @@ export function CreateMilestoneModal({
           </div>
         )}
 
-        <Input
-          id="title"
-          label="Title"
-          placeholder="Milestone title"
-          value={formData.title}
-          onChange={(e) => handleInputChange("title", e.target.value)}
-          required
-        />
+        <div className="relative">
+          <Input
+            id="title"
+            label="Title"
+            placeholder="Milestone title"
+            value={formData.title}
+            onChange={(e) => handleInputChange("title", e.target.value)}
+            required
+          />
+          {formData.title ? (
+            <button
+              type="button"
+              onClick={() => handleRefine("title")}
+              disabled={refiningField === "title"}
+              className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+              title="AI Refine"
+            >
+              <Sparkles className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => handleSuggest("title")}
+              disabled={refiningField === "title"}
+              className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+              title="AI Suggest"
+            >
+              <Wand2 className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+            </button>
+          )}
+        </div>
 
         <div>
-          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
-            Description
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+              Description
+            </label>
+            {formData.description ? (
+              <button
+                type="button"
+                onClick={() => handleRefine("description")}
+                disabled={refiningField === "description"}
+                className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                title="AI Refine"
+              >
+                <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                {refiningField === "description" ? "Refining..." : "AI Refine"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleSuggest("description")}
+                disabled={refiningField === "description"}
+                className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                title="AI Suggest"
+              >
+                <Wand2 className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                {refiningField === "description" ? "Suggesting..." : "AI Suggest"}
+              </button>
+            )}
+          </div>
           <textarea
             className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
             placeholder="Describe the milestone..."
