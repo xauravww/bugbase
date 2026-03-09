@@ -5,12 +5,20 @@ interface MobileSidebarContextType {
   toggle: () => void;
   open: () => void;
   close: () => void;
+  isCollapsed: boolean;
+  toggleCollapse: () => void;
 }
 
 const MobileSidebarContext = createContext<MobileSidebarContextType | undefined>(undefined);
 
 export function MobileSidebarProvider({ children }: { children: ReactNode }): JSX.Element {
   const [isOpen, setIsOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar-collapsed') === 'true';
+    }
+    return false;
+  });
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -20,7 +28,7 @@ export function MobileSidebarProvider({ children }: { children: ReactNode }): JS
     };
 
     document.addEventListener('keydown', handleEscape);
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscape);
     };
@@ -29,9 +37,16 @@ export function MobileSidebarProvider({ children }: { children: ReactNode }): JS
   const toggle = useCallback(() => setIsOpen(prev => !prev), []);
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebar-collapsed', String(next));
+      return next;
+    });
+  }, []);
 
   return (
-    <MobileSidebarContext.Provider value={{ isOpen, toggle, open, close }}>
+    <MobileSidebarContext.Provider value={{ isOpen, toggle, open, close, isCollapsed, toggleCollapse }}>
       {children}
     </MobileSidebarContext.Provider>
   );
@@ -39,6 +54,7 @@ export function MobileSidebarProvider({ children }: { children: ReactNode }): JS
 
 const useLocalMobileSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -48,7 +64,7 @@ const useLocalMobileSidebar = () => {
     };
 
     document.addEventListener('keydown', handleEscape);
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscape);
     };
@@ -57,8 +73,9 @@ const useLocalMobileSidebar = () => {
   const toggle = useCallback(() => setIsOpen(prev => !prev), []);
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
+  const toggleCollapse = useCallback(() => setIsCollapsed(prev => !prev), []);
 
-  return { isOpen, toggle, open, close };
+  return { isOpen, toggle, open, close, isCollapsed, toggleCollapse };
 };
 
 export const useMobileSidebar = () => {

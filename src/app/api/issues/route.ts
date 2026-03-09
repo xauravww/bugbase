@@ -89,7 +89,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (status) {
-      whereClause = and(whereClause, eq(issues.status, status as "Open" | "In Progress" | "In Review" | "Verified" | "Closed")) as typeof whereClause;
+      const statuses = status.split(",").map(s => s.trim()) as ("Open" | "In Progress" | "In Review" | "Verified" | "Closed")[];
+      if (statuses.length === 1) {
+        whereClause = and(whereClause, eq(issues.status, statuses[0])) as typeof whereClause;
+      } else {
+        whereClause = and(whereClause, inArray(issues.status, statuses)) as typeof whereClause;
+      }
     }
 
     if (priority) {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { projects, projectMembers, issues } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
 const updateProjectSchema = z.object({
   name: z.string().min(2).optional(),
@@ -97,17 +97,41 @@ export async function GET(
       );
     }
 
-    // Get total issue count for pagination
+    // Build where clause with filters
+    const status = searchParams.get("status");
+    const type = searchParams.get("type");
+    const priority = searchParams.get("priority");
+
+    let whereClause = eq(issues.projectId, projectId);
+
+    if (status) {
+      const statuses = status.split(",").map(s => s.trim()) as ("Open" | "In Progress" | "In Review" | "Verified" | "Closed")[];
+      if (statuses.length === 1) {
+        whereClause = and(whereClause, eq(issues.status, statuses[0])) as typeof whereClause;
+      } else {
+        whereClause = and(whereClause, inArray(issues.status, statuses)) as typeof whereClause;
+      }
+    }
+
+    if (type) {
+      whereClause = and(whereClause, eq(issues.type, type as "Bug" | "Feature")) as typeof whereClause;
+    }
+
+    if (priority) {
+      whereClause = and(whereClause, eq(issues.priority, priority as "Low" | "Medium" | "High" | "Critical")) as typeof whereClause;
+    }
+
+    // Get total count with filters for pagination
     const totalCountResult = await db
       .select({ count: issues.id })
       .from(issues)
-      .where(eq(issues.projectId, projectId));
+      .where(whereClause);
     const total = totalCountResult.length;
     const totalPages = Math.ceil(total / limit);
 
-    // Get paginated project issues
+    // Get paginated project issues with filters
     const projectIssues = await db.query.issues.findMany({
-      where: eq(issues.projectId, projectId),
+      where: whereClause,
       with: {
         reporter: {
           columns: {
@@ -133,18 +157,23 @@ export async function GET(
       offset,
     });
 
-    // Get open issue count
-    const openCountResult = await db
+    // Get open issue count (unfiltered for overall stats)
+    const allIssuesCount = await db
       .select({ count: issues.id })
       .from(issues)
-      .where(and(eq(issues.projectId, projectId), eq(issues.status, "Closed")));
-    const closedCount = openCountResult.length;
-    const openIssueCount = total - closedCount;
+      .where(eq(issues.projectId, projectId));
+    const allTotal = allIssuesCount.length;
+    const closedCountResult = await db
+      .select({ count: issues.id })
+      .from(issues)
+      .where(and(eq(issues.projectId, projectId), inArray(issues.status, ["Verified", "Closed"])));
+    const closedCount = closedCountResult.length;
+    const openIssueCount = allTotal - closedCount;
 
     return NextResponse.json({
       project: {
         ...project,
-        issueCount: total,
+        issueCount: allTotal,
         openIssueCount,
       },
       issues: projectIssues,

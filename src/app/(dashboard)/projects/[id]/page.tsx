@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag, Sparkles, Wand2 } from "lucide-react";
+import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag, Sparkles, Wand2, Clipboard, Check } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -56,6 +56,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
   const [activeTab, setActiveTab] = useState<"issues" | "milestones">("issues");
+  const [issueStatusTab, setIssueStatusTab] = useState<string>("all");
+  const [issuesPaginationState, setIssuesPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Verified: 1, Closed: 1 });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCreateMilestoneModal, setShowCreateMilestoneModal] = useState(false);
   const [showMilestoneDetailModal, setShowMilestoneDetailModal] = useState(false);
@@ -84,6 +86,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
+  const [copiedIssues, setCopiedIssues] = useState(false);
 
   const projectId = resolvedParams.id;
 
@@ -92,6 +95,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       const params = new URLSearchParams();
       params.set("page", page.toString());
       params.set("limit", "20");
+      
+      // Apply type and priority filters
+      if (filterType !== "all") params.set("type", filterType);
+      if (filterPriority !== "all") params.set("priority", filterPriority);
+
+      // Tab filter controls status
+      if (issueStatusTab !== "all") {
+        params.set("status", issueStatusTab);
+      }
 
       const res = await fetch(`/api/projects/${projectId}?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -149,16 +161,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     if (token && projectId) {
       setIsLoading(true);
-      fetchProject();
-      if (activeTab === "milestones") {
-        fetchMilestones(1); // Reset to first page when switching to milestones
-        setMilestonesPagination(prev => ({ ...prev, page: 1 }));
+      if (activeTab === "issues") {
+        fetchProject(issuesPaginationState[issueStatusTab]);
       } else {
-        // Fetch issues when on issues tab
-        setIsLoading(false);
+        fetchMilestones(milestonesPagination.page);
       }
     }
-  }, [token, projectId, activeTab]);
+  }, [token, projectId, activeTab, issueStatusTab, issuesPaginationState, filterType, filterPriority]);
 
   const handleCreateIssue = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -335,12 +344,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     setScreenshots(screenshots.filter((_, i) => i !== index));
   };
 
-  const filteredIssues = issues.filter((issue) => {
-    if (filterType !== "all" && issue.type !== filterType) return false;
-    if (filterStatus !== "all" && issue.status !== filterStatus) return false;
-    if (filterPriority !== "all" && issue.priority !== filterPriority) return false;
-    return true;
-  });
+  const filteredIssues = issues;
 
   const groupedIssues = Object.values(ISSUE_STATUSES).reduce((acc, status) => {
     acc[status] = filteredIssues.filter((issue) => issue.status === status);
@@ -357,6 +361,86 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     if (filterPriority !== "all") params.set("priority", filterPriority);
     if (token) params.set("token", token);
     window.open(`/api/issues/export?${params.toString()}`, "_blank");
+  };
+
+  const [isCopying, setIsCopying] = useState(false);
+
+  const handleCopyAllIssues = async () => {
+    if (!project || filteredIssues.length === 0) return;
+    setIsCopying(true);
+    try {
+      // Fetch full details for each issue
+      const fullIssues = await Promise.all(
+        filteredIssues.map(async (issue) => {
+          const res = await fetch(`/api/issues/${issue.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return data.issue;
+          }
+          return null;
+        })
+      );
+
+      const lines: string[] = [];
+      lines.push(`Project: ${project.name} (${project.key})`);
+      lines.push(`Filter: ${issueStatusTab === "all" ? "All Statuses" : issueStatusTab}`);
+      lines.push(`Total: ${issuesPagination.total} issues`);
+      lines.push("===================================");
+      lines.push("");
+
+      fullIssues.forEach((issue) => {
+        if (!issue) return;
+        lines.push(`Bug #${issue.id}: ${issue.title}`);
+        lines.push(`Type: ${issue.type} | Status: ${issue.status} | Priority: ${issue.priority}`);
+        lines.push(`Reporter: ${issue.reporter?.name || "Unknown"} (${issue.reporter?.email || ""})`);
+        if (issue.assignees?.length > 0) {
+          lines.push(`Assignees: ${issue.assignees.map((a: { user: { name: string } }) => a.user.name).join(", ")}`);
+        }
+        if (issue.isVerified) lines.push(`Verified: Yes`);
+        lines.push(`Created: ${new Date(issue.createdAt).toLocaleString()}`);
+        lines.push(`Updated: ${new Date(issue.updatedAt).toLocaleString()}`);
+        if (issue.description) {
+          lines.push("");
+          lines.push(`## Description`);
+          lines.push(issue.description);
+        }
+        if (issue.stepsToReproduce) {
+          lines.push("");
+          lines.push(`## Steps to Reproduce`);
+          lines.push(issue.stepsToReproduce);
+        }
+        if (issue.expectedResult) {
+          lines.push("");
+          lines.push(`## Expected Result`);
+          lines.push(issue.expectedResult);
+        }
+        if (issue.actualResult) {
+          lines.push("");
+          lines.push(`## Actual Result`);
+          lines.push(issue.actualResult);
+        }
+        if (issue.attachments?.length > 0) {
+          lines.push("");
+          lines.push(`## Attachments`);
+          issue.attachments.forEach((att: { url: string }, i: number) => {
+            lines.push(`${i + 1}. ${att.url}`);
+          });
+        }
+        lines.push("");
+        lines.push("-----------------------------------");
+        lines.push("");
+      });
+
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopiedIssues(true);
+      setTimeout(() => setCopiedIssues(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy issues:", error);
+    } finally {
+      setIsCopying(false);
+    }
   };
 
   const handleCreateMilestone = async (data: { title: string; description?: string; checklistItems: string[] }) => {
@@ -509,8 +593,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const handleIssuePageChange = (newPage: number) => {
-    fetchProject(newPage);
-    setIssuesPagination(prev => ({ ...prev, page: newPage }));
+    setIssuesPaginationState(prev => ({ ...prev, [issueStatusTab]: newPage }));
   };
 
   const handleAddMilestoneNote = async (content: string) => {
@@ -702,6 +785,31 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         {activeTab === "issues" && (
           <>
+            <div className="mb-4 border-b border-[var(--color-border)]">
+              <div className="flex gap-1 overflow-x-auto">
+                {[
+                  { key: "all", label: "All" },
+                  { key: "Open", label: "Open" },
+                  { key: "In Progress", label: "In Progress" },
+                  { key: "In Review", label: "In Review" },
+                  { key: "Verified", label: "Verified" },
+                  { key: "Closed", label: "Closed" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setIssueStatusTab(tab.key)}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      issueStatusTab === tab.key
+                        ? "border-[var(--color-accent)] text-[var(--color-accent)]"
+                        : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-3 mb-6 mobile-flex-col">
               <div className="flex flex-wrap items-center gap-3">
@@ -711,17 +819,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t })),
                   ]}
                   value={filterType}
-                  onChange={(e) => { setFilterType(e.target.value); setIssuesPagination(prev => ({ ...prev, page: 1 })); fetchProject(1); }}
+                  onChange={(e) => { setFilterType(e.target.value); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
                   className="w-32 mobile-full-width"
-                />
-                <Select
-                  options={[
-                    { value: "all", label: "All Statuses" },
-                    ...Object.values(ISSUE_STATUSES).map((s) => ({ value: s, label: s })),
-                  ]}
-                  value={filterStatus}
-                  onChange={(e) => { setFilterStatus(e.target.value); setIssuesPagination(prev => ({ ...prev, page: 1 })); fetchProject(1); }}
-                  className="w-36 mobile-full-width"
                 />
                 <Select
                   options={[
@@ -729,7 +828,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p })),
                   ]}
                   value={filterPriority}
-                  onChange={(e) => { setFilterPriority(e.target.value); setIssuesPagination(prev => ({ ...prev, page: 1 })); fetchProject(1); }}
+                  onChange={(e) => { setFilterPriority(e.target.value); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
                   className="w-36 mobile-full-width"
                 />
               </div>
@@ -737,6 +836,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <span className="text-sm text-[var(--color-text-secondary)] whitespace-nowrap">
                   {issuesPagination.total} issue{issuesPagination.total !== 1 ? "s" : ""}
                 </span>
+                <Button
+                  variant="secondary"
+                  onClick={handleCopyAllIssues}
+                  className="flex items-center gap-2 touch-target"
+                  disabled={filteredIssues.length === 0 || isCopying}
+                >
+                  {copiedIssues ? <Check className="w-4 h-4 text-green-600" /> : <Clipboard className="w-4 h-4" />}
+                  <span className="mobile-hidden">{isCopying ? "Copying..." : copiedIssues ? "Copied!" : "Copy All"}</span>
+                </Button>
                 <Button
                   variant="secondary"
                   onClick={handleExportPdf}
@@ -863,22 +971,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {issuesPagination.totalPages > 1 && (
               <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
                 <span className="text-sm text-[var(--color-text-secondary)]">
-                  Showing {((issuesPagination.page - 1) * issuesPagination.limit) + 1} to {Math.min(issuesPagination.page * issuesPagination.limit, issuesPagination.total)} of {issuesPagination.total}
+                  Showing {((issuesPaginationState[issueStatusTab] - 1) * issuesPagination.limit) + 1} to {Math.min(issuesPaginationState[issueStatusTab] * issuesPagination.limit, issuesPagination.total)} of {issuesPagination.total}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleIssuePageChange(issuesPagination.page - 1)}
-                    disabled={!issuesPagination.hasPrev}
+                    onClick={() => handleIssuePageChange(issuesPaginationState[issueStatusTab] - 1)}
+                    disabled={issuesPaginationState[issueStatusTab] === 1}
                     className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <span className="text-sm text-[var(--color-text-secondary)]">
-                    Page {issuesPagination.page} of {issuesPagination.totalPages}
+                    Page {issuesPaginationState[issueStatusTab]} of {issuesPagination.totalPages}
                   </span>
                   <button
-                    onClick={() => handleIssuePageChange(issuesPagination.page + 1)}
-                    disabled={!issuesPagination.hasNext}
+                    onClick={() => handleIssuePageChange(issuesPaginationState[issueStatusTab] + 1)}
+                    disabled={issuesPaginationState[issueStatusTab] >= issuesPagination.totalPages}
                     className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
                   >
                     <ChevronRight className="w-4 h-4" />

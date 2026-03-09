@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, ChevronLeft, ChevronRight, Calendar, Download, Check } from "lucide-react";
@@ -36,22 +36,31 @@ export default function MyIssuesPage() {
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [activeTab, setActiveTab] = useState<string>("all");
+  const [paginationState, setPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Verified: 1, Closed: 1 });
 
   const [filterType, setFilterType] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
 
-  const fetchIssues = useCallback(async (searchTerm: string = "", page: number = 1) => {
+  // Track the latest search term for fetching without causing re-render loops
+  const searchRef = useRef(search);
+  searchRef.current = search;
+
+  const fetchIssues = useCallback(async (searchTerm: string, page: number, tab: string, type: string, priority: string) => {
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
       params.set("limit", "10");
       params.set("assignedToMe", "true");
       if (searchTerm) params.set("search", searchTerm);
-      if (filterType !== "all") params.set("type", filterType);
-      if (filterStatus !== "all") params.set("status", filterStatus);
-      if (filterPriority !== "all") params.set("priority", filterPriority);
+      if (type !== "all") params.set("type", type);
+      if (priority !== "all") params.set("priority", priority);
+
+      if (tab !== "all") {
+        params.set("status", tab);
+      }
 
       const res = await fetch(`/api/issues?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -66,32 +75,38 @@ export default function MyIssuesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token, filterType, filterStatus, filterPriority]);
+  }, [token]);
 
+  // Main fetch effect - triggers when tab, pagination, or filters change
   useEffect(() => {
     if (token) {
-      fetchIssues(search, pagination.page);
+      fetchIssues(searchRef.current, paginationState[activeTab], activeTab, filterType, filterPriority);
     }
-  }, [token, pagination.page]);
+  }, [token, activeTab, paginationState, filterType, filterPriority, fetchIssues]);
 
+  // Debounced search effect
   useEffect(() => {
-    if (searchTimeout) clearTimeout(searchTimeout);
-    const timer = setTimeout(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
       if (token) {
-        fetchIssues(search, 1);
-        setPagination(p => ({ ...p, page: 1 }));
+        setPaginationState(prev => ({ ...prev, [activeTab]: 1 }));
       }
     }, 300);
-    setSearchTimeout(timer);
-    return () => clearTimeout(timer);
-  }, [search]);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [search, token, activeTab]);
 
-  useEffect(() => {
-    if (token) {
-      fetchIssues(search, 1);
-      setPagination(p => ({ ...p, page: 1 }));
-    }
-  }, [filterType, filterStatus, filterPriority]);
+  // Reset pagination to page 1 when filters change
+  const handleFilterTypeChange = (value: string) => {
+    setFilterType(value);
+    setPaginationState(prev => ({ ...prev, [activeTab]: 1 }));
+  };
+
+  const handleFilterPriorityChange = (value: string) => {
+    setFilterPriority(value);
+    setPaginationState(prev => ({ ...prev, [activeTab]: 1 }));
+  };
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return null;
@@ -106,8 +121,10 @@ export default function MyIssuesPage() {
     params.set("assignedToMe", "true");
     if (search) params.set("search", search);
     if (filterType !== "all") params.set("type", filterType);
-    if (filterStatus !== "all") params.set("status", filterStatus);
     if (filterPriority !== "all") params.set("priority", filterPriority);
+    if (activeTab !== "all") {
+      params.set("status", activeTab);
+    }
     if (token) params.set("token", token);
     window.open(`/api/issues/export?${params.toString()}`, "_blank");
   };
@@ -119,6 +136,31 @@ export default function MyIssuesPage() {
       <Header title="My Issues" />
 
       <div className="p-4 max-w-[1100px]">
+        <div className="mb-4 border-b border-[var(--color-border)]">
+          <div className="flex gap-1 overflow-x-auto">
+            {[
+              { key: "all", label: "All" },
+              { key: "Open", label: "Open" },
+              { key: "In Progress", label: "In Progress" },
+              { key: "In Review", label: "In Review" },
+              { key: "Verified", label: "Verified" },
+              { key: "Closed", label: "Closed" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? "border-[var(--color-accent)] text-[var(--color-accent)]"
+                    : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3 mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
@@ -142,23 +184,17 @@ export default function MyIssuesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          <Select 
+          <Select
             options={[{ value: "all", label: "All Types" }, ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t }))]}
-            value={filterType} 
-            onChange={(e) => setFilterType(e.target.value)} 
-            className="w-full sm:w-28 md:w-32" 
+            value={filterType}
+            onChange={(e) => handleFilterTypeChange(e.target.value)}
+            className="w-full sm:w-28 md:w-32"
           />
-          <Select 
-            options={[{ value: "all", label: "All Statuses" }, ...Object.values(ISSUE_STATUSES).map((s) => ({ value: s, label: s }))]}
-            value={filterStatus} 
-            onChange={(e) => setFilterStatus(e.target.value)} 
-            className="w-full sm:w-32 md:w-36" 
-          />
-          <Select 
+          <Select
             options={[{ value: "all", label: "All Priorities" }, ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p }))]}
-            value={filterPriority} 
-            onChange={(e) => setFilterPriority(e.target.value)} 
-            className="w-full sm:w-32 md:w-36" 
+            value={filterPriority}
+            onChange={(e) => handleFilterPriorityChange(e.target.value)}
+            className="w-full sm:w-32 md:w-36"
           />
           <span className="text-sm text-[var(--color-text-secondary)] ml-auto text-right self-center">
             {pagination.total} issue{pagination.total !== 1 ? "s" : ""}
@@ -175,8 +211,8 @@ export default function MyIssuesPage() {
             issues.map((issue) => {
               const dueInfo = formatDate(issue.dueDate);
               return (
-                <div 
-                  key={issue.id} 
+                <div
+                  key={issue.id}
                   className="bg-white border border-[var(--color-border)] rounded-lg p-4 cursor-pointer"
                   onClick={() => router.push(`/issues/${issue.id}`)}
                 >
@@ -283,20 +319,20 @@ export default function MyIssuesPage() {
         {pagination.totalPages > 1 && (
           <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
             <span className="text-sm text-[var(--color-text-secondary)]">
-              Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+              Showing {((paginationState[activeTab] - 1) * pagination.limit) + 1} to {Math.min(paginationState[activeTab] * pagination.limit, pagination.total)} of {pagination.total}
             </span>
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))} 
-                disabled={pagination.page === 1}
+              <button
+                onClick={() => setPaginationState(prev => ({ ...prev, [activeTab]: prev[activeTab] - 1 }))}
+                disabled={paginationState[activeTab] === 1}
                 className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-sm text-[var(--color-text-secondary)]">Page {pagination.page} of {pagination.totalPages}</span>
-              <button 
-                onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))} 
-                disabled={pagination.page >= pagination.totalPages}
+              <span className="text-sm text-[var(--color-text-secondary)]">Page {paginationState[activeTab]} of {pagination.totalPages}</span>
+              <button
+                onClick={() => setPaginationState(prev => ({ ...prev, [activeTab]: prev[activeTab] + 1 }))}
+                disabled={paginationState[activeTab] >= pagination.totalPages}
                 className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
               >
                 <ChevronRight className="w-4 h-4" />

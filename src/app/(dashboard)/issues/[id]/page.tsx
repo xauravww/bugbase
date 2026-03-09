@@ -426,6 +426,57 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyToClipboard = () => {
+    if (!issue) return;
+    const lines: string[] = [];
+    lines.push(`Bug #${issue.id}: ${issue.title}`);
+    lines.push(`Project: ${issue.project.name} (${issue.project.key})`);
+    lines.push(`Type: ${issue.type}`);
+    lines.push(`Status: ${issue.status}`);
+    lines.push(`Priority: ${issue.priority}`);
+    lines.push(`Reporter: ${issue.reporter.name} (${issue.reporter.email})`);
+    if (issue.assignees.length > 0) {
+      lines.push(`Assignees: ${issue.assignees.map(a => a.user.name).join(", ")}`);
+    }
+    if (issue.isVerified) lines.push(`Verified: Yes`);
+    lines.push(`Created: ${new Date(issue.createdAt).toLocaleString()}`);
+    lines.push(`Updated: ${new Date(issue.updatedAt).toLocaleString()}`);
+    lines.push("");
+    if (issue.description) {
+      lines.push(`## Description`);
+      lines.push(issue.description);
+      lines.push("");
+    }
+    if (issue.stepsToReproduce) {
+      lines.push(`## Steps to Reproduce`);
+      lines.push(issue.stepsToReproduce);
+      lines.push("");
+    }
+    if (issue.expectedResult) {
+      lines.push(`## Expected Result`);
+      lines.push(issue.expectedResult);
+      lines.push("");
+    }
+    if (issue.actualResult) {
+      lines.push(`## Actual Result`);
+      lines.push(issue.actualResult);
+      lines.push("");
+    }
+    if (issue.attachments.length > 0) {
+      lines.push(`## Attachments`);
+      issue.attachments.forEach((att, i) => {
+        lines.push(`${i + 1}. ${att.url}`);
+      });
+      lines.push("");
+    }
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   const assigneeIds = issue?.assignees.map(a => a.user.id) || [];
   const verifierIds = issue?.verifiers.map(v => v.user.id) || [];
 
@@ -626,6 +677,14 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 Delete
               </Button>
             )}
+            <Button
+              variant="secondary"
+              onClick={handleCopyToClipboard}
+              className="flex items-center gap-2"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-600" /> : <Clipboard className="w-4 h-4" />}
+              {copied ? "Copied!" : "Copy"}
+            </Button>
             <Button
               variant="secondary"
               onClick={() => window.open(`/api/issues/${issue.id}/export${token ? `?token=${token}` : ''}`, "_blank")}
