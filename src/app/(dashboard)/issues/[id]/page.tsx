@@ -471,10 +471,24 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       });
       lines.push("");
     }
-    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+    const text = lines.join("\n");
+    const doCopy = async () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    };
+    doCopy();
   };
 
   const assigneeIds = issue?.assignees.map(a => a.user.id) || [];

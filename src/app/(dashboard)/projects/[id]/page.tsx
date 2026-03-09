@@ -433,7 +433,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         lines.push("");
       });
 
-      await navigator.clipboard.writeText(lines.join("\n"));
+      const text = lines.join("\n");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
       setCopiedIssues(true);
       setTimeout(() => setCopiedIssues(false), 2000);
     } catch (error) {
