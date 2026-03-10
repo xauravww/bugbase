@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout";
 import { PageLoader } from "@/components/ui";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 import { MobileSidebarProvider, useMobileSidebar } from "@/hooks/useMobileSidebar";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -45,6 +46,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       >
         {children}
       </main>
+      <ChatPanel />
     </div>
   );
 }

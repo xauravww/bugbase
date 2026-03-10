@@ -30,18 +30,13 @@ export function CreateMilestoneModal({
   const handleRefine = async (field: "title" | "description") => {
     const content = formData[field];
     if (!content) return;
-
     setRefiningField(field);
     try {
       const res = await fetch("/api/ai/refine", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ content, field: `milestone_${field}` }),
       });
-
       if (res.ok) {
         const data = await res.json();
         setFormData(prev => ({ ...prev, [field]: data.refinedContent }));
@@ -62,21 +57,13 @@ export function CreateMilestoneModal({
     try {
       const res = await fetch("/api/ai/refine", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           field: `milestone_${field}`,
           mode: "suggest",
-          context: {
-            title: formData.title,
-            description: formData.description,
-            checklistItems: formData.checklistItems.join(", ")
-          }
+          context: { title: formData.title, description: formData.description, checklistItems: formData.checklistItems.join(", ") }
         }),
       });
-
       if (res.ok) {
         const data = await res.json();
         setFormData(prev => ({ ...prev, [field]: data.refinedContent }));
@@ -92,26 +79,13 @@ export function CreateMilestoneModal({
     }
   };
 
-  const handleInputChange = (field: keyof typeof formData, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   const handleAddItem = () => {
-    setFormData(prev => ({
-      ...prev,
-      checklistItems: [...prev.checklistItems, ""]
-    }));
+    setFormData(prev => ({ ...prev, checklistItems: [...prev.checklistItems, ""] }));
   };
 
   const handleRemoveItem = (index: number) => {
     if (formData.checklistItems.length <= 1) return;
-    setFormData(prev => ({
-      ...prev,
-      checklistItems: prev.checklistItems.filter((_, i) => i !== index)
-    }));
+    setFormData(prev => ({ ...prev, checklistItems: prev.checklistItems.filter((_, i) => i !== index) }));
   };
 
   const handleItemChange = (index: number, value: string) => {
@@ -125,23 +99,20 @@ export function CreateMilestoneModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
-    // Validate
     if (!formData.title.trim()) {
       setError("Title is required");
       return;
     }
-
-    if (formData.checklistItems.some(item => !item.trim())) {
-      setError("All checklist items must have content");
-      return;
-    }
-
-    onCreate(formData);
+    const nonEmptyItems = formData.checklistItems.filter(item => item.trim());
+    onCreate({
+      title: formData.title,
+      description: formData.description || undefined,
+      checklistItems: nonEmptyItems,
+    });
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create New Milestone">
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Test Checklist">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="p-3 text-sm text-[var(--color-danger)] bg-red-50 rounded-md border border-red-100">
@@ -150,32 +121,16 @@ export function CreateMilestoneModal({
         )}
 
         <div className="relative">
-          <Input
-            id="title"
-            label="Title"
-            placeholder="Milestone title"
-            value={formData.title}
-            onChange={(e) => handleInputChange("title", e.target.value)}
-            required
-          />
+          <Input id="title" label="Title" placeholder="e.g. Sprint 12 - Login Flow Testing" value={formData.title}
+            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))} required />
           {formData.title ? (
-            <button
-              type="button"
-              onClick={() => handleRefine("title")}
-              disabled={refiningField === "title"}
-              className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
-              title="AI Refine"
-            >
+            <button type="button" onClick={() => handleRefine("title")} disabled={refiningField === "title"}
+              className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10" title="AI Refine">
               <Sparkles className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} />
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={() => handleSuggest("title")}
-              disabled={refiningField === "title"}
-              className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
-              title="AI Suggest"
-            >
+            <button type="button" onClick={() => handleSuggest("title")} disabled={refiningField === "title"}
+              className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10" title="AI Suggest">
               <Wand2 className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} />
             </button>
           )}
@@ -183,86 +138,61 @@ export function CreateMilestoneModal({
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-sm font-medium text-[var(--color-text-primary)]">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-[var(--color-text-primary)]">Description</label>
             {formData.description ? (
-              <button
-                type="button"
-                onClick={() => handleRefine("description")}
-                disabled={refiningField === "description"}
-                className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
-                title="AI Refine"
-              >
+              <button type="button" onClick={() => handleRefine("description")} disabled={refiningField === "description"}
+                className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50">
                 <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
                 {refiningField === "description" ? "Refining..." : "AI Refine"}
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => handleSuggest("description")}
-                disabled={refiningField === "description"}
-                className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
-                title="AI Suggest"
-              >
+              <button type="button" onClick={() => handleSuggest("description")} disabled={refiningField === "description"}
+                className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50">
                 <Wand2 className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
                 {refiningField === "description" ? "Suggesting..." : "AI Suggest"}
               </button>
             )}
           </div>
-          <textarea
-            className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
-            placeholder="Describe the milestone..."
-            rows={3}
-            value={formData.description}
-            onChange={(e) => handleInputChange("description", e.target.value)}
-          />
+          <textarea className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+            placeholder="What is being tested and why..." rows={3} value={formData.description}
+            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
-            Checklist Items
-          </label>
+          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">What to Test</label>
           <div className="space-y-2">
             {formData.checklistItems.map((item, index) => (
               <div key={index} className="flex gap-2">
-                <input
-                  type="text"
+                <div className="flex items-center justify-center w-6 h-9 text-xs text-[var(--color-text-secondary)]">
+                  {index + 1}.
+                </div>
+                <input type="text"
                   className="flex-grow px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
-                  placeholder={`Task ${index + 1}`}
-                  value={item}
-                  onChange={(e) => handleItemChange(index, e.target.value)}
-                  required
+                  placeholder={`Test step ${index + 1}...`} value={item} onChange={(e) => handleItemChange(index, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); handleAddItem(); }
+                  }}
                 />
                 {formData.checklistItems.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem(index)}
-                    className="px-3 py-2 text-sm text-[var(--color-danger)] hover:bg-red-50 rounded-md"
-                  >
+                  <button type="button" onClick={() => handleRemoveItem(index)}
+                    className="px-2 py-2 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] rounded-md transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
               </div>
             ))}
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleAddItem}
-              className="w-full flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Checklist Item
-            </Button>
+            <button type="button" onClick={handleAddItem}
+              className="w-full flex items-center justify-center gap-2 py-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] border border-dashed border-[var(--color-border)] rounded-md hover:border-[var(--color-accent)] transition-colors">
+              <Plus className="w-4 h-4" /> Add test step
+            </button>
           </div>
+          <p className="text-xs text-[var(--color-text-secondary)] mt-1">Press Enter to quickly add a new step</p>
         </div>
 
         <div className="flex justify-end gap-3 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
           <Button type="submit" disabled={isCreating}>
-            {isCreating ? "Creating..." : "Create Milestone"}
+            {isCreating ? "Creating..." : "Create Checklist"}
           </Button>
         </div>
       </form>

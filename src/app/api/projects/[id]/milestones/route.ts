@@ -8,7 +8,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 const createMilestoneSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters"),
   description: z.string().optional(),
-  checklistItems: z.array(z.string().min(1)).min(1, "At least one checklist item is required"),
+  checklistItems: z.array(z.string().min(1)).default([]),
 });
 
 // GET /api/projects/[id]/milestones - List all milestones for a project
@@ -18,7 +18,7 @@ export async function GET(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -40,7 +40,7 @@ export async function GET(
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
-    
+
     if (page < 1 || limit < 1 || limit > 100) {
       return NextResponse.json(
         { error: "Invalid pagination parameters", code: "INVALID_PAGINATION" },
@@ -70,11 +70,11 @@ export async function GET(
       .select({ count: sql<number>`count(*)`.mapWith(Number) })
       .from(milestones)
       .where(eq(milestones.projectId, projectId));
-    
+
     const total = totalCountResult[0]?.count || 0;
     const totalPages = Math.ceil(total / limit);
 
-    // Get paginated milestones for the project with checklist items and completions
+    // Get paginated milestones
     const projectMilestones = await db.query.milestones.findMany({
       where: eq(milestones.projectId, projectId),
       with: {
@@ -83,11 +83,7 @@ export async function GET(
             completions: {
               with: {
                 user: {
-                  columns: {
-                    id: true,
-                    name: true,
-                    email: true,
-                  },
+                  columns: { id: true, name: true, email: true },
                 },
               },
             },
@@ -97,21 +93,13 @@ export async function GET(
         notes: {
           with: {
             user: {
-              columns: {
-                id: true,
-                name: true,
-                email: true,
-              },
+              columns: { id: true, name: true, email: true },
             },
           },
           orderBy: desc(milestoneNotes.createdAt),
         },
         creator: {
-          columns: {
-            id: true,
-            name: true,
-            email: true,
-          },
+          columns: { id: true, name: true, email: true },
         },
       },
       orderBy: desc(milestones.createdAt),
@@ -119,7 +107,6 @@ export async function GET(
       offset,
     });
 
-    // Transform the data to include completion status
     const milestonesWithProgress = projectMilestones.map((milestone) => {
       const totalCount = milestone.checklistItems.length;
       const completedCount = milestone.checklistItems.filter(
@@ -137,7 +124,7 @@ export async function GET(
       };
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       milestones: milestonesWithProgress,
       pagination: {
         page,
@@ -148,7 +135,7 @@ export async function GET(
         hasPrev: page > 1,
       }
     });
-    
+
   } catch (error) {
     console.error("Get milestones error:", error);
     return NextResponse.json(
@@ -165,7 +152,7 @@ export async function POST(
 ) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -173,7 +160,6 @@ export async function POST(
       );
     }
 
-    // Only admins can create milestones
     if (authUser.role !== "Admin") {
       return NextResponse.json(
         { error: "Only admins can create milestones", code: "FORBIDDEN" },
@@ -193,7 +179,7 @@ export async function POST(
 
     const body = await request.json();
     const validation = createMilestoneSchema.safeParse(body);
-    
+
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.issues[0].message, code: "VALIDATION_ERROR" },
@@ -203,7 +189,6 @@ export async function POST(
 
     const { title, description, checklistItems: items } = validation.data;
 
-    // Create milestone
     const [newMilestone] = await db.insert(milestones).values({
       projectId,
       title,
@@ -211,7 +196,6 @@ export async function POST(
       createdBy: authUser.id,
     }).returning();
 
-    // Create checklist items
     if (items.length > 0) {
       await db.insert(milestoneChecklistItems).values(
         items.map((content, index) => ({
@@ -222,7 +206,6 @@ export async function POST(
       );
     }
 
-    // Fetch the complete milestone with checklist items
     const milestoneWithItems = await db.query.milestones.findFirst({
       where: eq(milestones.id, newMilestone.id),
       with: {
@@ -231,34 +214,24 @@ export async function POST(
         },
         notes: {
           with: {
-            user: {
-              columns: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
+            user: { columns: { id: true, name: true, email: true } },
           },
           orderBy: desc(milestoneNotes.createdAt),
         },
         creator: {
-          columns: {
-            id: true,
-            name: true,
-            email: true,
-          },
+          columns: { id: true, name: true, email: true },
         },
       },
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       milestone: {
         ...milestoneWithItems,
         totalCount: items.length,
         completedCount: 0,
       }
     }, { status: 201 });
-    
+
   } catch (error) {
     console.error("Create milestone error:", error);
     return NextResponse.json(

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag, Sparkles, Wand2, Clipboard, Check } from "lucide-react";
+import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag, Sparkles, Wand2, Clipboard, Check, ExternalLink } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,6 +58,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [activeTab, setActiveTab] = useState<"issues" | "milestones">("issues");
   const [issueStatusTab, setIssueStatusTab] = useState<string>("all");
   const [issuesPaginationState, setIssuesPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Verified: 1, Closed: 1 });
+  const [selectedProjectIssueIds, setSelectedProjectIssueIds] = useState<number[]>([]);
+  const [bulkProjectStatus, setBulkProjectStatus] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCreateMilestoneModal, setShowCreateMilestoneModal] = useState(false);
   const [showMilestoneDetailModal, setShowMilestoneDetailModal] = useState(false);
@@ -87,6 +89,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
   const [copiedIssues, setCopiedIssues] = useState(false);
+  const [issueSearch, setIssueSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const projectId = resolvedParams.id;
 
@@ -99,6 +104,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       // Apply type and priority filters
       if (filterType !== "all") params.set("type", filterType);
       if (filterPriority !== "all") params.set("priority", filterPriority);
+      if (debouncedSearch) params.set("search", debouncedSearch);
 
       // Tab filter controls status
       if (issueStatusTab !== "all") {
@@ -159,6 +165,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   };
 
   useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(issueSearch);
+    }, 300);
+    return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+  }, [issueSearch]);
+
+  useEffect(() => {
     if (token && projectId) {
       setIsLoading(true);
       if (activeTab === "issues") {
@@ -167,7 +181,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         fetchMilestones(milestonesPagination.page);
       }
     }
-  }, [token, projectId, activeTab, issueStatusTab, issuesPaginationState, filterType, filterPriority]);
+  }, [token, projectId, activeTab, issueStatusTab, issuesPaginationState, filterType, filterPriority, debouncedSearch]);
 
   const handleCreateIssue = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -361,6 +375,49 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     if (filterPriority !== "all") params.set("priority", filterPriority);
     if (token) params.set("token", token);
     window.open(`/api/issues/export?${params.toString()}`, "_blank");
+  };
+
+  const handleProjectStatusChange = async (issueId: number, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/issues/${issueId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setIssues(prev => prev.map(i => i.id === issueId ? { ...i, status: newStatus } : i));
+      }
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
+  };
+
+  const handleBulkProjectStatusUpdate = async () => {
+    if (!bulkProjectStatus || selectedProjectIssueIds.length === 0) return;
+    await Promise.all(
+      selectedProjectIssueIds.map(id =>
+        fetch(`/api/issues/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ status: bulkProjectStatus }),
+        })
+      )
+    );
+    setIssues(prev => prev.map(i => selectedProjectIssueIds.includes(i.id) ? { ...i, status: bulkProjectStatus } : i));
+    setSelectedProjectIssueIds([]);
+    setBulkProjectStatus("");
+  };
+
+  const toggleProjectIssue = (id: number) => {
+    setSelectedProjectIssueIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const toggleProjectSelectAll = () => {
+    if (selectedProjectIssueIds.length === filteredIssues.length) {
+      setSelectedProjectIssueIds([]);
+    } else {
+      setSelectedProjectIssueIds(filteredIssues.map(i => i.id));
+    }
   };
 
   const [isCopying, setIsCopying] = useState(false);
@@ -672,7 +729,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div>
-      <Header title={project.name}>
+      <Header title={project.name} searchValue={issueSearch} onSearchChange={setIssueSearch} searchPlaceholder="Search by title or issue number (e.g. #8)...">
         {/* Desktop controls in header */}
         <div className="hidden md:flex items-center gap-2">
           <div className="flex bg-[var(--color-surface)] rounded-md p-1">
@@ -868,6 +925,28 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
+            {/* Bulk status update bar */}
+            {selectedProjectIssueIds.length > 0 && (
+              <div className="flex items-center gap-3 mb-4 p-3 bg-[var(--color-accent-light,#e8f0fb)] border border-[var(--color-accent)] rounded-lg">
+                <span className="text-sm font-medium">{selectedProjectIssueIds.length} selected</span>
+                <Select
+                  options={[
+                    { value: "", label: "Change status to..." },
+                    ...Object.values(ISSUE_STATUSES).map(s => ({ value: s, label: s })),
+                  ]}
+                  value={bulkProjectStatus}
+                  onChange={(e) => setBulkProjectStatus(e.target.value)}
+                  className="w-44"
+                />
+                <Button variant="primary" onClick={handleBulkProjectStatusUpdate} disabled={!bulkProjectStatus} className="text-sm">
+                  Update
+                </Button>
+                <button onClick={() => setSelectedProjectIssueIds([])} className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] ml-auto">
+                  Clear
+                </button>
+              </div>
+            )}
+
             {/* List View */}
             {viewMode === "list" && (
               <div className="bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
@@ -875,18 +954,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   <table className="w-full min-w-[800px]">
                     <thead>
                       <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+                        <th className="text-left px-4 py-3 w-10">
+                          <input type="checkbox" checked={filteredIssues.length > 0 && selectedProjectIssueIds.length === filteredIssues.length} onChange={toggleProjectSelectAll} className="w-4 h-4 rounded border-[var(--color-border)]" />
+                        </th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">ID</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Title</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Type</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Status</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Priority</th>
                         <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Assignees</th>
+                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase w-20">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredIssues.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-12 text-[var(--color-text-secondary)]">
+                          <td colSpan={8} className="text-center py-12 text-[var(--color-text-secondary)]">
                             No issues found
                           </td>
                         </tr>
@@ -894,9 +977,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         filteredIssues.map((issue) => (
                           <tr
                             key={issue.id}
-                            className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)] cursor-pointer"
-                            onClick={() => router.push(`/issues/${issue.id}`)}
+                            className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)]"
                           >
+                            <td className="px-4 py-3">
+                              <input type="checkbox" checked={selectedProjectIssueIds.includes(issue.id)} onChange={() => toggleProjectIssue(issue.id)} className="w-4 h-4 rounded border-[var(--color-border)]" />
+                            </td>
                             <td className="px-4 py-3 text-sm font-mono text-[var(--color-text-secondary)]">
                               #{issue.id}
                             </td>
@@ -907,7 +992,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                               <TypeBadge type={issue.type} />
                             </td>
                             <td className="px-4 py-3">
-                              <StatusBadge status={issue.status} />
+                              <select
+                                value={issue.status}
+                                onChange={(e) => handleProjectStatusChange(issue.id, e.target.value)}
+                                className="text-xs px-2 py-1 rounded border border-[var(--color-border)] bg-white cursor-pointer"
+                              >
+                                {Object.values(ISSUE_STATUSES).map(s => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                              </select>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2">
@@ -921,6 +1014,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                               ) : (
                                 <span className="text-sm text-[var(--color-text-placeholder)]">Unassigned</span>
                               )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                onClick={() => window.open(`/issues/${issue.id}`, "_blank")}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-[var(--color-accent)] bg-[var(--color-accent-light,#e8f0fb)] rounded-md hover:opacity-80 transition-opacity"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Open
+                              </button>
                             </td>
                           </tr>
                         ))
