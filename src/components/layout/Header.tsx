@@ -11,9 +11,12 @@ interface HeaderProps {
   children?: React.ReactNode;
   onMobileAction?: () => void;
   showMobileAdd?: boolean;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  searchPlaceholder?: string;
 }
 
-export function Header({ title, children, onMobileAction, showMobileAdd }: HeaderProps) {
+export function Header({ title, children, onMobileAction, showMobileAdd, searchValue, onSearchChange, searchPlaceholder }: HeaderProps) {
   const { toggle } = useMobileSidebar();
   const breakpoint = useBreakpoint();
   const [mounted, setMounted] = useState(false);
@@ -95,7 +98,9 @@ export function Header({ title, children, onMobileAction, showMobileAdd }: Heade
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-placeholder)]" />
                 <Input
                   type="search"
-                  placeholder="Search issues..."
+                  placeholder={searchPlaceholder || "Search issues..."}
+                  value={searchValue}
+                  onChange={(e) => onSearchChange?.(e.target.value)}
                   className="pl-9 w-64"
                 />
               </div>
