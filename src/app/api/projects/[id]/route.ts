@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { projects, projectMembers, issues } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, like, or } from "drizzle-orm";
 
 const updateProjectSchema = z.object({
   name: z.string().min(2).optional(),
@@ -101,8 +101,32 @@ export async function GET(
     const status = searchParams.get("status");
     const type = searchParams.get("type");
     const priority = searchParams.get("priority");
+    const search = searchParams.get("search") || "";
 
     let whereClause = eq(issues.projectId, projectId);
+
+    if (search) {
+      const cleanSearch = search.replace(/^#/, "").trim();
+      const searchAsNumber = parseInt(cleanSearch);
+      if (!isNaN(searchAsNumber) && String(searchAsNumber) === cleanSearch) {
+        whereClause = and(
+          whereClause,
+          or(
+            eq(issues.id, searchAsNumber),
+            like(issues.title, `%${search}%`),
+            like(issues.description, `%${search}%`)
+          )
+        ) as typeof whereClause;
+      } else {
+        whereClause = and(
+          whereClause,
+          or(
+            like(issues.title, `%${search}%`),
+            like(issues.description, `%${search}%`)
+          )
+        ) as typeof whereClause;
+      }
+    }
 
     if (status) {
       const statuses = status.split(",").map(s => s.trim()) as ("Open" | "In Progress" | "In Review" | "Verified" | "Closed")[];

@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; img-src 'self' https://*.imgbb.com https://i.ibb.co data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
+            value: "default-src 'self'; img-src 'self' https://*.imgbb.com https://i.ibb.co https://freeimage.host https://*.freeimage.host data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
           }
         ]
       }
@@ -48,6 +48,22 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "freeimage.host",
+      },
+      {
+        protocol: "https",
+        hostname: "*.freeimage.host",
+      },
+      {
+        protocol: "http",
+        hostname: "freeimage.host",
+      },
+      {
+        protocol: "http",
+        hostname: "*.freeimage.host",
       },
     ],
   },

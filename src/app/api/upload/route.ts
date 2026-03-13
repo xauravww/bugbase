@@ -3,7 +3,7 @@ import { getAuthUser } from "@/lib/auth";
 
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
-  "image/png", 
+  "image/png",
   "image/gif",
   "image/webp",
   "image/svg+xml",
@@ -20,11 +20,68 @@ function isValidImageType(mimeType: string, filename: string): boolean {
   return ALLOWED_MIME_TYPES.includes(mimeType) || ALLOWED_EXTENSIONS.includes(ext);
 }
 
-// POST /api/upload - Upload image to ImgBB
+async function uploadToImgBB(image: File, apiKey: string) {
+  const formData = new FormData();
+  formData.append("key", apiKey);
+  formData.append("image", image);
+
+  const response = await fetch("https://api.imgbb.com/1/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!data.success) {
+    throw new Error("ImgBB upload failed");
+  }
+
+  return {
+    url: data.data.url,
+    deleteHash: data.data.delete_url,
+    thumbnail: data.data.thumb?.url || data.data.url,
+    provider: "imgbb",
+  };
+}
+
+async function uploadToFreeImage(image: File, apiKey: string) {
+  // FreeImage.host expects base64-encoded image as 'source'
+  const arrayBuffer = await image.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+  const formData = new FormData();
+  formData.append("key", apiKey);
+  formData.append("action", "upload");
+  formData.append("source", base64);
+  formData.append("format", "json");
+
+  const response = await fetch("https://freeimage.host/api/1/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (data.status_code !== 200) {
+    throw new Error("FreeImage upload failed");
+  }
+
+  // FreeImage may return HTTP URLs — upgrade to HTTPS to avoid mixed content
+  const toHttps = (u: string) => u.replace(/^http:\/\//i, "https://");
+
+  return {
+    url: toHttps(data.image.url),
+    deleteHash: data.image.url_viewer || null,
+    thumbnail: toHttps(data.image.thumb?.url || data.image.display_url || data.image.url),
+    provider: "freeimage",
+  };
+}
+
+// POST /api/upload - Upload image to ImgBB (with FreeImage.host fallback)
 export async function POST(request: NextRequest) {
   try {
     const authUser = getAuthUser(request);
-    
+
     if (!authUser) {
       return NextResponse.json(
         { error: "Unauthorized", code: "UNAUTHORIZED" },
@@ -32,9 +89,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.IMGBB_API_KEY;
-    
-    if (!apiKey) {
+    const imgbbKey = process.env.IMGBB_API_KEY;
+    const freeimageKey = process.env.FREEIMAGE_API_KEY;
+
+    if (!imgbbKey && !freeimageKey) {
       return NextResponse.json(
         { error: "Image upload not configured", code: "NOT_CONFIGURED" },
         { status: 500 }
@@ -69,31 +127,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create form data for ImgBB
-    const imgbbFormData = new FormData();
-    imgbbFormData.append("key", apiKey);
-    imgbbFormData.append("image", image);
-
-    const response = await fetch("https://api.imgbb.com/1/upload", {
-      method: "POST",
-      body: imgbbFormData,
-    });
-
-    const data = await response.json();
-
-    if (!data.success) {
-      return NextResponse.json(
-        { error: "Failed to upload image", code: "UPLOAD_FAILED" },
-        { status: 500 }
-      );
+    // Try ImgBB first, fall back to FreeImage.host
+    if (imgbbKey) {
+      try {
+        const result = await uploadToImgBB(image, imgbbKey);
+        return NextResponse.json(result);
+      } catch (imgbbError) {
+        console.warn("ImgBB upload failed, trying FreeImage.host fallback:", imgbbError);
+      }
     }
 
-    return NextResponse.json({
-      url: data.data.url,
-      deleteHash: data.data.delete_url,
-      thumbnail: data.data.thumb?.url || data.data.url,
-    });
-    
+    // Fallback to FreeImage.host
+    if (freeimageKey) {
+      try {
+        const result = await uploadToFreeImage(image, freeimageKey);
+        return NextResponse.json(result);
+      } catch (freeimageError) {
+        console.error("FreeImage.host upload also failed:", freeimageError);
+      }
+    }
+
+    return NextResponse.json(
+      { error: "Failed to upload image", code: "UPLOAD_FAILED" },
+      { status: 500 }
+    );
+
   } catch (error) {
     console.error("Upload error:", error);
     return NextResponse.json(

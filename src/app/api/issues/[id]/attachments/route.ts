@@ -108,3 +108,74 @@ export async function POST(
     );
   }
 }
+
+// DELETE /api/issues/[id]/attachments?attachmentId=123 - Delete attachment from issue
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authUser = getAuthUser(request);
+
+    if (!authUser) {
+      return NextResponse.json(
+        { error: "Unauthorized", code: "UNAUTHORIZED" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+    const issueId = parseInt(id);
+    const attachmentId = parseInt(request.nextUrl.searchParams.get("attachmentId") || "");
+
+    if (isNaN(issueId) || isNaN(attachmentId)) {
+      return NextResponse.json(
+        { error: "Invalid ID", code: "INVALID_ID" },
+        { status: 400 }
+      );
+    }
+
+    const attachment = await db.query.attachments.findFirst({
+      where: and(
+        eq(attachments.id, attachmentId),
+        eq(attachments.issueId, issueId)
+      ),
+    });
+
+    if (!attachment) {
+      return NextResponse.json(
+        { error: "Attachment not found", code: "NOT_FOUND" },
+        { status: 404 }
+      );
+    }
+
+    // Only the uploader or an Admin can delete
+    if (attachment.uploadedBy !== authUser.id && authUser.role !== "Admin") {
+      return NextResponse.json(
+        { error: "You can only delete your own attachments", code: "FORBIDDEN" },
+        { status: 403 }
+      );
+    }
+
+    await db.delete(attachments).where(eq(attachments.id, attachmentId));
+
+    await db.insert(activityLog).values({
+      issueId,
+      userId: authUser.id,
+      action: "removed an attachment",
+    });
+
+    await db.update(issues)
+      .set({ updatedAt: new Date() })
+      .where(eq(issues.id, issueId));
+
+    return NextResponse.json({ success: true });
+
+  } catch (error) {
+    console.error("Delete attachment error:", error);
+    return NextResponse.json(
+      { error: "Internal server error", code: "INTERNAL_ERROR" },
+      { status: 500 }
+    );
+  }
+}

@@ -75,8 +75,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     startDate: "",
     dueDate: "",
   });
-  const [screenshots, setScreenshots] = useState<string[]>([]);
+  const [screenshots, setScreenshots] = useState<{ url: string; preview: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingMilestone, setIsCreatingMilestone] = useState(false);
@@ -208,14 +209,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       }
 
       if (screenshots.length > 0) {
-        for (const url of screenshots) {
+        for (const s of screenshots) {
           await fetch(`/api/issues/${data.issue.id}/attachments`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ url }),
+            body: JSON.stringify({ url: s.url }),
           });
         }
       }
@@ -318,14 +319,20 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const preview = URL.createObjectURL(file);
     setIsUploading(true);
     try {
       const data = await uploadImageFile(file);
       if (data) {
-        setScreenshots(prev => [...prev, data.url]);
+        setScreenshots(prev => [...prev, { url: data.url, preview }]);
+      } else {
+        URL.revokeObjectURL(preview);
+        alert("Failed to upload screenshot. Please try again.");
       }
     } catch (error) {
       console.error("Failed to upload:", error);
+      URL.revokeObjectURL(preview);
+      alert("Failed to upload screenshot. Please try again.");
     } finally {
       setIsUploading(false);
       e.target.value = "";
@@ -340,11 +347,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         e.preventDefault();
         const file = item.getAsFile();
         if (!file) return;
+        const preview = URL.createObjectURL(file);
         setIsUploading(true);
         try {
           const data = await uploadImageFile(file);
           if (data) {
-            setScreenshots(prev => [...prev, data.url]);
+            setScreenshots(prev => [...prev, { url: data.url, preview }]);
+          } else {
+            URL.revokeObjectURL(preview);
+            alert("Failed to upload screenshot. Please try again.");
           }
         } finally {
           setIsUploading(false);
@@ -355,6 +366,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const removeScreenshot = (index: number) => {
+    URL.revokeObjectURL(screenshots[index]?.preview);
     setScreenshots(screenshots.filter((_, i) => i !== index));
   };
 
@@ -1131,7 +1143,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       {/* Create Issue Modal */}
       <Modal
         isOpen={showCreateModal}
-        onClose={() => { setShowCreateModal(false); setScreenshots([]); }}
+        onClose={() => { setShowCreateModal(false); screenshots.forEach(s => URL.revokeObjectURL(s.preview)); setScreenshots([]); }}
         title="Create New Issue"
       >
         <form onSubmit={handleCreateIssue} className="space-y-4">
@@ -1376,13 +1388,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               Screenshots
             </label>
             <div className="flex flex-wrap gap-2 mb-2">
-              {screenshots.map((url, index) => (
-                <div key={index} className="relative w-16 h-16 rounded overflow-hidden border border-[var(--color-border)]">
-                  <img src={url} alt={`screenshot-${index}`} className="w-full h-full object-cover" />
+              {screenshots.map((s, index) => (
+                <div key={index} className="relative w-16 h-16 rounded overflow-hidden border border-[var(--color-border)] group cursor-pointer hover:border-[var(--color-accent)] transition-all">
+                  <img
+                    src={s.preview}
+                    alt={`screenshot-${index}`}
+                    className="w-full h-full object-cover"
+                    onClick={() => setPreviewImage(s.preview)}
+                  />
                   <button
                     type="button"
-                    onClick={() => removeScreenshot(index)}
-                    className="absolute top-0 right-0 bg-black/50 text-white p-0.5 rounded-bl"
+                    onClick={(e) => { e.stopPropagation(); removeScreenshot(index); }}
+                    className="absolute top-0 right-0 bg-black/50 text-white p-0.5 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -1419,6 +1436,27 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
         </form>
       </Modal>
+
+      {/* Screenshot Preview Overlay */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center cursor-pointer"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-4 right-4 p-2 text-white hover:bg-white/20 rounded-full"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={previewImage}
+            alt="Preview"
+            className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* Create Milestone Modal */}
       <CreateMilestoneModal

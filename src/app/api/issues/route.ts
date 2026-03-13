@@ -75,13 +75,26 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      whereClause = and(
-        whereClause,
-        or(
-          like(issues.title, `%${search}%`),
-          like(issues.description, `%${search}%`)
-        )
-      ) as typeof whereClause;
+      const cleanSearch = search.replace(/^#/, "").trim();
+      const searchAsNumber = parseInt(cleanSearch);
+      if (!isNaN(searchAsNumber) && String(searchAsNumber) === cleanSearch) {
+        whereClause = and(
+          whereClause,
+          or(
+            eq(issues.id, searchAsNumber),
+            like(issues.title, `%${search}%`),
+            like(issues.description, `%${search}%`)
+          )
+        ) as typeof whereClause;
+      } else {
+        whereClause = and(
+          whereClause,
+          or(
+            like(issues.title, `%${search}%`),
+            like(issues.description, `%${search}%`)
+          )
+        ) as typeof whereClause;
+      }
     }
 
     if (type) {

@@ -75,8 +75,9 @@ export async function GET(
         
         for (const attachment of issueAttachmentsList) {
             const urlLower = attachment.url.toLowerCase();
-            const isImage = urlLower.match(/\.(jpg|jpeg|png|gif|webp)$/i) || 
-                           urlLower.includes('imgbb') || 
+            const isImage = urlLower.match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
+                           urlLower.includes('imgbb') ||
+                           urlLower.includes('freeimage') ||
                            urlLower.includes('image');
 
             if (isImage) {
@@ -186,8 +187,9 @@ export async function GET(
                 // Non-image attachments as links
                 const nonImageAttachments = issueAttachmentsList.filter((a: { url: string }) => {
                     const urlLower = a.url.toLowerCase();
-                    return !urlLower.match(/\.(jpg|jpeg|png|gif|webp)$/i) && 
-                           !urlLower.includes('imgbb') && 
+                    return !urlLower.match(/\.(jpg|jpeg|png|gif|webp)$/i) &&
+                           !urlLower.includes('imgbb') &&
+                           !urlLower.includes('freeimage') &&
                            !urlLower.includes('image');
                 });
 

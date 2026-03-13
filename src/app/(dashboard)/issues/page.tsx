@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, ChevronLeft, ChevronRight, Calendar, Download, Check } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Calendar, Download, Check, ExternalLink } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,6 +43,10 @@ export default function MyIssuesPage() {
 
   const [filterType, setFilterType] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
+
+  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
+  const [selectedIssueIds, setSelectedIssueIds] = useState<number[]>([]);
+  const [bulkStatus, setBulkStatus] = useState("");
 
   // Track the latest search term for fetching without causing re-render loops
   const searchRef = useRef(search);
@@ -129,6 +133,53 @@ export default function MyIssuesPage() {
     window.open(`/api/issues/export?${params.toString()}`, "_blank");
   };
 
+  const handleStatusChange = async (issueId: number, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/issues/${issueId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        setIssues(prev => prev.map(i => i.id === issueId ? { ...i, status: newStatus } : i));
+      }
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
+  };
+
+  const handleBulkStatusUpdate = async () => {
+    if (!bulkStatus || selectedIssueIds.length === 0) return;
+    try {
+      await Promise.all(
+        selectedIssueIds.map(id =>
+          fetch(`/api/issues/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ status: bulkStatus }),
+          })
+        )
+      );
+      setIssues(prev => prev.map(i => selectedIssueIds.includes(i.id) ? { ...i, status: bulkStatus } : i));
+      setSelectedIssueIds([]);
+      setBulkStatus("");
+    } catch (error) {
+      console.error("Failed to bulk update:", error);
+    }
+  };
+
+  const toggleSelectIssue = (id: number) => {
+    setSelectedIssueIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIssueIds.length === issues.length) {
+      setSelectedIssueIds([]);
+    } else {
+      setSelectedIssueIds(issues.map(i => i.id));
+    }
+  };
+
   if (isLoading) return <PageLoader />;
 
   return (
@@ -166,7 +217,7 @@ export default function MyIssuesPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
             <input
               type="text"
-              placeholder="Search issues..."
+              placeholder="Search by title or issue number (e.g. #123)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-accent)]"
@@ -201,6 +252,28 @@ export default function MyIssuesPage() {
           </span>
         </div>
 
+        {/* Bulk status update bar */}
+        {selectedIssueIds.length > 0 && (
+          <div className="flex items-center gap-3 mb-4 p-3 bg-[var(--color-accent-light,#e8f0fb)] border border-[var(--color-accent)] rounded-lg">
+            <span className="text-sm font-medium">{selectedIssueIds.length} selected</span>
+            <Select
+              options={[
+                { value: "", label: "Change status to..." },
+                ...Object.values(ISSUE_STATUSES).map(s => ({ value: s, label: s })),
+              ]}
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value)}
+              className="w-44"
+            />
+            <Button variant="primary" onClick={handleBulkStatusUpdate} disabled={!bulkStatus} className="text-sm">
+              Update
+            </Button>
+            <button onClick={() => setSelectedIssueIds([])} className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] ml-auto">
+              Clear
+            </button>
+          </div>
+        )}
+
         {/* Mobile-friendly issue list */}
         <div className="md:hidden space-y-3 mb-4">
           {issues.length === 0 ? (
@@ -213,18 +286,31 @@ export default function MyIssuesPage() {
               return (
                 <div
                   key={issue.id}
-                  className="bg-white border border-[var(--color-border)] rounded-lg p-4 cursor-pointer"
-                  onClick={() => router.push(`/issues/${issue.id}`)}
+                  className="bg-white border border-[var(--color-border)] rounded-lg p-4"
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedIssueIds.includes(issue.id)}
+                          onChange={() => toggleSelectIssue(issue.id)}
+                          className="w-4 h-4 rounded border-[var(--color-border)]"
+                        />
                         <span className="text-xs font-mono text-[var(--color-text-secondary)]">#{issue.id}</span>
                         <TypeBadge type={issue.type} />
                       </div>
                       <h3 className="font-medium text-[var(--color-text-primary)] text-sm mb-2 truncate">{issue.title}</h3>
                       <div className="flex flex-wrap gap-2 mb-2">
-                        <StatusBadge status={issue.status} />
+                        <select
+                          value={issue.status}
+                          onChange={(e) => { e.stopPropagation(); handleStatusChange(issue.id, e.target.value); }}
+                          className="text-xs px-2 py-1 rounded border border-[var(--color-border)] bg-white"
+                        >
+                          {Object.values(ISSUE_STATUSES).map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
                         {issue.isVerified && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-xs border border-green-200">
                             <Check className="w-3 h-3" />
@@ -249,6 +335,13 @@ export default function MyIssuesPage() {
                           </div>
                         )}
                       </div>
+                      <button
+                        onClick={() => window.open(`/issues/${issue.id}`, "_blank")}
+                        className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[var(--color-accent)] bg-[var(--color-accent-light,#e8f0fb)] rounded-md hover:opacity-80 transition-opacity"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Open Issue
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -263,6 +356,9 @@ export default function MyIssuesPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+                  <th className="text-left px-3 md:px-4 py-3 w-10">
+                    <input type="checkbox" checked={issues.length > 0 && selectedIssueIds.length === issues.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-[var(--color-border)]" />
+                  </th>
                   <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">ID</th>
                   <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Title</th>
                   <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden md:table-cell">Project</th>
@@ -271,12 +367,13 @@ export default function MyIssuesPage() {
                   <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden lg:table-cell">Priority</th>
                   <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden xl:table-cell">Due</th>
                   <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden md:table-cell">Assignees</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase w-20">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {issues.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-12 text-[var(--color-text-secondary)]">
+                    <td colSpan={10} className="text-center py-12 text-[var(--color-text-secondary)]">
                       No issues found
                     </td>
                   </tr>
@@ -284,17 +381,27 @@ export default function MyIssuesPage() {
                   issues.map((issue) => {
                     const dueInfo = formatDate(issue.dueDate);
                     return (
-                      <tr key={issue.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)] cursor-pointer"
-                        onClick={() => router.push(`/issues/${issue.id}`)}>
+                      <tr key={issue.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)]">
+                        <td className="px-3 md:px-4 py-3">
+                          <input type="checkbox" checked={selectedIssueIds.includes(issue.id)} onChange={() => toggleSelectIssue(issue.id)} className="w-4 h-4 rounded border-[var(--color-border)]" />
+                        </td>
                         <td className="px-3 md:px-4 py-3 text-sm font-mono text-[var(--color-text-secondary)]">#{issue.id}</td>
                         <td className="px-3 md:px-4 py-3 text-sm font-medium text-[var(--color-text-primary)] max-w-[200px] truncate">{issue.title}</td>
                         <td className="px-3 md:px-4 py-3 text-sm text-[var(--color-text-secondary)] hidden md:table-cell">
-                          <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color-accent)]" onClick={(e) => e.stopPropagation()}>{issue.project.name}</Link>
+                          <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color-accent)]">{issue.project.name}</Link>
                         </td>
                         <td className="px-3 md:px-4 py-3"><TypeBadge type={issue.type} /></td>
                         <td className="px-3 md:px-4 py-3 hidden sm:table-cell">
                           <div className="flex items-center gap-2">
-                            <StatusBadge status={issue.status} />
+                            <select
+                              value={issue.status}
+                              onChange={(e) => handleStatusChange(issue.id, e.target.value)}
+                              className="text-xs px-2 py-1 rounded border border-[var(--color-border)] bg-white cursor-pointer"
+                            >
+                              {Object.values(ISSUE_STATUSES).map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
                             {issue.isVerified && (
                               <Check className="w-4 h-4 text-green-600" />
                             )}
@@ -306,6 +413,15 @@ export default function MyIssuesPage() {
                         </td>
                         <td className="px-3 md:px-4 py-3 hidden md:table-cell">
                           {issue.assignees.length > 0 ? <AvatarGroup names={issue.assignees.map((a) => a.user.name)} max={2} /> : <span className="text-xs text-[var(--color-text-placeholder)]">-</span>}
+                        </td>
+                        <td className="px-3 md:px-4 py-3">
+                          <button
+                            onClick={() => window.open(`/issues/${issue.id}`, "_blank")}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-[var(--color-accent)] bg-[var(--color-accent-light,#e8f0fb)] rounded-md hover:opacity-80 transition-opacity"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Open
+                          </button>
                         </td>
                       </tr>
                     );

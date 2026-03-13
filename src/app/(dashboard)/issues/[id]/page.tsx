@@ -23,6 +23,7 @@ interface Attachment {
   id: number;
   url: string;
   createdAt: string;
+  uploadedBy: number;
 }
 
 interface IssueDetail {
@@ -423,6 +424,27 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     } catch (error) {
       console.error("Failed to delete issue:", error);
       alert("Failed to delete issue");
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: number) => {
+    if (!issue) return;
+    const confirmed = window.confirm("Delete this attachment?");
+    if (!confirmed) return;
+    try {
+      const res = await fetch(`/api/issues/${issue.id}/attachments?attachmentId=${attachmentId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        fetchIssue();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to delete attachment");
+      }
+    } catch (error) {
+      console.error("Failed to delete attachment:", error);
+      alert("Failed to delete attachment");
     }
   };
 
@@ -958,15 +980,27 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   {issue.attachments.map((att, index) => (
                     <div
                       key={att.id}
-                      onClick={() => {
-                        console.log("Opening lightbox for attachment:", att.url);
-                        setLightboxImages(issue.attachments || []);
-                        setLightboxIndex(index);
-                        setLightboxImage(att.url);
-                      }}
-                      className="block w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all hover:scale-105 cursor-pointer"
+                      className="relative group"
                     >
-                      <img src={att.url} alt="attachment" className="w-full h-full object-cover" />
+                      <div
+                        onClick={() => {
+                          setLightboxImages(issue.attachments || []);
+                          setLightboxIndex(index);
+                          setLightboxImage(att.url);
+                        }}
+                        className="block w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all hover:scale-105 cursor-pointer"
+                      >
+                        <img src={att.url} alt="attachment" className="w-full h-full object-cover" />
+                      </div>
+                      {(user?.role === "Admin" || att.uploadedBy === user?.id) && (
+                        <button
+                          onClick={() => handleDeleteAttachment(att.id)}
+                          className="absolute -top-1.5 -right-1.5 bg-red-500 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                          title="Delete attachment"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1085,7 +1119,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                             alt={`screenshot-${index}`}
                             className="w-full h-full object-cover"
                             onClick={() => {
-                              setLightboxImages(commentScreenshots.map((u, i) => ({ id: i, url: u, createdAt: '' })));
+                              setLightboxImages(commentScreenshots.map((u, i) => ({ id: i, url: u, createdAt: '', uploadedBy: 0 })));
                               setLightboxIndex(index);
                               setLightboxImage(url);
                             }}

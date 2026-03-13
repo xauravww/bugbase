@@ -99,9 +99,9 @@ export function Header({ title, children, onMobileAction, showMobileAdd, searchV
                 <Input
                   type="search"
                   placeholder={searchPlaceholder || "Search issues..."}
-                  value={searchValue}
-                  onChange={(e) => onSearchChange?.(e.target.value)}
                   className="pl-9 w-64"
+                  value={searchValue ?? ""}
+                  onChange={(e) => onSearchChange?.(e.target.value)}
                 />
               </div>
               
