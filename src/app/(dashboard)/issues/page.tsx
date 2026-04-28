@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, ChevronLeft, ChevronRight, Calendar, Download, Check, ExternalLink } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Calendar, Download, ExternalLink } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,7 +39,7 @@ export default function MyIssuesPage() {
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [activeTab, setActiveTab] = useState<string>("all");
-  const [paginationState, setPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Verified: 1, Closed: 1 });
+  const [paginationState, setPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Closed: 1 });
 
   const [filterType, setFilterType] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
@@ -183,10 +183,10 @@ export default function MyIssuesPage() {
   if (isLoading) return <PageLoader />;
 
   return (
-    <div>
+    <div className="min-h-screen" style={{ background: "linear-gradient(135deg, #fafaf9 0%, #f5f3f0 100%)" }}>
       <Header title="My Issues" />
 
-      <div className="p-4 max-w-[1100px]">
+      <div className="px-4 py-5 md:px-8 md:py-7 max-w-[1200px] mx-auto">
         <div className="mb-4 border-b border-[var(--color-border)]">
           <div className="flex gap-1 overflow-x-auto">
             {[
@@ -194,7 +194,6 @@ export default function MyIssuesPage() {
               { key: "Open", label: "Open" },
               { key: "In Progress", label: "In Progress" },
               { key: "In Review", label: "In Review" },
-              { key: "Verified", label: "Verified" },
               { key: "Closed", label: "Closed" },
             ].map((tab) => (
               <button
@@ -220,7 +219,8 @@ export default function MyIssuesPage() {
               placeholder="Search by title or issue number (e.g. #123)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-accent)]"
+              className="w-full pl-10 pr-4 py-2.5 text-sm border border-[var(--color-border)] rounded-xl focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+              style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)" }}
             />
           </div>
           <Button
@@ -311,12 +311,6 @@ export default function MyIssuesPage() {
                             <option key={s} value={s}>{s}</option>
                           ))}
                         </select>
-                        {issue.isVerified && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-xs border border-green-200">
-                            <Check className="w-3 h-3" />
-                            Verified
-                          </span>
-                        )}
                         <div className="flex items-center gap-1">
                           <PriorityDot priority={issue.priority} />
                           <span className="text-xs">{issue.priority}</span>
@@ -330,7 +324,7 @@ export default function MyIssuesPage() {
                           </div>
                         )}
                         {dueInfo && (
-                          <div className={`mt-1 ${dueInfo.isOverdue && issue.status !== "Verified" && issue.status !== "Closed" ? "text-[var(--color-danger)]" : ""}`}>
+                          <div className={`mt-1 ${dueInfo.isOverdue && issue.status !== "Closed" ? "text-[var(--color-danger)]" : ""}`}>
                             Due: {dueInfo.date}
                           </div>
                         )}
@@ -351,11 +345,11 @@ export default function MyIssuesPage() {
         </div>
 
         {/* Desktop table view */}
-        <div className="hidden md:block bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
+        <div className="hidden md:block rounded-xl border border-[var(--color-border)] overflow-hidden" style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)" }}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+                <tr className="border-b border-[var(--color-border)]" style={{ background: "var(--color-surface)" }}>
                   <th className="text-left px-3 md:px-4 py-3 w-10">
                     <input type="checkbox" checked={issues.length > 0 && selectedIssueIds.length === issues.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-[var(--color-border)]" />
                   </th>
@@ -402,14 +396,11 @@ export default function MyIssuesPage() {
                                 <option key={s} value={s}>{s}</option>
                               ))}
                             </select>
-                            {issue.isVerified && (
-                              <Check className="w-4 h-4 text-green-600" />
-                            )}
                           </div>
                         </td>
                         <td className="px-3 md:px-4 py-3 hidden lg:table-cell"><div className="flex items-center gap-2"><PriorityDot priority={issue.priority} /><span className="text-sm">{issue.priority}</span></div></td>
                         <td className="px-3 md:px-4 py-3 hidden xl:table-cell">
-                          {dueInfo && <span className={`text-xs ${dueInfo.isOverdue && issue.status !== "Verified" && issue.status !== "Closed" ? "text-[var(--color-danger)]" : "text-[var(--color-text-secondary)]"}`}>{dueInfo.date}</span>}
+                          {dueInfo && <span className={`text-xs ${dueInfo.isOverdue && issue.status !== "Closed" ? "text-[var(--color-danger)]" : "text-[var(--color-text-secondary)]"}`}>{dueInfo.date}</span>}
                         </td>
                         <td className="px-3 md:px-4 py-3 hidden md:table-cell">
                           {issue.assignees.length > 0 ? <AvatarGroup names={issue.assignees.map((a) => a.user.name)} max={2} /> : <span className="text-xs text-[var(--color-text-placeholder)]">-</span>}
@@ -433,23 +424,23 @@ export default function MyIssuesPage() {
         </div>
 
         {pagination.totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
-            <span className="text-sm text-[var(--color-text-secondary)]">
+          <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4 px-1">
+            <span className="text-[13px] text-[var(--color-text-secondary)]">
               Showing {((paginationState[activeTab] - 1) * pagination.limit) + 1} to {Math.min(paginationState[activeTab] * pagination.limit, pagination.total)} of {pagination.total}
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPaginationState(prev => ({ ...prev, [activeTab]: prev[activeTab] - 1 }))}
                 disabled={paginationState[activeTab] === 1}
-                className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+                className="p-2 rounded-lg border border-[var(--color-border)] hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed touch-target transition-all"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-sm text-[var(--color-text-secondary)]">Page {paginationState[activeTab]} of {pagination.totalPages}</span>
+              <span className="text-[13px] text-[var(--color-text-secondary)] tabular-nums">Page {paginationState[activeTab]} of {pagination.totalPages}</span>
               <button
                 onClick={() => setPaginationState(prev => ({ ...prev, [activeTab]: prev[activeTab] + 1 }))}
                 disabled={paginationState[activeTab] >= pagination.totalPages}
-                className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+                className="p-2 rounded-lg border border-[var(--color-border)] hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed touch-target transition-all"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

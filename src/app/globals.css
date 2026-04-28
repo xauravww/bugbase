@@ -1,20 +1,49 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
 
 :root {
-  /* Notion-inspired color palette */
+  /* Miro-inspired color palette */
+  --tw-color-white: #ffffff;
+  --tw-color-text-primary: #1c1c1e;
+  --tw-color-text-secondary: #555a6a;
+  --tw-color-text-placeholder: #a5a8b5;
+  --tw-color-border: #c7cad5;
+  --tw-color-ring: rgb(224, 226, 232);
+  
+  /* Interactive colors */
+  --tw-color-blue-450: #5b76fe;
+  --tw-color-actionable-pressed: #2a41b6;
+  
+  /* Pastel accent palette */
+  --tw-color-coral-light: #ffc6c6;
+  --tw-color-coral-dark: #600000;
+  --tw-color-rose-light: #ffd8f4;
+  --tw-color-teal-light: #c3faf5;
+  --tw-color-teal-dark: #187574;
+  --tw-color-orange-light: #ffe6cd;
+  --tw-color-yellow-dark: #746019;
+  --tw-color-moss-dark: #187574;
+  --tw-color-pink: #fde0f0;
+  --tw-color-red: #fbd4d4;
+  --tw-color-dark-red: #e3c5c5;
+  
+  /* Success */
+  --tw-color-success-accent: #00b473;
+  
+  /* Original variables (legacy) */
   --color-bg: #ffffff;
   --color-surface: #f7f6f3;
   --color-border: #e9e9e7;
   --color-sidebar-bg: #fbfbfa;
-  --color-text-primary: #1a1a1a;
-  --color-text-secondary: #787774;
-  --color-text-placeholder: #aeaead;
-  --color-accent: #2e75cc;
-  --color-accent-hover: #245ba8;
-  --color-hover-bg: #efefef;
+  --color-text-primary: #1c1c1e;
+  --color-text-secondary: #555a6a;
+  --color-text-placeholder: #a5a8b5;
+  --color-accent: #5b76fe;
+  --color-accent-hover: #2a41b6;
+  --color-hover-bg: #f5f5f5;
   --color-danger: #eb5757;
-  --color-success: #1f8a4c;
+  --color-success: #00b473;
   --color-warning: #d9730d;
   --color-tag-bg: #e4e4e2;
   
@@ -26,27 +55,27 @@
   
   /* Status colors */
   --color-status-open-bg: #e8f0fb;
-  --color-status-open-text: #2e75cc;
-  --color-status-progress-bg: #fef3e7;
+  --color-status-open-text: #5b76fe;
+  --color-status-progress-bg: #ffe6cd;
   --color-status-progress-text: #d9730d;
   --color-status-review-bg: #f3eff9;
   --color-status-review-text: #7b5ea7;
-  --color-status-verified-bg: #e6f4ec;
-  --color-status-verified-text: #1f8a4c;
+  --color-status-verified-bg: #c3faf5;
+  --color-status-verified-text: #00b473;
   --color-status-closed-bg: #e4e4e2;
-  --color-status-closed-text: #787774;
+  --color-status-closed-text: #555a6a;
   
   /* Priority colors */
-  --color-priority-low: #2e75cc;
+  --color-priority-low: #5b76fe;
   --color-priority-medium: #d9730d;
   --color-priority-high: #eb5757;
   --color-priority-critical: #8b0000;
   
   /* Type colors */
-  --color-type-bug-bg: #fde8e8;
+  --color-type-bug-bg: #fbd4d4;
   --color-type-bug-text: #c0392b;
-  --color-type-feature-bg: #e8f4fd;
-  --color-type-feature-text: #2e75cc;
+  --color-type-feature-bg: #c3faf5;
+  --color-type-feature-text: #187574;
 }
 
 @theme inline {
@@ -67,14 +96,26 @@
   --color-tag: var(--color-tag-bg);
   
   /* Typography */
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-sans: "DM Sans", "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
+  
+  /* Miro colors */
+  --tw-color-white: #ffffff;
+  --tw-color-blue-450: #5b76fe;
+  --tw-color-actionable-pressed: #2a41b6;
+  --tw-color-success-accent: #00b473;
+  --tw-color-coral-light: #ffc6c6;
+  --tw-color-rose-light: #ffd8f4;
+  --tw-color-teal-light: #c3faf5;
+  --tw-color-orange-light: #ffe6cd;
+  --tw-color-pink: #fde0f0;
+  --tw-color-red: #fbd4d4;
 }
 
 body {
   background: var(--color-bg);
   color: var(--color-text-primary);
-  font-family: var(--font-sans);
+  font-family: "DM Sans", "Inter", system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -445,6 +486,16 @@ body {
   .btn-responsive {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* Refresh spin animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 

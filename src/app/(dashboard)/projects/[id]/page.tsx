@@ -3,9 +3,9 @@
 import { useEffect, useState, use, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag, Sparkles, Wand2, Clipboard, Check, ExternalLink } from "lucide-react";
+import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag, Sparkles, Wand2, Clipboard, Check, ExternalLink, RefreshCw } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
+import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup, FabButton } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 import { MilestoneList, CreateMilestoneModal, MilestoneDetailModal, MilestonePagination } from "@/components/milestones";
@@ -54,10 +54,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     hasPrev: false
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
   const [activeTab, setActiveTab] = useState<"issues" | "milestones">("issues");
   const [issueStatusTab, setIssueStatusTab] = useState<string>("all");
-  const [issuesPaginationState, setIssuesPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Verified: 1, Closed: 1 });
+  const [issuesPaginationState, setIssuesPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Closed: 1 });
   const [selectedProjectIssueIds, setSelectedProjectIssueIds] = useState<number[]>([]);
   const [bulkProjectStatus, setBulkProjectStatus] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -467,7 +468,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         if (issue.assignees?.length > 0) {
           lines.push(`Assignees: ${issue.assignees.map((a: { user: { name: string } }) => a.user.name).join(", ")}`);
         }
-        if (issue.isVerified) lines.push(`Verified: Yes`);
         lines.push(`Created: ${new Date(issue.createdAt).toLocaleString()}`);
         lines.push(`Updated: ${new Date(issue.updatedAt).toLocaleString()}`);
         if (issue.description) {
@@ -740,150 +740,177 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div>
-      <Header title={project.name} searchValue={issueSearch} onSearchChange={setIssueSearch} searchPlaceholder="Search by title or issue number (e.g. #8)...">
-        {/* Desktop controls in header */}
-        <div className="hidden md:flex items-center gap-2">
-          <div className="flex bg-[var(--color-surface)] rounded-md p-1">
-            <button
-              onClick={() => setActiveTab("issues")}
-              className={`px-3 py-1.5 text-sm rounded touch-target ${activeTab === "issues" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
-            >
-              <List className="w-4 h-4" />
-              <span className="ml-1">Issues</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("milestones")}
-              className={`px-3 py-1.5 text-sm rounded touch-target ${activeTab === "milestones" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
-            >
-              <Flag className="w-4 h-4" />
-              <span className="ml-1">Milestones</span>
-            </button>
-          </div>
-          {activeTab === "issues" && (
-            <>
-              <div className="flex bg-[var(--color-surface)] rounded-md p-1">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`px-3 py-1.5 text-sm rounded touch-target ${viewMode === "list" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode("board")}
-                  className={`px-3 py-1.5 text-sm rounded touch-target ${viewMode === "board" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
+    <div className="min-h-screen" style={{ background: "#ffffff" }}>
+      {/* Hero Header - Miro style */}
+      <div className="sticky top-0 z-40" style={{ background: "#ffffff", borderBottom: "1px solid #e9eaef" }}>
+        <div className="px-3 md:px-8 py-3 md:py-4">
+          {/* Mobile: Stack vertically */}
+          <div className="flex flex-col gap-3 md:gap-0 md:flex-row md:items-center md:justify-between md:max-w-[1400px] md:mx-auto">
+            {/* Breadcrumb - Stack on mobile */}
+            <div className="flex items-center justify-between md:justify-start md:flex-1">
+              <div className="flex items-center gap-2">
+                <Link href="/projects" className="flex items-center gap-1 p-1.5 md:p-2 rounded-lg hover:bg-gray-50 transition-colors" style={{ color: "#555a6a" }}>
+                  <ChevronLeft className="w-4 h-4 md:w-5 h-5" />
+                </Link>
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <span className="text-lg md:text-2xl font-medium truncate max-w-[120px] md:max-w-none" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
+                    {project.name}
+                  </span>
+                  <span className="text-xs md:text-sm px-1.5 md:px-2 py-0.5 rounded-full" style={{ background: "#f7f6f3", color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>
+                    {project.key}
+                  </span>
+                </div>
               </div>
-              {canCreateIssue && (
-                <Button onClick={() => setShowCreateModal(true)} className="touch-target">
-                  <Plus className="w-4 h-4 mr-2" />
-                  <span className="mobile-hidden">New Issue</span>
-                  <span className="desktop-hidden">New</span>
-                </Button>
-              )}
-            </>
-          )}
-          {activeTab === "milestones" && user?.role === "Admin" && (
-            <Button onClick={() => setShowCreateMilestoneModal(true)} className="touch-target">
-              <Plus className="w-4 h-4 mr-2" />
-              <span className="mobile-hidden">New Milestone</span>
-              <span className="desktop-hidden">New</span>
-            </Button>
-          )}
-        </div>
-        {/* Mobile: just show create button in header */}
-        <div className="md:hidden flex items-center gap-1">
-          {activeTab === "issues" && canCreateIssue && (
-            <Button onClick={() => setShowCreateModal(true)} className="touch-target px-2">
-              <Plus className="w-4 h-4" />
-            </Button>
-          )}
-          {activeTab === "milestones" && user?.role === "Admin" && (
-            <Button onClick={() => setShowCreateMilestoneModal(true)} className="touch-target px-2">
-              <Plus className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      </Header>
-
-      <div className="p-6 mobile-p-4">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] mb-4">
-          <Link href="/projects" className="hover:text-[var(--color-accent)] flex items-center gap-1">
-            <ChevronLeft className="w-4 h-4" />
-            <span className="mobile-hidden">Projects</span>
-          </Link>
-          <span>/</span>
-          <span className="text-[var(--color-text-primary)] truncate">{project.name}</span>
-        </div>
-
-        {/* Mobile Controls - Tabs and View Mode */}
-        <div className="md:hidden mb-4 space-y-3">
-          {/* Tabs */}
-          <div className="flex bg-[var(--color-surface)] rounded-md p-1">
-            <button
-              onClick={() => setActiveTab("issues")}
-              className={`flex-1 px-3 py-2 text-sm rounded touch-target flex items-center justify-center gap-1 ${activeTab === "issues" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
-            >
-              <List className="w-4 h-4" />
-              <span>Issues</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("milestones")}
-              className={`flex-1 px-3 py-2 text-sm rounded touch-target flex items-center justify-center gap-1 ${activeTab === "milestones" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
-            >
-              <Flag className="w-4 h-4" />
-              <span>Milestones</span>
-            </button>
-          </div>
-          {/* View Mode Toggle - only show for issues */}
-          {activeTab === "issues" && (
-            <div className="flex items-center justify-between">
-              <div className="flex bg-[var(--color-surface)] rounded-md p-1">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`px-3 py-1.5 text-sm rounded touch-target flex items-center gap-1 ${viewMode === "list" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
-                >
-                  <List className="w-4 h-4" />
-                  <span>List</span>
-                </button>
-                <button
-                  onClick={() => setViewMode("board")}
-                  className={`px-3 py-1.5 text-sm rounded touch-target flex items-center gap-1 ${viewMode === "board" ? "bg-white shadow-sm" : "text-[var(--color-text-secondary)]"}`}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                  <span>Board</span>
-                </button>
-              </div>
-              <span className="text-sm text-[var(--color-text-secondary)]">
-                {issuesPagination.total} issue{issuesPagination.total !== 1 ? "s" : ""}
-              </span>
             </div>
-          )}
+            
+            {/* Header Actions - Wrap on mobile */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+              {/* Search with Refresh */}
+              <div className="flex items-center gap-1.5 md:gap-2 flex-1 md:flex-none">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={issueSearch}
+                    onChange={(e) => setIssueSearch(e.target.value)}
+                    className="w-full min-w-[120px] md:w-64 px-2 md:px-4 py-1.5 md:py-2 text-xs md:text-sm rounded-lg border transition-all focus:outline-none focus:border-[#5b76fe]"
+                    style={{ background: "#f7f6f3", borderColor: "transparent", fontFamily: "DM Sans, sans-serif" }}
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    setIsRefreshing(true);
+                    setIssueSearch("");
+                    await fetchProject(1);
+                    if (activeTab === "milestones") {
+                      await fetchMilestones(1);
+                    }
+                    setIsRefreshing(false);
+                  }}
+                  className="p-1.5 md:p-2 rounded-lg transition-all hover:bg-gray-100 disabled:opacity-50"
+                  style={{ color: "#555a6a" }}
+                  disabled={isRefreshing}
+                  title="Refresh"
+                >
+                  <RefreshCw 
+                    className="w-4 h-4" 
+                    style={{ 
+                      animation: isRefreshing ? "spin 1s linear infinite" : "none"
+                    }} 
+                  />
+                </button>
+              </div>
+              
+              {/* Create Button - Using FabButton for consistency */}
+              {activeTab === "issues" && canCreateIssue && (
+                <FabButton
+                  icon={Plus}
+                  label="New Issue"
+                  labelMobile="New"
+                  onClick={() => setShowCreateModal(true)}
+                  isLoading={isCreating}
+                />
+              )}
+            </div>
+          </div>
         </div>
+        
+        {/* Tab Navigation - Unified segment control */}
+        <div className="px-3 md:px-8">
+          <div className="flex items-center gap-2 md:gap-1 max-w-[1400px] mx-auto">
+            <div className="flex p-1 rounded-xl flex-1 md:flex-none" style={{ background: "#f7f6f3" }}>
+              <button
+                onClick={() => setActiveTab("issues")}
+                className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
+                style={{ 
+                  background: activeTab === "issues" ? "#ffffff" : "transparent", 
+                  color: activeTab === "issues" ? "#1c1c1e" : "#555a6a",
+                  fontFamily: "DM Sans, sans-serif",
+                  boxShadow: activeTab === "issues" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== "issues") {
+                    e.currentTarget.style.background = "#e9e9e9";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== "issues") {
+                    e.currentTarget.style.background = "transparent";
+                  }
+                }}
+              >
+                <span className="md:hidden">Issues</span>
+                <span className="hidden md:inline">Issues</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("milestones")}
+                className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
+                style={{ 
+                  background: activeTab === "milestones" ? "#ffffff" : "transparent", 
+                  color: activeTab === "milestones" ? "#1c1c1e" : "#555a6a",
+                  fontFamily: "DM Sans, sans-serif",
+                  boxShadow: activeTab === "milestones" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== "milestones") {
+                    e.currentTarget.style.background = "#e9e9e9";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== "milestones") {
+                    e.currentTarget.style.background = "transparent";
+                  }
+                }}
+              >
+                <span className="md:hidden">Milestones</span>
+                <span className="hidden md:inline">Milestones</span>
+              </button>
+            </div>
+            
+            {/* Issue count badge */}
+            {activeTab === "issues" && (
+              <span className="ml-auto text-sm whitespace-nowrap" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
+                {issuesPagination.total} {issuesPagination.total === 1 ? "issue" : "issues"}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="p-3 md:p-8 max-w-[1400px] mx-auto">
         {activeTab === "issues" && (
           <>
-            <div className="mb-4 border-b border-[var(--color-border)]">
-              <div className="flex gap-1 overflow-x-auto">
+            {/* Status Tabs - Horizontal scroll on mobile */}
+            <div className="overflow-x-auto pb-2 mb-4 md:mb-6 -mx-3 px-3 md:px-0">
+              <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: "#f7f6f3", width: "fit-content", minWidth: "max-content" }}>
                 {[
                   { key: "all", label: "All" },
                   { key: "Open", label: "Open" },
                   { key: "In Progress", label: "In Progress" },
                   { key: "In Review", label: "In Review" },
-                  { key: "Verified", label: "Verified" },
                   { key: "Closed", label: "Closed" },
                 ].map((tab) => (
                   <button
                     key={tab.key}
                     onClick={() => setIssueStatusTab(tab.key)}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      issueStatusTab === tab.key
-                        ? "border-[var(--color-accent)] text-[var(--color-accent)]"
-                        : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-                    }`}
+                    className="px-3 md:px-4 py-2 text-xs md:text-sm font-medium rounded-lg transition-all whitespace-nowrap"
+                    style={{
+                      background: issueStatusTab === tab.key ? "#ffffff" : "transparent",
+                      color: issueStatusTab === tab.key ? "#1c1c1e" : "#555a6a",
+                      fontFamily: "DM Sans, sans-serif",
+                      boxShadow: issueStatusTab === tab.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                    }}
+                    onMouseEnter={(e) => {
+                      if (issueStatusTab !== tab.key) {
+                        e.currentTarget.style.background = "#e9e9e9";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (issueStatusTab !== tab.key) {
+                        e.currentTarget.style.background = "transparent";
+                      }
+                    }}
                   >
                     {tab.label}
                   </button>
@@ -891,56 +918,112 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-3 mb-6 mobile-flex-col">
-              <div className="flex flex-wrap items-center gap-3">
-                <Select
-                  options={[
-                    { value: "all", label: "All Types" },
-                    ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t })),
-                  ]}
-                  value={filterType}
-                  onChange={(e) => { setFilterType(e.target.value); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
-                  className="w-32 mobile-full-width"
-                />
-                <Select
-                  options={[
-                    { value: "all", label: "All Priorities" },
-                    ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p })),
-                  ]}
-                  value={filterPriority}
-                  onChange={(e) => { setFilterPriority(e.target.value); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
-                  className="w-36 mobile-full-width"
-                />
-              </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-sm text-[var(--color-text-secondary)] whitespace-nowrap">
-                  {issuesPagination.total} issue{issuesPagination.total !== 1 ? "s" : ""}
-                </span>
+            {/* Filters & View Toggle - Stack on mobile */}
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-4 md:mb-6">
+              <Select
+                options={[
+                  { value: "all", label: "All Types" },
+                  ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t })),
+                ]}
+                value={filterType}
+                onChange={(e) => { setFilterType(e.target.value); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
+                className="w-36"
+              />
+              <Select
+                options={[
+                  { value: "all", label: "All Priorities" },
+                  ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p })),
+                ]}
+                value={filterPriority}
+                onChange={(e) => { setFilterPriority(e.target.value); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
+                className="w-40"
+              />
+              
+              <div className="flex items-center gap-2 ml-auto">
+                {/* View Toggle */}
+                <div className="flex p-1 rounded-xl" style={{ background: "#f7f6f3" }}>
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className="p-2 rounded-lg transition-all"
+                    style={{ 
+                      background: viewMode === "list" ? "#ffffff" : "transparent", 
+                      boxShadow: viewMode === "list" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      fontFamily: "DM Sans, sans-serif"
+                    }}
+                    onMouseEnter={(e) => {
+                      if (viewMode !== "list") {
+                        e.currentTarget.style.background = "#e9e9e9";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (viewMode !== "list") {
+                        e.currentTarget.style.background = "transparent";
+                      }
+                    }}
+                    title="List view"
+                  >
+                    <List className="w-4 h-4" style={{ color: viewMode === "list" ? "#1c1c1e" : "#555a6a" }} />
+                  </button>
+                  <button
+                    onClick={() => setViewMode("board")}
+                    className="p-2 rounded-lg transition-all"
+                    style={{ 
+                      background: viewMode === "board" ? "#ffffff" : "transparent", 
+                      boxShadow: viewMode === "board" ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      fontFamily: "DM Sans, sans-serif"
+                    }}
+                    onMouseEnter={(e) => {
+                      if (viewMode !== "board") {
+                        e.currentTarget.style.background = "#e9e9e9";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (viewMode !== "board") {
+                        e.currentTarget.style.background = "transparent";
+                      }
+                    }}
+                    title="Board view"
+                  >
+                    <LayoutGrid className="w-4 h-4" style={{ color: viewMode === "board" ? "#1c1c1e" : "#555a6a" }} />
+                  </button>
+                </div>
+                
                 <Button
                   variant="secondary"
                   onClick={handleCopyAllIssues}
-                  className="flex items-center gap-2 touch-target"
+                  className="flex items-center gap-2"
+                  style={{ 
+                    border: "1px solid #e9eaef", 
+                    borderRadius: "8px",
+                    fontFamily: "DM Sans, sans-serif",
+                    padding: "8px 12px"
+                  }}
                   disabled={filteredIssues.length === 0 || isCopying}
                 >
-                  {copiedIssues ? <Check className="w-4 h-4 text-green-600" /> : <Clipboard className="w-4 h-4" />}
-                  <span className="mobile-hidden">{isCopying ? "Copying..." : copiedIssues ? "Copied!" : "Copy All"}</span>
+                  {copiedIssues ? <Check className="w-4 h-4" style={{ color: "#00b473" }} /> : <Clipboard className="w-4 h-4" />}
+                  <span>{isCopying ? "Copying..." : copiedIssues ? "Copied!" : "Copy"}</span>
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={handleExportPdf}
-                  className="flex items-center gap-2 ml-auto touch-target"
+                  className="flex items-center gap-2"
+                  style={{ 
+                    border: "1px solid #e9eaef", 
+                    borderRadius: "8px",
+                    fontFamily: "DM Sans, sans-serif",
+                    padding: "8px 12px"
+                  }}
                 >
                   <Download className="w-4 h-4" />
-                  <span className="mobile-hidden">Export PDF</span>
+                  <span>Export</span>
                 </Button>
               </div>
             </div>
 
             {/* Bulk status update bar */}
             {selectedProjectIssueIds.length > 0 && (
-              <div className="flex items-center gap-3 mb-4 p-3 bg-[var(--color-accent-light,#e8f0fb)] border border-[var(--color-accent)] rounded-lg">
-                <span className="text-sm font-medium">{selectedProjectIssueIds.length} selected</span>
+              <div className="flex items-center gap-3 mb-4 p-3 rounded-lg" style={{ background: "#c3faf5", border: "1px solid #5b76fe" }}>
+                <span className="text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>{selectedProjectIssueIds.length} selected</span>
                 <Select
                   options={[
                     { value: "", label: "Change status to..." },
@@ -950,10 +1033,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   onChange={(e) => setBulkProjectStatus(e.target.value)}
                   className="w-44"
                 />
-                <Button variant="primary" onClick={handleBulkProjectStatusUpdate} disabled={!bulkProjectStatus} className="text-sm">
+                <Button variant="primary" onClick={handleBulkProjectStatusUpdate} disabled={!bulkProjectStatus} className="text-sm" style={{ background: "#5b76fe", borderRadius: "8px" }}>
                   Update
                 </Button>
-                <button onClick={() => setSelectedProjectIssueIds([])} className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] ml-auto">
+                <button onClick={() => setSelectedProjectIssueIds([])} className="text-sm ml-auto hover:opacity-80" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>
                   Clear
                 </button>
               </div>
@@ -961,76 +1044,94 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
             {/* List View */}
             {viewMode === "list" && (
-              <div className="bg-white border border-[var(--color-border)] rounded-lg overflow-hidden">
+              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: "#e9eaef", background: "#ffffff", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[800px]">
+                  <table className="w-full min-w-[900px]">
                     <thead>
-                      <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-                        <th className="text-left px-4 py-3 w-10">
-                          <input type="checkbox" checked={filteredIssues.length > 0 && selectedProjectIssueIds.length === filteredIssues.length} onChange={toggleProjectSelectAll} className="w-4 h-4 rounded border-[var(--color-border)]" />
+                      <tr style={{ background: "#fafafa" }}>
+                        <th className="text-left px-5 py-4 w-10">
+                          <input 
+                            type="checkbox" 
+                            checked={filteredIssues.length > 0 && selectedProjectIssueIds.length === filteredIssues.length} 
+                            onChange={toggleProjectSelectAll} 
+                            className="w-4 h-4 rounded"
+                            style={{ borderColor: "#c7cad5" }}
+                          />
                         </th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">ID</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Title</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Type</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Status</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Priority</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Assignees</th>
-                        <th className="text-left px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase w-20">Action</th>
+                        <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>ID</th>
+                        <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Title</th>
+                        <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Type</th>
+                        <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Status</th>
+                        <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Priority</th>
+                        <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Assignees</th>
+                        <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide w-24" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredIssues.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="text-center py-12 text-[var(--color-text-secondary)]">
-                            No issues found
+                          <td colSpan={8} className="text-center py-16" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
+                            No issues found — create your first issue to get started
                           </td>
                         </tr>
                       ) : (
                         filteredIssues.map((issue) => (
                           <tr
                             key={issue.id}
-                            className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)]"
+                            className="border-b transition-colors hover:bg-gray-50"
+                            style={{ borderColor: "#f5f5f5" }}
                           >
-                            <td className="px-4 py-3">
-                              <input type="checkbox" checked={selectedProjectIssueIds.includes(issue.id)} onChange={() => toggleProjectIssue(issue.id)} className="w-4 h-4 rounded border-[var(--color-border)]" />
+                            <td className="px-5 py-4">
+                              <input 
+                                type="checkbox" 
+                                checked={selectedProjectIssueIds.includes(issue.id)} 
+                                onChange={() => toggleProjectIssue(issue.id)} 
+                                className="w-4 h-4 rounded"
+                                style={{ borderColor: "#c7cad5" }}
+                              />
                             </td>
-                            <td className="px-4 py-3 text-sm font-mono text-[var(--color-text-secondary)]">
+                            <td className="px-5 py-4 text-sm font-mono" style={{ color: "#a5a8b5" }}>
                               #{issue.id}
                             </td>
-                            <td className="px-4 py-3 text-sm font-medium text-[var(--color-text-primary)]">
+                            <td className="px-5 py-4 text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                               {issue.title}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-5 py-4">
                               <TypeBadge type={issue.type} />
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-5 py-4">
+                              <TypeBadge type={issue.type} />
+                            </td>
+                            <td className="px-5 py-4">
                               <select
                                 value={issue.status}
                                 onChange={(e) => handleProjectStatusChange(issue.id, e.target.value)}
-                                className="text-xs px-2 py-1 rounded border border-[var(--color-border)] bg-white cursor-pointer"
+                                className="text-sm px-3 py-2 rounded-lg border cursor-pointer bg-white"
+                                style={{ borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
                               >
                                 {Object.values(ISSUE_STATUSES).map(s => (
                                   <option key={s} value={s}>{s}</option>
                                 ))}
                               </select>
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-5 py-4">
                               <div className="flex items-center gap-2">
                                 <PriorityDot priority={issue.priority} />
-                                <span className="text-sm text-[var(--color-text-secondary)]">{issue.priority}</span>
+                                <span className="text-sm" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>{issue.priority}</span>
                               </div>
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-5 py-4">
                               {issue.assignees.length > 0 ? (
                                 <AvatarGroup names={issue.assignees.map((a) => a.user.name)} />
                               ) : (
-                                <span className="text-sm text-[var(--color-text-placeholder)]">Unassigned</span>
+                                <span className="text-sm" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>Unassigned</span>
                               )}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-5 py-4">
                               <button
-                                onClick={() => window.open(`/issues/${issue.id}`, "_blank")}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-[var(--color-accent)] bg-[var(--color-accent-light,#e8f0fb)] rounded-md hover:opacity-80 transition-opacity"
+                                onClick={() => router.push(`/issues/${issue.id}`)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md hover:opacity-80 transition-opacity"
+                                style={{ background: "#c3faf5", color: "#187574", fontFamily: "DM Sans, sans-serif" }}
                               >
                                 <ExternalLink className="w-3 h-3" />
                                 Open
@@ -1052,30 +1153,40 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   {Object.entries(groupedIssues).map(([status, statusIssues]) => (
                     <div
                       key={status}
-                      className="flex-shrink-0 w-72 bg-[var(--color-surface)] rounded-lg p-3"
+                      className="flex-shrink-0 w-80 rounded-2xl p-4"
+                      style={{ background: "#fafafa" }}
                     >
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-medium text-sm text-[var(--color-text-primary)]">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-sm" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                           {status}
                         </h3>
-                        <span className="text-xs text-[var(--color-text-secondary)] bg-white px-2 py-0.5 rounded">
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-full shadow-sm" style={{ background: "#ffffff", color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>
                           {statusIssues.length}
                         </span>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {statusIssues.map((issue) => (
                           <Link
                             key={issue.id}
                             href={`/issues/${issue.id}`}
-                            className="block bg-white border border-[var(--color-border)] rounded-lg p-3 hover:border-[var(--color-accent)] transition-colors"
+                            className="block rounded-xl p-4 transition-all duration-200"
+                            style={{ background: "#ffffff", border: "1px solid #e9e9e9" }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
+                              e.currentTarget.style.transform = "translateY(-2px)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.boxShadow = "none";
+                              e.currentTarget.style.transform = "translateY(0)";
+                            }}
                           >
-                            <div className="flex items-start justify-between mb-2">
-                              <span className="text-xs font-mono text-[var(--color-text-secondary)]">
+                            <div className="flex items-start justify-between mb-3">
+                              <span className="text-xs font-mono" style={{ color: "#a5a8b5" }}>
                                 #{issue.id}
                               </span>
                               <TypeBadge type={issue.type} />
                             </div>
-                            <h4 className="text-sm font-medium text-[var(--color-text-primary)] mb-2 line-clamp-2">
+                            <h4 className="text-sm font-medium mb-3 line-clamp-2" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                               {issue.title}
                             </h4>
                             <div className="flex items-center justify-between">
@@ -1095,25 +1206,27 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
             {/* Pagination */}
             {issuesPagination.totalPages > 1 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
-                <span className="text-sm text-[var(--color-text-secondary)]">
+              <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4 px-1">
+                <span className="text-[13px]" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>
                   Showing {((issuesPaginationState[issueStatusTab] - 1) * issuesPagination.limit) + 1} to {Math.min(issuesPaginationState[issueStatusTab] * issuesPagination.limit, issuesPagination.total)} of {issuesPagination.total}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleIssuePageChange(issuesPaginationState[issueStatusTab] - 1)}
                     disabled={issuesPaginationState[issueStatusTab] === 1}
-                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+                    className="p-2 rounded-lg border hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed touch-target transition-all"
+                    style={{ borderColor: "#c7cad5" }}
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-sm text-[var(--color-text-secondary)]">
+                  <span className="text-[13px] tabular-nums" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>
                     Page {issuesPaginationState[issueStatusTab]} of {issuesPagination.totalPages}
                   </span>
                   <button
                     onClick={() => handleIssuePageChange(issuesPaginationState[issueStatusTab] + 1)}
                     disabled={issuesPaginationState[issueStatusTab] >= issuesPagination.totalPages}
-                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+                    className="p-2 rounded-lg border hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed touch-target transition-all"
+                    style={{ borderColor: "#c7cad5" }}
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -1148,7 +1261,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       >
         <form onSubmit={handleCreateIssue} className="space-y-4">
           {createError && (
-            <div className="p-3 text-sm text-[var(--color-danger)] bg-red-50 rounded-md border border-red-100">
+            <div className="p-3 text-sm rounded-md border" style={{ background: "#fbd4d4", color: "#c0392b", borderColor: "#fbd4d4" }}>
               {createError}
             </div>
           )}
@@ -1167,20 +1280,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 type="button"
                 onClick={() => handleRefine("title")}
                 disabled={refiningField === "title"}
-                className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+                className="absolute right-2 top-9 p-1.5 hover:opacity-80 disabled:opacity-50 touch-target z-10"
+                style={{ color: "#555a6a" }}
                 title="AI Refine"
               >
-                <Sparkles className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+                <Sparkles className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => handleSuggest("title")}
                 disabled={refiningField === "title"}
-                className="absolute right-2 top-9 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+                className="absolute right-2 top-9 p-1.5 hover:opacity-80 disabled:opacity-50 touch-target z-10"
+                style={{ color: "#555a6a" }}
                 title="AI Suggest"
               >
-                <Wand2 className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+                <Wand2 className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
               </button>
             )}
           </div>
@@ -1204,7 +1319,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+              <label className="block text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                 Description
               </label>
               {createForm.description ? (
@@ -1212,10 +1327,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   type="button"
                   onClick={() => handleRefine("description")}
                   disabled={refiningField === "description"}
-                  className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                  className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
+                  style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
                   title="AI Refine"
                 >
-                  <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                  <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
                   {refiningField === "description" ? "Refining..." : "AI Refine"}
                 </button>
               ) : (
@@ -1223,16 +1339,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   type="button"
                   onClick={() => handleSuggest("description")}
                   disabled={refiningField === "description"}
-                  className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                  className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
+                  style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
                   title="AI Suggest"
                 >
-                  <Wand2 className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                  <Wand2 className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
                   {refiningField === "description" ? "Suggesting..." : "AI Suggest"}
                 </button>
               )}
             </div>
             <textarea
-              className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+              className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
+              style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
               placeholder="Describe the issue... (Markdown supported)"
               rows={4}
               value={createForm.description}
@@ -1244,7 +1362,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                  <label className="block text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                     Steps to Reproduce
                   </label>
                   {createForm.stepsToReproduce ? (
@@ -1252,10 +1370,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       type="button"
                       onClick={() => handleRefine("stepsToReproduce")}
                       disabled={refiningField === "stepsToReproduce"}
-                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
+                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
                       title="AI Refine"
                     >
-                      <Sparkles className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} />
+                      <Sparkles className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
                       {refiningField === "stepsToReproduce" ? "Refining..." : "AI Refine"}
                     </button>
                   ) : (
@@ -1263,16 +1382,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       type="button"
                       onClick={() => handleSuggest("stepsToReproduce")}
                       disabled={refiningField === "stepsToReproduce"}
-                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
+                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
                       title="AI Suggest"
                     >
-                      <Wand2 className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} />
+                      <Wand2 className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
                       {refiningField === "stepsToReproduce" ? "Suggesting..." : "AI Suggest"}
                     </button>
                   )}
                 </div>
                 <textarea
-                  className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                  className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
+                  style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
                   placeholder="1. Go to...&#10;2. Click on...&#10;3. See error... (Markdown supported)"
                   rows={4}
                   value={createForm.stepsToReproduce}
@@ -1282,7 +1403,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                  <label className="block text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                     Expected Result
                   </label>
                   {createForm.expectedResult ? (
@@ -1290,10 +1411,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       type="button"
                       onClick={() => handleRefine("expectedResult")}
                       disabled={refiningField === "expectedResult"}
-                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
+                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
                       title="AI Refine"
                     >
-                      <Sparkles className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} />
+                      <Sparkles className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
                       {refiningField === "expectedResult" ? "Refining..." : "AI Refine"}
                     </button>
                   ) : (
@@ -1301,16 +1423,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       type="button"
                       onClick={() => handleSuggest("expectedResult")}
                       disabled={refiningField === "expectedResult"}
-                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
+                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
                       title="AI Suggest"
                     >
-                      <Wand2 className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} />
+                      <Wand2 className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
                       {refiningField === "expectedResult" ? "Suggesting..." : "AI Suggest"}
                     </button>
                   )}
                 </div>
                 <textarea
-                  className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                  className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
+                  style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
                   placeholder="What should happen... (Markdown supported)"
                   rows={2}
                   value={createForm.expectedResult}
@@ -1320,7 +1444,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-sm font-medium text-[var(--color-text-primary)]">
+                  <label className="block text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                     Actual Result
                   </label>
                   {createForm.actualResult ? (
@@ -1328,10 +1452,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       type="button"
                       onClick={() => handleRefine("actualResult")}
                       disabled={refiningField === "actualResult"}
-                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
+                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
                       title="AI Refine"
                     >
-                      <Sparkles className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} />
+                      <Sparkles className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
                       {refiningField === "actualResult" ? "Refining..." : "AI Refine"}
                     </button>
                   ) : (
@@ -1339,16 +1464,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       type="button"
                       onClick={() => handleSuggest("actualResult")}
                       disabled={refiningField === "actualResult"}
-                      className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
+                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
                       title="AI Suggest"
                     >
-                      <Wand2 className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} />
+                      <Wand2 className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
                       {refiningField === "actualResult" ? "Suggesting..." : "AI Suggest"}
                     </button>
                   )}
                 </div>
                 <textarea
-                  className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
+                  className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
+                  style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
                   placeholder="What actually happens... (Markdown supported)"
                   rows={2}
                   value={createForm.actualResult}
@@ -1360,23 +1487,25 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+              <label className="block text-sm font-medium mb-1.5" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                 Start Date
               </label>
               <input
                 type="date"
-                className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+                className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none"
+                style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
                 value={createForm.startDate}
                 onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+              <label className="block text-sm font-medium mb-1.5" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                 Due Date
               </label>
               <input
                 type="date"
-                className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)]"
+                className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none"
+                style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
                 value={createForm.dueDate}
                 onChange={(e) => setCreateForm({ ...createForm, dueDate: e.target.value })}
               />
@@ -1384,12 +1513,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div onPaste={handleScreenshotPaste}>
-            <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
+            <label className="block text-sm font-medium mb-1.5" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
               Screenshots
             </label>
             <div className="flex flex-wrap gap-2 mb-2">
               {screenshots.map((s, index) => (
-                <div key={index} className="relative w-16 h-16 rounded overflow-hidden border border-[var(--color-border)] group cursor-pointer hover:border-[var(--color-accent)] transition-all">
+                <div key={index} className="relative w-16 h-16 rounded overflow-hidden border group cursor-pointer hover:border-[#5b76fe] transition-all" style={{ borderColor: "#c7cad5" }}>
                   <img
                     src={s.preview}
                     alt={`screenshot-${index}`}
@@ -1399,14 +1528,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); removeScreenshot(index); }}
-                    className="absolute top-0 right-0 bg-black/50 text-white p-0.5 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-0 right-0 p-0.5 rounded-bl opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: "rgba(0,0,0,0.5)", color: "#ffffff" }}
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </div>
               ))}
             </div>
-            <label className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-[var(--color-border)] rounded-md text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] cursor-pointer">
+            <label className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed rounded-md cursor-pointer hover:border-[#5b76fe] hover:text-[#5b76fe] transition-all" style={{ borderColor: "#c7cad5", color: "#555a6a" }}>
               {isUploading ? (
                 "Uploading..."
               ) : (
@@ -1423,14 +1553,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 disabled={isUploading}
               />
             </label>
-            <p className="text-[10px] text-[var(--color-text-placeholder)] mt-1 text-center">or paste with Ctrl+V</p>
+            <p className="text-[10px] mt-1 text-center" style={{ color: "#a5a8b5" }}>or paste with Ctrl+V</p>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={() => setShowCreateModal(false)}>
+            <Button type="button" variant="secondary" onClick={() => setShowCreateModal(false)} style={{ border: "1px solid #c7cad5", borderRadius: "8px", fontFamily: "DM Sans, sans-serif" }}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isCreating}>
+            <Button type="submit" disabled={isCreating} style={{ background: "#5b76fe", borderRadius: "8px", fontFamily: "DM Sans, sans-serif" }}>
               {isCreating ? "Creating..." : "Create Issue"}
             </Button>
           </div>
@@ -1440,12 +1570,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       {/* Screenshot Preview Overlay */}
       {previewImage && (
         <div
-          className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center cursor-pointer"
+          className="fixed inset-0 z-[60] flex items-center justify-center cursor-pointer"
+          style={{ background: "rgba(0,0,0,0.90)" }}
           onClick={() => setPreviewImage(null)}
         >
           <button
             onClick={() => setPreviewImage(null)}
-            className="absolute top-4 right-4 p-2 text-white hover:bg-white/20 rounded-full"
+            className="absolute top-4 right-4 p-2 rounded-full hover:opacity-80 transition-opacity"
+            style={{ color: "#ffffff", background: "rgba(255,255,255,0.2)" }}
           >
             <X className="w-6 h-6" />
           </button>

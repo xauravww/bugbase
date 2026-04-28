@@ -27,12 +27,6 @@ export const STATUS_CONFIG = {
     color: "#7b5ea7",
     bgColor: "#f3eff9",
   },
-  [ISSUE_STATUSES.VERIFIED]: {
-    label: "Verified",
-    className: "badge-verified",
-    color: "#1f8a4c",
-    bgColor: "#e6f4ec",
-  },
   [ISSUE_STATUSES.CLOSED]: {
     label: "Closed",
     className: "badge-closed",

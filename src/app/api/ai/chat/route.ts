@@ -148,6 +148,35 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+
+      // Get detailed bug info for better context
+      const allBugs = await db.query.issues.findMany({
+        where: inArray(issues.projectId, projectIds),
+        columns: { 
+          id: true, 
+          title: true, 
+          type: true, 
+          status: true, 
+          priority: true, 
+          description: true,
+          stepsToReproduce: true,
+          expectedResult: true,
+          actualResult: true,
+        },
+        orderBy: desc(issues.updatedAt),
+        limit: 30,
+      });
+      
+      if (allBugs.length > 0) {
+        context += `\n--- Bug Details ---\n`;
+        const bugs = allBugs.filter((i: any) => i.type === "Bug").slice(0, 15);
+        for (const bug of bugs) {
+          context += `\nBug #${bug.id}: ${bug.title}\n`;
+          context += `  Status: ${bug.status} | Priority: ${bug.priority}\n`;
+          if (bug.description) context += `  Description: ${bug.description.slice(0, 200)}${bug.description.length > 200 ? "..." : ""}\n`;
+          if (bug.stepsToReproduce) context += `  Steps: ${bug.stepsToReproduce.slice(0, 150)}${bug.stepsToReproduce.length > 150 ? "..." : ""}\n`;
+        }
+      }
     }
 
     const systemPrompt = `You are BugBase Assistant, an AI helper for a bug tracking and project management platform. Answer questions about project status, bugs, testing progress, milestones, and team activity using the provided context. Be concise and helpful. If you don't have enough information to answer, say so.

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Plus, FolderKanban, Users, Bug, Archive, Search, ChevronLeft, ChevronRight, Calendar, Pencil, X } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Button, Modal, Input, PageLoader, Badge, Avatar, Select } from "@/components/ui";
+import { Button, Modal, Input, PageLoader, Badge, Avatar, Select, FabButton } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClickOutside } from "@/hooks/useClickOutside";
 
@@ -260,37 +260,40 @@ export default function ProjectsPage() {
   if (isLoading) return <PageLoader />;
 
   return (
-    <div>
-      <Header 
+    <div className="min-h-screen" style={{ background: "linear-gradient(135deg, #fafaf9 0%, #f5f3f0 100%)" }}>
+      <Header
         title="Projects"
         showMobileAdd={user?.role === "Admin"}
         onMobileAction={() => setShowCreateModal(true)}
       >
         {user?.role === "Admin" && (
-          <Button onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            <span className="mobile-hidden">New Project</span>
-            <span className="desktop-hidden">New</span>
-          </Button>
+          <FabButton
+            icon={Plus}
+            label="New Project"
+            labelMobile="New"
+            onClick={() => setShowCreateModal(true)}
+            isLoading={isCreating}
+          />
         )}
       </Header>
 
-      <div className="p-4 max-w-[1100px]">
-        <div className="mb-4">
+      <div className="px-4 py-5 md:px-8 md:py-7 max-w-[1200px] mx-auto">
+        <div className="mb-5">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-placeholder)]" />
             <input
               type="text"
               placeholder="Search projects..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:border-[var(--color-accent)]"
+              className="w-full pl-10 pr-4 py-2.5 text-sm border border-[var(--color-border)] rounded-xl focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+              style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)" }}
             />
           </div>
         </div>
 
         {projects.length === 0 ? (
-          <div className="text-center py-16">
+          <div className="text-center py-16 rounded-xl border border-[var(--color-border)]" style={{ background: "rgba(255,255,255,0.7)", backdropFilter: "blur(8px)" }}>
             <FolderKanban className="w-12 h-12 text-[var(--color-text-placeholder)] mx-auto mb-4" />
             <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-2">
               No projects found
@@ -309,13 +312,14 @@ export default function ProjectsPage() {
         ) : (
           <>
             {/* Mobile view */}
-            <div className="md:hidden space-y-4">
+            <div className="md:hidden space-y-3">
               {projects.map((project) => {
                 const isAdmin = project.members.some(m => m.user.id === user?.id && m.role === "admin") || user?.role === "Admin";
                 return (
                   <div
                     key={project.id}
-                    className="relative bg-white border border-[var(--color-border)] rounded-lg p-4"
+                    className="relative rounded-xl border border-[var(--color-border)] p-4 transition-all duration-200 hover:shadow-md"
+                    style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)" }}
                   >
                     <Link href={`/projects/${project.id}`} className="block">
                       <div className="flex items-start justify-between mb-2">
@@ -338,16 +342,20 @@ export default function ProjectsPage() {
                       )}
 
                       <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
-                          <span className="flex items-center gap-1"><Bug className="w-4 h-4" />{project.openIssueCount} open</span>
-                          <span className="flex items-center gap-1"><Users className="w-4 h-4" />{project.members.length}</span>
+                        <div className="flex items-center gap-3 text-[var(--color-text-secondary)]">
+                          <span className="flex items-center gap-1.5 px-2 py-1 rounded-md" style={{ background: "var(--color-type-bug-bg)" }}>
+                            <Bug className="w-3.5 h-3.5" style={{ color: "var(--color-type-bug-text)" }} />{project.openIssueCount} open
+                          </span>
+                          <span className="flex items-center gap-1.5 px-2 py-1 rounded-md" style={{ background: "var(--color-status-open-bg)" }}>
+                            <Users className="w-3.5 h-3.5" style={{ color: "var(--color-status-open-text)" }} />{project.members.length}
+                          </span>
                         </div>
                       </div>
                     </Link>
                     {isAdmin && (
                       <button
                         onClick={(e) => { e.preventDefault(); openEditModal(project); }}
-                        className="absolute top-2 right-2 p-1.5 rounded bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)]"
+                        className="absolute top-3 right-3 p-1.5 rounded-lg bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
@@ -364,12 +372,13 @@ export default function ProjectsPage() {
                 return (
                   <div
                     key={project.id}
-                    className="relative group bg-white border border-[var(--color-border)] rounded-lg p-4 hover:border-[var(--color-accent)] transition-colors"
+                    className="relative group rounded-xl border border-[var(--color-border)] p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                    style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)" }}
                   >
                     {isAdmin && (
                       <button
                         onClick={(e) => { e.preventDefault(); openEditModal(project); }}
-                        className="absolute top-2 right-2 p-1.5 rounded bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                        className="absolute top-3 right-3 p-1.5 rounded-lg bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] opacity-0 group-hover:opacity-100 transition-all z-10"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
@@ -378,7 +387,7 @@ export default function ProjectsPage() {
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h3 className="font-semibold text-[var(--color-text-primary)]">{project.name}</h3>
-                          <Badge variant="default" className="mt-1">{project.key}</Badge>
+                          <Badge variant="default" className="mt-1.5">{project.key}</Badge>
                         </div>
                         {project.archived && <Archive className="w-4 h-4 text-[var(--color-text-secondary)]" />}
                       </div>
@@ -395,9 +404,13 @@ export default function ProjectsPage() {
                       )}
 
                       <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-4 text-[var(--color-text-secondary)]">
-                          <span className="flex items-center gap-1"><Bug className="w-4 h-4" />{project.openIssueCount} open</span>
-                          <span className="flex items-center gap-1 hidden sm:flex"><Users className="w-4 h-4" />{project.members.length}</span>
+                        <div className="flex items-center gap-3 text-[var(--color-text-secondary)]">
+                          <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg" style={{ background: "var(--color-type-bug-bg)" }}>
+                            <Bug className="w-3.5 h-3.5" style={{ color: "var(--color-type-bug-text)" }} />{project.openIssueCount} open
+                          </span>
+                          <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg hidden sm:flex" style={{ background: "var(--color-status-open-bg)" }}>
+                            <Users className="w-3.5 h-3.5" style={{ color: "var(--color-status-open-text)" }} />{project.members.length}
+                          </span>
                         </div>
                       </div>
                     </Link>
@@ -407,25 +420,25 @@ export default function ProjectsPage() {
             </div>
 
             {pagination.totalPages > 1 && (
-              <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
-                <span className="text-sm text-[var(--color-text-secondary)]">
+              <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4 px-1">
+                <span className="text-[13px] text-[var(--color-text-secondary)]">
                   Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
                     disabled={pagination.page === 1}
-                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+                    className="p-2 rounded-lg border border-[var(--color-border)] hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed touch-target transition-all"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-sm text-[var(--color-text-secondary)]">
+                  <span className="text-[13px] text-[var(--color-text-secondary)] tabular-nums">
                     Page {pagination.page} of {pagination.totalPages}
                   </span>
                   <button
                     onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
                     disabled={pagination.page >= pagination.totalPages}
-                    className="p-2 rounded border border-[var(--color-border)] hover:bg-[var(--color-surface)] disabled:opacity-50 disabled:cursor-not-allowed touch-target"
+                    className="p-2 rounded-lg border border-[var(--color-border)] hover:bg-white hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed touch-target transition-all"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>

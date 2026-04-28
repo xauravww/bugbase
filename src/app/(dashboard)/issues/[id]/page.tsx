@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight, Download, Clipboard, Trash2, Pencil, Sparkles, Wand2 } from "lucide-react";
+import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight, Download, Clipboard, Trash2, Pencil, Sparkles, Wand2, RefreshCw } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityBadge, Avatar, Badge } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -625,7 +625,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
-    <div className="min-h-screen flex flex-col pb-20">
+    <div className="min-h-screen flex flex-col pb-20" style={{ background: "#ffffff" }}>
       <Header title={`#${issue.id}`} />
 
       <div className="p-4 max-w-7xl mx-auto w-full">
@@ -752,20 +752,60 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                       type="button"
                       onClick={() => handleRefine("title")}
                       disabled={refiningField === "title"}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all touch-target z-10"
+                      style={{ 
+                        background: refiningField === "title" ? "#c3faf5" : "transparent",
+                        color: refiningField === "title" ? "#187574" : "#555a6a" 
+                      }}
                       title="AI Refine"
+                      onMouseEnter={(e) => {
+                        if (refiningField !== "title") {
+                          e.currentTarget.style.background = "#f5f5f5";
+                          e.currentTarget.style.color = "#1c1c1e";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (refiningField !== "title") {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.color = "#555a6a";
+                        }
+                      }}
                     >
-                      <Sparkles className={`w-5 h-5 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+                      {refiningField === "title" ? (
+                        <RefreshCw className="w-5 h-5" style={{ animation: "spin 1s linear infinite" }} />
+                      ) : (
+                        <Sparkles className="w-5 h-5" />
+                      )}
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() => handleSuggest("title")}
                       disabled={refiningField === "title"}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 touch-target z-10"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all touch-target z-10"
+                      style={{ 
+                        background: refiningField === "title" ? "#ffe6cd" : "transparent",
+                        color: refiningField === "title" ? "#d9730d" : "#555a6a" 
+                      }}
                       title="AI Suggest"
+                      onMouseEnter={(e) => {
+                        if (refiningField !== "title") {
+                          e.currentTarget.style.background = "#f5f5f5";
+                          e.currentTarget.style.color = "#1c1c1e";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (refiningField !== "title") {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.color = "#555a6a";
+                        }
+                      }}
                     >
-                      <Wand2 className={`w-5 h-5 ${refiningField === "title" ? "animate-pulse" : ""}`} />
+                      {refiningField === "title" ? (
+                        <RefreshCw className="w-5 h-5" style={{ animation: "spin 1s linear infinite" }} />
+                      ) : (
+                        <Wand2 className="w-5 h-5" />
+                      )}
                     </button>
                   )}
                 </div>
@@ -792,7 +832,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                           className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                           title="AI Refine"
                         >
-                          <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                          <Sparkles className={`w-3 h-3`} style={{ animation: refiningField === "description" ? "spin 1s linear infinite" : "none" }} />
                           {refiningField === "description" ? "Refining..." : "AI Refine"}
                         </button>
                       ) : (
@@ -803,7 +843,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                           className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                           title="AI Suggest"
                         >
-                          <Wand2 className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                          <Wand2 className={`w-3 h-3`} style={{ animation: refiningField === "description" ? "spin 1s linear infinite" : "none" }} />
                           {refiningField === "description" ? "Suggesting..." : "AI Suggest"}
                         </button>
                       )}
@@ -843,7 +883,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                               className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                               title="AI Refine"
                             >
-                              <Sparkles className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} />
+                              <Sparkles className={`w-3 h-3`} style={{ animation: refiningField === "stepsToReproduce" ? "spin 1s linear infinite" : "none" }} />
                               {refiningField === "stepsToReproduce" ? "Refining..." : "AI Refine"}
                             </button>
                           ) : (
@@ -854,7 +894,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                               className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                               title="AI Suggest"
                             >
-                              <Wand2 className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} />
+                              <Wand2 className={`w-3 h-3`} style={{ animation: refiningField === "stepsToReproduce" ? "spin 1s linear infinite" : "none" }} />
                               {refiningField === "stepsToReproduce" ? "Suggesting..." : "AI Suggest"}
                             </button>
                           )}
@@ -890,7 +930,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                               className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                               title="AI Refine"
                             >
-                              <Sparkles className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} />
+                              <Sparkles className={`w-3 h-3`} style={{ animation: refiningField === "expectedResult" ? "spin 1s linear infinite" : "none" }} />
                               {refiningField === "expectedResult" ? "Refining..." : "AI Refine"}
                             </button>
                           ) : (
@@ -937,7 +977,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                               className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                               title="AI Refine"
                             >
-                              <Sparkles className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} />
+                              <Sparkles className={`w-3 h-3`} style={{ animation: refiningField === "actualResult" ? "spin 1s linear infinite" : "none" }} />
                               {refiningField === "actualResult" ? "Refining..." : "AI Refine"}
                             </button>
                           ) : (
@@ -1087,7 +1127,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                           className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 z-10"
                           title="AI Refine"
                         >
-                          <Sparkles className={`w-4 h-4 ${refiningField === "comment" ? "animate-pulse" : ""}`} />
+                          <Sparkles className={`w-4 h-4`} style={{ animation: refiningField === "comment" ? "spin 1s linear infinite" : "none" }} />
                         </button>
                       )}
                     </div>
