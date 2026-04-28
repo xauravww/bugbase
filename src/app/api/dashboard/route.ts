@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         .where(baseWhere)
         .groupBy(issues.status);
 
-      // Get today's counts from status changes, not issue creation dates.
+      // Today's counts from status changes
       const todayCounts = await db
         .select({
           status: activityLog.newValue,
@@ -74,6 +74,18 @@ export async function GET(request: NextRequest) {
           gte(activityLog.createdAt, today)
         ))
         .groupBy(activityLog.newValue);
+
+      // Issues created today still in "Open" status (no "changed status" log for initial creation)
+      const createdOpenToday = await db
+        .select({
+          count: sql<number>`count(*)`.mapWith(Number),
+        })
+        .from(issues)
+        .where(and(
+          inArray(issues.projectId, projectIds),
+          eq(issues.status, "Open"),
+          gte(issues.createdAt, today)
+        ));
 
       // Process all-time counts
       for (const row of counts) {
@@ -94,7 +106,12 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Process today's counts
+      // Count issues created today still in Open status
+      if (createdOpenToday[0]?.count) {
+        stats.openToday += createdOpenToday[0].count;
+      }
+
+      // Process today's counts from status changes
       for (const row of todayCounts) {
         if (row.status === "Open") {
           stats.openToday += row.count;
