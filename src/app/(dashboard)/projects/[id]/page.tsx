@@ -1027,7 +1027,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                               <TypeBadge type={issue.type} />
                             </td>
                             <td className="px-5 py-4">
-                              <TypeBadge type={issue.type} />
+                              <StatusBadge status={issue.status} />
                             </td>
                             <td className="px-5 py-4">
                               <select
