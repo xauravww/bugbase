@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatNumber } from "@/lib/utils/format";
 import {
-  Bug,
-  Lightbulb,
   Clock,
   CheckCircle,
   Eye,
@@ -15,25 +13,20 @@ import {
   ArrowRight,
   ArrowUpRight,
   CircleDot,
-  TrendingUp,
   Activity,
   Zap,
-  BarChart3,
 } from "lucide-react";
 import { Header } from "@/components/layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { StatusBadge, TypeBadge, PriorityDot, Avatar, PageLoader } from "@/components/ui";
 
 interface Stats {
-  openBugs: number;
-  openFeatures: number;
+  open: number;
   inProgress: number;
   inReview: number;
   verified: number;
   closed: number;
-  resolvedToday: number;
-  openBugsToday: number;
-  openFeaturesToday: number;
+  openToday: number;
   inProgressToday: number;
   inReviewToday: number;
   verifiedToday: number;
@@ -107,15 +100,12 @@ const STATUS_COLOR_MAP: Record<string, { bg: string; text: string; accent: strin
 export default function DashboardPage() {
   const { token } = useAuth();
   const [stats, setStats] = useState<Stats>({ 
-    openBugs: 0, 
-    openFeatures: 0, 
+    open: 0,
     inProgress: 0, 
-    inReview: 0, 
+    inReview: 0,
     verified: 0,
     closed: 0,
-    resolvedToday: 0,
-    openBugsToday: 0,
-    openFeaturesToday: 0,
+    openToday: 0,
     inProgressToday: 0,
     inReviewToday: 0,
     verifiedToday: 0,
@@ -193,18 +183,11 @@ export default function DashboardPage() {
         </div>
 
         {/* === Hero Stats Row === */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
           <HeroStat
-            icon={Bug}
-            label={timeFilter === "today" ? "New Bugs Today" : "Open Bugs"}
-            value={timeFilter === "today" ? stats.openBugsToday : stats.openBugs}
-            color="#eb5757"
-            bgGradient="linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%)"
-          />
-          <HeroStat
-            icon={Lightbulb}
-            label={timeFilter === "today" ? "New Features Today" : "Open Features"}
-            value={timeFilter === "today" ? stats.openFeaturesToday : stats.openFeatures}
+            icon={CircleDot}
+            label={timeFilter === "today" ? "Open Today" : "Open"}
+            value={timeFilter === "today" ? stats.openToday : stats.open}
             color="#2e75cc"
             bgGradient="linear-gradient(135deg, #f0f7ff 0%, #e1edfa 100%)"
           />
@@ -235,13 +218,6 @@ export default function DashboardPage() {
             value={timeFilter === "today" ? stats.closedToday : stats.closed}
             color="#787774"
             bgGradient="linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)"
-          />
-          <HeroStat
-            icon={CheckCircle}
-            label="Resolved Today"
-            value={stats.resolvedToday}
-            color="#27ae60"
-            bgGradient="linear-gradient(135deg, #f0fff4 0%, #e3f9e9 100%)"
           />
         </div>
 

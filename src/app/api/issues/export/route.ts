@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { issues, issueAssignees, projectMembers, attachments } from "@/lib/db/schema";
+import { issues, issueAssignees, projectMembers, projects } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, desc, and, inArray, like, or } from "drizzle-orm";
 import PDFDocument from "pdfkit";
@@ -24,11 +24,19 @@ export async function GET(request: NextRequest) {
         const status = searchParams.get("status");
         const priority = searchParams.get("priority");
 
-        // Get user's projects
-        const userMemberships = await db.query.projectMembers.findMany({
-            where: eq(projectMembers.userId, authUser.id),
-        });
-        const projectIds = userMemberships.map(m => m.projectId);
+        const accessibleProjects = authUser.role === "Admin"
+            ? await db.query.projects.findMany({
+                where: eq(projects.archived, false),
+                columns: { id: true },
+            })
+            : await db.query.projectMembers.findMany({
+                where: eq(projectMembers.userId, authUser.id),
+                columns: { projectId: true },
+            });
+
+        const projectIds = accessibleProjects.map(project =>
+            "projectId" in project ? project.projectId : project.id
+        );
 
         if (projectIds.length === 0) {
             return NextResponse.json({ error: "No projects found" }, { status: 404 });
@@ -40,11 +48,15 @@ export async function GET(request: NextRequest) {
                 where: eq(issueAssignees.userId, authUser.id),
             });
             assignedIssueIds = assignments.map(a => a.issueId);
+
+            if (assignedIssueIds.length === 0) {
+                return NextResponse.json({ error: "No issues found" }, { status: 404 });
+            }
         }
 
         let whereClause = inArray(issues.projectId, projectIds);
 
-        if (assignedToMe && assignedIssueIds.length > 0) {
+        if (assignedToMe) {
             whereClause = and(whereClause, inArray(issues.id, assignedIssueIds)) as typeof whereClause;
         }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use, useRef } from "react";
+import { useCallback, useEffect, useState, use, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Flag, Sparkles, Wand2, Clipboard, Check, ExternalLink, RefreshCw } from "lucide-react";
@@ -8,8 +8,9 @@ import { Header } from "@/components/layout";
 import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup, FabButton } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
-import { MilestoneList, CreateMilestoneModal, MilestoneDetailModal, MilestonePagination } from "@/components/milestones";
-import type { MilestoneWithDetails, Pagination } from "@/types/milestone";
+import type { Pagination } from "@/types/issue";
+import { CreateMilestoneModal, MilestoneDetailModal, MilestoneList, MilestonePagination } from "@/components/milestones";
+import type { MilestoneWithDetails, Pagination as MilestonePaginationType } from "@/types/milestone";
 
 interface Issue {
   id: number;
@@ -36,18 +37,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const { token, user } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [milestones, setMilestones] = useState<MilestoneWithDetails[]>([]);
-  const [milestonesPagination, setMilestonesPagination] = useState<Pagination>({
+  const [issuesPagination, setIssuesPagination] = useState<Pagination>({
     page: 1,
-    limit: 10,
+    limit: 20,
     total: 0,
     totalPages: 0,
     hasNext: false,
     hasPrev: false
   });
-  const [issuesPagination, setIssuesPagination] = useState<Pagination>({
+  const [milestones, setMilestones] = useState<MilestoneWithDetails[]>([]);
+  const [milestonesPagination, setMilestonesPagination] = useState<MilestonePaginationType>({
     page: 1,
-    limit: 20,
+    limit: 10,
     total: 0,
     totalPages: 0,
     hasNext: false,
@@ -65,6 +66,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [showCreateMilestoneModal, setShowCreateMilestoneModal] = useState(false);
   const [showMilestoneDetailModal, setShowMilestoneDetailModal] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState<MilestoneWithDetails | null>(null);
+  const [isCreatingMilestone, setIsCreatingMilestone] = useState(false);
+  const [isUpdatingMilestone, setIsUpdatingMilestone] = useState(false);
+  const [isAddingMilestoneNote, setIsAddingMilestoneNote] = useState(false);
   const [createForm, setCreateForm] = useState({
     title: "",
     type: "Bug",
@@ -81,9 +85,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [isCreatingMilestone, setIsCreatingMilestone] = useState(false);
-  const [isUpdatingMilestone, setIsUpdatingMilestone] = useState(false);
-  const [isAddingMilestoneNote, setIsAddingMilestoneNote] = useState(false);
   const [refiningField, setRefiningField] = useState<string | null>(null);
 
   // Filters
@@ -97,7 +98,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const projectId = resolvedParams.id;
 
-  const fetchProject = async (page: number = 1) => {
+  const fetchProject = useCallback(async (page: number = 1) => {
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
@@ -136,9 +137,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [debouncedSearch, filterPriority, filterType, issueStatusTab, projectId, router, token]);
 
-  const fetchMilestones = async (page: number = 1) => {
+  const fetchMilestones = useCallback(async (page: number = 1) => {
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
@@ -147,6 +148,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       const res = await fetch(`/api/projects/${projectId}/milestones?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       if (res.ok) {
         const data = await res.json();
         setMilestones(data.milestones || []);
@@ -161,10 +163,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       }
     } catch (error) {
       console.error("Failed to fetch milestones:", error);
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [projectId, token]);
 
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
@@ -177,13 +177,26 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     if (token && projectId) {
       setIsLoading(true);
-      if (activeTab === "issues") {
-        fetchProject(issuesPaginationState[issueStatusTab]);
-      } else {
-        fetchMilestones(milestonesPagination.page);
-      }
+      fetchProject(issuesPaginationState[issueStatusTab]);
     }
-  }, [token, projectId, activeTab, issueStatusTab, issuesPaginationState, filterType, filterPriority, debouncedSearch]);
+  }, [fetchProject, issueStatusTab, issuesPaginationState, projectId, token]);
+
+  useEffect(() => {
+    if (token && projectId && activeTab === "milestones") {
+      fetchMilestones(milestonesPagination.page);
+    }
+  }, [activeTab, fetchMilestones, milestonesPagination.page, projectId, token]);
+
+  const refreshSelectedMilestone = async (milestoneId: number) => {
+    const res = await fetch(`/api/projects/${projectId}/milestones/${milestoneId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      setSelectedMilestone(data.milestone);
+    }
+  };
 
   const handleCreateIssue = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -524,6 +537,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  const handleIssuePageChange = (newPage: number) => {
+    setIssuesPaginationState(prev => ({ ...prev, [issueStatusTab]: newPage }));
+  };
+
+  const handleMilestonePageChange = (newPage: number) => {
+    fetchMilestones(newPage);
+  };
+
   const handleCreateMilestone = async (data: { title: string; description?: string; checklistItems: string[] }) => {
     setIsCreatingMilestone(true);
     try {
@@ -536,33 +557,26 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         body: JSON.stringify(data),
       });
 
-      if (res.ok) {
-        setShowCreateMilestoneModal(false);
-        fetchMilestones(); // Refresh the milestones list
-      } else {
-        const errorData = await res.json();
-        setCreateError(errorData.error || "Failed to create milestone");
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to create milestone");
       }
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Failed to create milestone");
+
+      setShowCreateMilestoneModal(false);
+      await fetchMilestones(1);
+      setActiveTab("milestones");
+    } catch (error) {
+      console.error("Failed to create milestone:", error);
+      alert(error instanceof Error ? error.message : "Failed to create milestone");
     } finally {
       setIsCreatingMilestone(false);
     }
   };
 
-  const handleUpdateMilestone = async (data: { title: string; description?: string; status: string; checklistItems?: Array<{ id?: number; content: string }> }) => {
+  const handleUpdateMilestone = async (data: { title: string; description?: string; status: string; checklistItems?: { id?: number; content: string }[] }) => {
     if (!selectedMilestone) return;
 
-    // Optimistically update the UI
-    const updatedMilestone = {
-      ...selectedMilestone,
-      ...data,
-      updatedAt: new Date()
-    };
-
-    setSelectedMilestone(updatedMilestone as MilestoneWithDetails);
     setIsUpdatingMilestone(true);
-
     try {
       const res = await fetch(`/api/projects/${projectId}/milestones/${selectedMilestone.id}`, {
         method: "PATCH",
@@ -573,159 +587,70 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         body: JSON.stringify(data),
       });
 
-      if (res.ok) {
-        setShowMilestoneDetailModal(false);
-        fetchMilestones(); // Refresh the milestones list
-      } else {
-        const errorData = await res.json();
-        setCreateError(errorData.error || "Failed to update milestone");
-        // Revert on error
-        setSelectedMilestone(selectedMilestone);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update milestone");
       }
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Failed to update milestone");
-      // Revert on error
-      setSelectedMilestone(selectedMilestone);
+
+      await fetchMilestones(milestonesPagination.page);
+      await refreshSelectedMilestone(selectedMilestone.id);
+    } catch (error) {
+      console.error("Failed to update milestone:", error);
+      alert(error instanceof Error ? error.message : "Failed to update milestone");
     } finally {
       setIsUpdatingMilestone(false);
     }
   };
 
   const handleToggleChecklistItem = async (itemId: number, completed: boolean, notes: string) => {
-    if (!selectedMilestone || !user) return;
-
-    // Optimistically update the UI
-    const updatedMilestone = {
-      ...selectedMilestone,
-      checklistItems: selectedMilestone.checklistItems.map(item =>
-        item.id === itemId
-          ? {
-            ...item,
-            completion: completed
-              ? {
-                id: Date.now(), // temporary ID
-                checklistItemId: itemId,
-                userId: user.id,
-                notes: notes || null,
-                completedAt: new Date(),
-                user: {
-                  id: user.id,
-                  name: user.name,
-                  email: user.email,
-                  role: user.role,
-                  createdAt: user.createdAt
-                }
-              }
-              : null
-          }
-          : item
-      ),
-      completedCount: completed
-        ? selectedMilestone.completedCount + 1
-        : selectedMilestone.completedCount - 1
-    };
-
-    setSelectedMilestone(updatedMilestone as MilestoneWithDetails);
+    if (!selectedMilestone) return;
 
     try {
-      if (completed) {
-        // Mark as complete
-        const res = await fetch(`/api/projects/${projectId}/milestones/${selectedMilestone.id}/checklist/${itemId}/complete`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ notes }),
-        });
+      const res = await fetch(`/api/projects/${projectId}/milestones/${selectedMilestone.id}/checklist/${itemId}/complete`, {
+        method: completed ? "POST" : "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: completed ? JSON.stringify({ notes }) : undefined,
+      });
 
-        if (res.ok) {
-          fetchMilestones(); // Refresh the milestones list
-        } else {
-          // Revert on error
-          setSelectedMilestone(selectedMilestone);
-        }
-      } else {
-        // Mark as incomplete
-        const res = await fetch(`/api/projects/${projectId}/milestones/${selectedMilestone.id}/checklist/${itemId}/complete`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (res.ok) {
-          fetchMilestones(); // Refresh the milestones list
-        } else {
-          // Revert on error
-          setSelectedMilestone(selectedMilestone);
-        }
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update checklist item");
       }
-    } catch (err) {
-      console.error("Failed to toggle checklist item:", err);
-      // Revert on error
-      setSelectedMilestone(selectedMilestone);
+
+      await fetchMilestones(milestonesPagination.page);
+      await refreshSelectedMilestone(selectedMilestone.id);
+    } catch (error) {
+      console.error("Failed to update checklist item:", error);
+      alert(error instanceof Error ? error.message : "Failed to update checklist item");
     }
   };
 
-  const handleMilestonePageChange = (newPage: number) => {
-    fetchMilestones(newPage);
-    setMilestonesPagination(prev => ({ ...prev, page: newPage }));
-  };
-
-  const handleIssuePageChange = (newPage: number) => {
-    setIssuesPaginationState(prev => ({ ...prev, [issueStatusTab]: newPage }));
-  };
-
   const handleAddMilestoneNote = async (content: string) => {
-    if (!selectedMilestone || !user) return;
+    if (!selectedMilestone) return;
 
-    // Optimistically update the UI
-    const newNote = {
-      id: Date.now(), // temporary ID
-      milestoneId: selectedMilestone.id,
-      userId: user.id,
-      content,
-      createdAt: new Date(),
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt
-      }
-    };
-
-    const updatedMilestone = {
-      ...selectedMilestone,
-      notes: [...selectedMilestone.notes, newNote]
-    };
-
-    setSelectedMilestone(updatedMilestone as MilestoneWithDetails);
     setIsAddingMilestoneNote(true);
-
     try {
       const res = await fetch(`/api/projects/${projectId}/milestones/${selectedMilestone.id}/notes`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ content }),
       });
 
-      if (res.ok) {
-        fetchMilestones(); // Refresh the milestones list
-      } else {
-        const errorData = await res.json();
-        setCreateError(errorData.error || "Failed to add note");
-        // Revert on error
-        setSelectedMilestone(selectedMilestone);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to add note");
       }
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Failed to add note");
-      // Revert on error
-      setSelectedMilestone(selectedMilestone);
+
+      await refreshSelectedMilestone(selectedMilestone.id);
+    } catch (error) {
+      console.error("Failed to add milestone note:", error);
+      alert(error instanceof Error ? error.message : "Failed to add note");
     } finally {
       setIsAddingMilestoneNote(false);
     }
@@ -781,9 +706,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   onClick={async () => {
                     setIsRefreshing(true);
                     setIssueSearch("");
-                    await fetchProject(1);
                     if (activeTab === "milestones") {
                       await fetchMilestones(1);
+                    } else {
+                      await fetchProject(1);
                     }
                     setIsRefreshing(false);
                   }}
@@ -801,7 +727,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 </button>
               </div>
               
-              {/* Create Button - Using FabButton for consistency */}
+              {/* Create Button */}
               {activeTab === "issues" && canCreateIssue && (
                 <FabButton
                   icon={Plus}
@@ -809,6 +735,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   labelMobile="New"
                   onClick={() => setShowCreateModal(true)}
                   isLoading={isCreating}
+                />
+              )}
+              {activeTab === "milestones" && user?.role === "Admin" && (
+                <FabButton
+                  icon={Flag}
+                  label="New Checklist"
+                  labelMobile="New"
+                  onClick={() => setShowCreateMilestoneModal(true)}
+                  isLoading={isCreatingMilestone}
                 />
               )}
             </div>
@@ -823,20 +758,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 onClick={() => setActiveTab("issues")}
                 className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
                 style={{ 
-                  background: activeTab === "issues" ? "#ffffff" : "transparent", 
+                  background: activeTab === "issues" ? "#ffffff" : "transparent",
                   color: activeTab === "issues" ? "#1c1c1e" : "#555a6a",
                   fontFamily: "DM Sans, sans-serif",
                   boxShadow: activeTab === "issues" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
                 }}
                 onMouseEnter={(e) => {
-                  if (activeTab !== "issues") {
-                    e.currentTarget.style.background = "#e9e9e9";
-                  }
+                  if (activeTab !== "issues") e.currentTarget.style.background = "#e9e9e9";
                 }}
                 onMouseLeave={(e) => {
-                  if (activeTab !== "issues") {
-                    e.currentTarget.style.background = "transparent";
-                  }
+                  e.currentTarget.style.background = activeTab === "issues" ? "#ffffff" : "transparent";
                 }}
               >
                 <span className="md:hidden">Issues</span>
@@ -845,34 +776,30 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <button
                 onClick={() => setActiveTab("milestones")}
                 className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
-                style={{ 
-                  background: activeTab === "milestones" ? "#ffffff" : "transparent", 
+                style={{
+                  background: activeTab === "milestones" ? "#ffffff" : "transparent",
                   color: activeTab === "milestones" ? "#1c1c1e" : "#555a6a",
                   fontFamily: "DM Sans, sans-serif",
                   boxShadow: activeTab === "milestones" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
                 }}
                 onMouseEnter={(e) => {
-                  if (activeTab !== "milestones") {
-                    e.currentTarget.style.background = "#e9e9e9";
-                  }
+                  if (activeTab !== "milestones") e.currentTarget.style.background = "#e9e9e9";
                 }}
                 onMouseLeave={(e) => {
-                  if (activeTab !== "milestones") {
-                    e.currentTarget.style.background = "transparent";
-                  }
+                  e.currentTarget.style.background = activeTab === "milestones" ? "#ffffff" : "transparent";
                 }}
               >
-                <span className="md:hidden">Milestones</span>
-                <span className="hidden md:inline">Milestones</span>
+                <span className="md:hidden">Checks</span>
+                <span className="hidden md:inline">Checklists</span>
               </button>
             </div>
             
-            {/* Issue count badge */}
-            {activeTab === "issues" && (
-              <span className="ml-auto text-sm whitespace-nowrap" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
-                {issuesPagination.total} {issuesPagination.total === 1 ? "issue" : "issues"}
-              </span>
-            )}
+            {/* Count badge */}
+            <span className="ml-auto text-sm whitespace-nowrap" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
+              {activeTab === "issues"
+                ? `${issuesPagination.total} ${issuesPagination.total === 1 ? "issue" : "issues"}`
+                : `${milestonesPagination.total} ${milestonesPagination.total === 1 ? "checklist" : "checklists"}`}
+            </span>
           </div>
         </div>
       </div>

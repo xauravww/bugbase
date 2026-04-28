@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { issues, activityLog, projectMembers, issueAssignees } from "@/lib/db/schema";
+import { issues, activityLog, projectMembers, issueAssignees, projects } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, and, sql, desc, inArray, gte } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const timeFilter = searchParams.get("time") || "all";
-    
     const authUser = getAuthUser(request);
 
     if (!authUser) {
@@ -21,25 +18,28 @@ export async function GET(request: NextRequest) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const isToday = timeFilter === "today";
+    const accessibleProjects = authUser.role === "Admin"
+      ? await db.query.projects.findMany({
+        where: eq(projects.archived, false),
+        columns: { id: true },
+      })
+      : await db.query.projectMembers.findMany({
+        where: eq(projectMembers.userId, authUser.id),
+        columns: { projectId: true },
+      });
 
-    // Get user's projects
-    const userMemberships = await db.query.projectMembers.findMany({
-      where: eq(projectMembers.userId, authUser.id),
-    });
-    const projectIds = userMemberships.map(m => m.projectId);
+    const projectIds = accessibleProjects.map(project =>
+      "projectId" in project ? project.projectId : project.id
+    );
 
     // Use SQL aggregations instead of loading all into memory
     const stats = {
-      openBugs: 0,
-      openFeatures: 0,
+      open: 0,
       inProgress: 0,
       inReview: 0,
       verified: 0,
       closed: 0,
-      resolvedToday: 0,
-      openBugsToday: 0,
-      openFeaturesToday: 0,
+      openToday: 0,
       inProgressToday: 0,
       inReviewToday: 0,
       verifiedToday: 0,
@@ -49,41 +49,36 @@ export async function GET(request: NextRequest) {
     if (projectIds.length > 0) {
       // Base filter: all issues in user's projects
       const baseWhere = inArray(issues.projectId, projectIds);
-      // Today's filter: issues created or updated today
-      const todayWhere = and(
-        inArray(issues.projectId, projectIds),
-        gte(issues.createdAt, today)
-      );
 
       // Get all-time counts using aggregation
       const counts = await db
         .select({
-          type: issues.type,
           status: issues.status,
           count: sql<number>`count(*)`.mapWith(Number),
         })
         .from(issues)
         .where(baseWhere)
-        .groupBy(issues.type, issues.status);
+        .groupBy(issues.status);
 
-      // Get today's counts using aggregation (issues created today)
+      // Get today's counts from status changes, not issue creation dates.
       const todayCounts = await db
         .select({
-          type: issues.type,
-          status: issues.status,
+          status: activityLog.newValue,
           count: sql<number>`count(*)`.mapWith(Number),
         })
-        .from(issues)
-        .where(todayWhere)
-        .groupBy(issues.type, issues.status);
+        .from(activityLog)
+        .innerJoin(issues, eq(activityLog.issueId, issues.id))
+        .where(and(
+          inArray(issues.projectId, projectIds),
+          eq(activityLog.action, "changed status"),
+          gte(activityLog.createdAt, today)
+        ))
+        .groupBy(activityLog.newValue);
 
       // Process all-time counts
       for (const row of counts) {
-        if (row.type === "Bug" && row.status !== "Closed") {
-          stats.openBugs += row.count;
-        }
-        if (row.type === "Feature" && row.status !== "Closed") {
-          stats.openFeatures += row.count;
+        if (row.status === "Open") {
+          stats.open += row.count;
         }
         if (row.status === "In Progress") {
           stats.inProgress += row.count;
@@ -101,11 +96,8 @@ export async function GET(request: NextRequest) {
 
       // Process today's counts
       for (const row of todayCounts) {
-        if (row.type === "Bug" && row.status !== "Closed") {
-          stats.openBugsToday += row.count;
-        }
-        if (row.type === "Feature" && row.status !== "Closed") {
-          stats.openFeaturesToday += row.count;
+        if (row.status === "Open") {
+          stats.openToday += row.count;
         }
         if (row.status === "In Progress") {
           stats.inProgressToday += row.count;
@@ -120,19 +112,6 @@ export async function GET(request: NextRequest) {
           stats.closedToday += row.count;
         }
       }
-
-      // Get resolved today count separately (need date comparison)
-      const resolvedTodayResult = await db
-        .select({ count: sql<number>`count(*)`.mapWith(Number) })
-        .from(issues)
-        .where(
-          and(
-            inArray(issues.projectId, projectIds),
-            sql`${issues.status} IN('Closed', 'Verified')`,
-            sql`${issues.updatedAt} >= ${today.toISOString()} `
-          )
-        );
-      stats.resolvedToday = resolvedTodayResult[0]?.count || 0;
     }
 
     // Get recent issues (limit to 10, done in database)
@@ -226,8 +205,8 @@ export async function GET(request: NextRequest) {
       const statusActivities = await db.query.activityLog.findMany({
         where: and(
           inArray(activityLog.issueId, projectIssueIds),
-          sql`${activityLog.action} LIKE '%status%'`,
-          sql`${activityLog.createdAt} >= ${today.toISOString()}`
+          eq(activityLog.action, "changed status"),
+          gte(activityLog.createdAt, today)
         ),
         with: {
           user: true,

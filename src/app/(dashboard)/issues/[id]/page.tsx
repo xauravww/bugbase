@@ -653,6 +653,12 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   setIsEditing(true);
                 }}
                 className="flex items-center gap-2"
+                style={{
+                  border: "1px solid #e9eaef",
+                  borderRadius: "8px",
+                  fontFamily: "DM Sans, sans-serif",
+                  padding: "8px 12px"
+                }}
               >
                 <Pencil className="w-4 h-4" />
                 Edit
@@ -663,6 +669,12 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 <Button
                   variant="secondary"
                   onClick={() => setIsEditing(false)}
+                  style={{
+                    border: "1px solid #e9eaef",
+                    borderRadius: "8px",
+                    fontFamily: "DM Sans, sans-serif",
+                    padding: "8px 12px"
+                  }}
                 >
                   Cancel
                 </Button>
@@ -698,6 +710,12 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                     }
                   }}
                   disabled={isSaving}
+                  style={{
+                    background: "#5b76fe",
+                    borderRadius: "8px",
+                    fontFamily: "DM Sans, sans-serif",
+                    padding: "8px 12px"
+                  }}
                 >
                   {isSaving ? "Saving..." : "Save"}
                 </Button>
@@ -708,6 +726,12 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 variant="secondary"
                 onClick={handleDeleteIssue}
                 className="flex items-center gap-2 text-[var(--color-danger)] hover:bg-red-50"
+                style={{
+                  border: "1px solid #e9eaef",
+                  borderRadius: "8px",
+                  fontFamily: "DM Sans, sans-serif",
+                  padding: "8px 12px"
+                }}
               >
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -717,17 +741,29 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               variant="secondary"
               onClick={handleCopyToClipboard}
               className="flex items-center gap-2"
+              style={{
+                border: "1px solid #e9eaef",
+                borderRadius: "8px",
+                fontFamily: "DM Sans, sans-serif",
+                padding: "8px 12px"
+              }}
             >
-              {copied ? <Check className="w-4 h-4 text-green-600" /> : <Clipboard className="w-4 h-4" />}
-              {copied ? "Copied!" : "Copy"}
+              {copied ? <Check className="w-4 h-4" style={{ color: "#00b473" }} /> : <Clipboard className="w-4 h-4" />}
+              <span>{copied ? "Copied!" : "Copy"}</span>
             </Button>
             <Button
               variant="secondary"
               onClick={() => window.open(`/api/issues/${issue.id}/export${token ? `?token=${token}` : ''}`, "_blank")}
               className="flex items-center gap-2"
+              style={{
+                border: "1px solid #e9eaef",
+                borderRadius: "8px",
+                fontFamily: "DM Sans, sans-serif",
+                padding: "8px 12px"
+              }}
             >
               <Download className="w-4 h-4" />
-              Export PDF
+              <span>Export</span>
             </Button>
           </div>
         </div>
@@ -1142,7 +1178,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                       type="button"
                       onClick={() => commentFileInputRef.current?.click()}
                       disabled={isUploadingComment}
-                      className="p-2 border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface)] text-[var(--color-text-secondary)] touch-target"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface)] text-[var(--color-text-secondary)] touch-target disabled:opacity-50"
+                      title="Add screenshot"
+                      aria-label="Add screenshot"
                     >
                       <Image className="w-4 h-4" />
                     </button>
@@ -1417,7 +1455,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="flex items-center justify-center gap-2 w-full px-3 py-2 border border-dashed border-[var(--color-border)] rounded-md text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 px-3 py-2 border border-dashed border-[var(--color-border)] rounded-md text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
                   >
                     {isUploading ? (
                       "Uploading..."

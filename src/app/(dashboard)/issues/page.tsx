@@ -2,10 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Search, ChevronLeft, ChevronRight, Calendar, Download, ExternalLink } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clipboard, Download, ExternalLink, Search } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
+import { Button, Select, PageLoader, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 
@@ -30,34 +29,32 @@ interface Pagination {
 }
 
 export default function MyIssuesPage() {
-  const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [activeTab, setActiveTab] = useState<string>("all");
-  const [paginationState, setPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Closed: 1 });
+  const [paginationState, setPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Verified: 1, Closed: 1 });
 
   const [filterType, setFilterType] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
 
-  const [selectedIssueId, setSelectedIssueId] = useState<number | null>(null);
   const [selectedIssueIds, setSelectedIssueIds] = useState<number[]>([]);
   const [bulkStatus, setBulkStatus] = useState("");
-
-  // Track the latest search term for fetching without causing re-render loops
-  const searchRef = useRef(search);
-  searchRef.current = search;
+  const [copiedIssues, setCopiedIssues] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const isAdmin = user?.role === "Admin";
 
   const fetchIssues = useCallback(async (searchTerm: string, page: number, tab: string, type: string, priority: string) => {
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
       params.set("limit", "10");
-      params.set("assignedToMe", "true");
+      if (!isAdmin) params.set("assignedToMe", "true");
       if (searchTerm) params.set("search", searchTerm);
       if (type !== "all") params.set("type", type);
       if (priority !== "all") params.set("priority", priority);
@@ -79,27 +76,26 @@ export default function MyIssuesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [isAdmin, token]);
 
   // Main fetch effect - triggers when tab, pagination, or filters change
   useEffect(() => {
     if (token) {
-      fetchIssues(searchRef.current, paginationState[activeTab], activeTab, filterType, filterPriority);
+      fetchIssues(debouncedSearch, paginationState[activeTab], activeTab, filterType, filterPriority);
     }
-  }, [token, activeTab, paginationState, filterType, filterPriority, fetchIssues]);
+  }, [token, activeTab, paginationState, filterType, filterPriority, debouncedSearch, fetchIssues]);
 
   // Debounced search effect
   useEffect(() => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
-      if (token) {
-        setPaginationState(prev => ({ ...prev, [activeTab]: 1 }));
-      }
+      setDebouncedSearch(search);
+      setPaginationState(prev => ({ ...prev, [activeTab]: 1 }));
     }, 300);
     return () => {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
-  }, [search, token, activeTab]);
+  }, [search, activeTab]);
 
   // Reset pagination to page 1 when filters change
   const handleFilterTypeChange = (value: string) => {
@@ -122,8 +118,8 @@ export default function MyIssuesPage() {
 
   const handleExportPdf = () => {
     const params = new URLSearchParams();
-    params.set("assignedToMe", "true");
-    if (search) params.set("search", search);
+    if (!isAdmin) params.set("assignedToMe", "true");
+    if (debouncedSearch) params.set("search", debouncedSearch);
     if (filterType !== "all") params.set("type", filterType);
     if (filterPriority !== "all") params.set("priority", filterPriority);
     if (activeTab !== "all") {
@@ -131,6 +127,53 @@ export default function MyIssuesPage() {
     }
     if (token) params.set("token", token);
     window.open(`/api/issues/export?${params.toString()}`, "_blank");
+  };
+
+  const handleCopyIssues = async () => {
+    if (issues.length === 0) return;
+    setIsCopying(true);
+    try {
+      const lines: string[] = [];
+      lines.push(`${isAdmin ? "All Issues" : "My Issues"}`);
+      lines.push(`Filter: ${activeTab === "all" ? "All Statuses" : activeTab}`);
+      lines.push(`Total: ${pagination.total} issues`);
+      lines.push("===================================");
+      lines.push("");
+
+      issues.forEach((issue) => {
+        lines.push(`#${issue.id}: ${issue.title}`);
+        lines.push(`Project: ${issue.project.name} (${issue.project.key})`);
+        lines.push(`Type: ${issue.type} | Status: ${issue.status} | Priority: ${issue.priority}`);
+        if (issue.assignees.length > 0) {
+          lines.push(`Assignees: ${issue.assignees.map(a => a.user.name).join(", ")}`);
+        }
+        if (issue.dueDate) lines.push(`Due: ${new Date(issue.dueDate).toLocaleDateString()}`);
+        lines.push(`Updated: ${new Date(issue.updatedAt).toLocaleString()}`);
+        lines.push("");
+        lines.push("-----------------------------------");
+        lines.push("");
+      });
+
+      const text = lines.join("\n");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopiedIssues(true);
+      setTimeout(() => setCopiedIssues(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy issues:", error);
+    } finally {
+      setIsCopying(false);
+    }
   };
 
   const handleStatusChange = async (issueId: number, newStatus: string) => {
@@ -183,27 +226,36 @@ export default function MyIssuesPage() {
   if (isLoading) return <PageLoader />;
 
   return (
-    <div className="min-h-screen" style={{ background: "linear-gradient(135deg, #fafaf9 0%, #f5f3f0 100%)" }}>
-      <Header title="My Issues" />
+    <div className="min-h-screen" style={{ background: "#ffffff" }}>
+      <Header title={isAdmin ? "All Issues" : "My Issues"} />
 
-      <div className="px-4 py-5 md:px-8 md:py-7 max-w-[1200px] mx-auto">
-        <div className="mb-4 border-b border-[var(--color-border)]">
-          <div className="flex gap-1 overflow-x-auto">
+      <div className="p-3 md:p-8 max-w-[1400px] mx-auto">
+        <div className="overflow-x-auto pb-2 mb-4 md:mb-6 -mx-3 px-3 md:px-0">
+          <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: "#f7f6f3", width: "fit-content", minWidth: "max-content" }}>
             {[
               { key: "all", label: "All" },
               { key: "Open", label: "Open" },
               { key: "In Progress", label: "In Progress" },
               { key: "In Review", label: "In Review" },
+              { key: "Verified", label: "Verified" },
               { key: "Closed", label: "Closed" },
             ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.key
-                    ? "border-[var(--color-accent)] text-[var(--color-accent)]"
-                    : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-                }`}
+                className="px-3 md:px-4 py-2 text-xs md:text-sm font-medium rounded-lg transition-all whitespace-nowrap"
+                style={{
+                  background: activeTab === tab.key ? "#ffffff" : "transparent",
+                  color: activeTab === tab.key ? "#1c1c1e" : "#555a6a",
+                  fontFamily: "DM Sans, sans-serif",
+                  boxShadow: activeTab === tab.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== tab.key) e.currentTarget.style.background = "#e9e9e9";
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== tab.key) e.currentTarget.style.background = "transparent";
+                }}
               >
                 {tab.label}
               </button>
@@ -211,51 +263,71 @@ export default function MyIssuesPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-secondary)]" />
+        <div className="flex flex-col lg:flex-row gap-3 mb-4 md:mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#a5a8b5" }} />
             <input
               type="text"
               placeholder="Search by title or issue number (e.g. #123)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-sm border border-[var(--color-border)] rounded-xl focus:outline-none focus:border-[var(--color-accent)] transition-colors"
-              style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)" }}
+              className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border transition-all focus:outline-none focus:border-[#5b76fe]"
+              style={{ background: "#f7f6f3", borderColor: "transparent", fontFamily: "DM Sans, sans-serif" }}
             />
           </div>
-          <Button
-            variant="secondary"
-            onClick={handleExportPdf}
-            className="flex items-center justify-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            <span className="mobile-hidden">Export PDF</span>
-            <span className="desktop-hidden">Export</span>
-          </Button>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <Select
-            options={[{ value: "all", label: "All Types" }, ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t }))]}
-            value={filterType}
-            onChange={(e) => handleFilterTypeChange(e.target.value)}
-            className="w-full sm:w-28 md:w-32"
-          />
-          <Select
-            options={[{ value: "all", label: "All Priorities" }, ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p }))]}
-            value={filterPriority}
-            onChange={(e) => handleFilterPriorityChange(e.target.value)}
-            className="w-full sm:w-32 md:w-36"
-          />
-          <span className="text-sm text-[var(--color-text-secondary)] ml-auto text-right self-center">
-            {pagination.total} issue{pagination.total !== 1 ? "s" : ""}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              options={[{ value: "all", label: "All Types" }, ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t }))]}
+              value={filterType}
+              onChange={(e) => handleFilterTypeChange(e.target.value)}
+              className="w-36"
+            />
+            <Select
+              options={[{ value: "all", label: "All Priorities" }, ...Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p }))]}
+              value={filterPriority}
+              onChange={(e) => handleFilterPriorityChange(e.target.value)}
+              className="w-40"
+            />
+            <Button
+              variant="secondary"
+              onClick={handleCopyIssues}
+              className="flex items-center gap-2"
+              style={{
+                border: "1px solid #e9eaef",
+                borderRadius: "8px",
+                fontFamily: "DM Sans, sans-serif",
+                padding: "8px 12px"
+              }}
+              disabled={issues.length === 0 || isCopying}
+            >
+              {copiedIssues ? <Check className="w-4 h-4" style={{ color: "#00b473" }} /> : <Clipboard className="w-4 h-4" />}
+              <span>{isCopying ? "Copying..." : copiedIssues ? "Copied!" : "Copy"}</span>
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleExportPdf}
+              className="flex items-center gap-2"
+              style={{
+                border: "1px solid #e9eaef",
+                borderRadius: "8px",
+                fontFamily: "DM Sans, sans-serif",
+                padding: "8px 12px"
+              }}
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
+            </Button>
+            <span className="text-sm whitespace-nowrap ml-auto lg:ml-2" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
+              {pagination.total} {pagination.total === 1 ? "issue" : "issues"}
+            </span>
+          </div>
         </div>
 
         {/* Bulk status update bar */}
         {selectedIssueIds.length > 0 && (
-          <div className="flex items-center gap-3 mb-4 p-3 bg-[var(--color-accent-light,#e8f0fb)] border border-[var(--color-accent)] rounded-lg">
-            <span className="text-sm font-medium">{selectedIssueIds.length} selected</span>
+          <div className="flex items-center gap-3 mb-4 p-3 rounded-lg" style={{ background: "#c3faf5", border: "1px solid #5b76fe" }}>
+            <span className="text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>{selectedIssueIds.length} selected</span>
             <Select
               options={[
                 { value: "", label: "Change status to..." },
@@ -265,10 +337,10 @@ export default function MyIssuesPage() {
               onChange={(e) => setBulkStatus(e.target.value)}
               className="w-44"
             />
-            <Button variant="primary" onClick={handleBulkStatusUpdate} disabled={!bulkStatus} className="text-sm">
+            <Button variant="primary" onClick={handleBulkStatusUpdate} disabled={!bulkStatus} className="text-sm" style={{ background: "#5b76fe", borderRadius: "8px" }}>
               Update
             </Button>
-            <button onClick={() => setSelectedIssueIds([])} className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] ml-auto">
+            <button onClick={() => setSelectedIssueIds([])} className="text-sm ml-auto hover:opacity-80" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>
               Clear
             </button>
           </div>
@@ -277,8 +349,8 @@ export default function MyIssuesPage() {
         {/* Mobile-friendly issue list */}
         <div className="md:hidden space-y-3 mb-4">
           {issues.length === 0 ? (
-            <div className="bg-white border border-[var(--color-border)] rounded-lg p-8 text-center">
-              <p className="text-[var(--color-text-secondary)]">No issues found</p>
+            <div className="bg-white border rounded-lg p-8 text-center" style={{ borderColor: "#e9eaef" }}>
+              <p style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>No issues found</p>
             </div>
           ) : (
             issues.map((issue) => {
@@ -286,7 +358,8 @@ export default function MyIssuesPage() {
               return (
                 <div
                   key={issue.id}
-                  className="bg-white border border-[var(--color-border)] rounded-lg p-4"
+                  className="bg-white border rounded-lg p-4"
+                  style={{ borderColor: "#e9eaef" }}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
@@ -331,7 +404,8 @@ export default function MyIssuesPage() {
                       </div>
                       <button
                         onClick={() => window.open(`/issues/${issue.id}`, "_blank")}
-                        className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[var(--color-accent)] bg-[var(--color-accent-light,#e8f0fb)] rounded-md hover:opacity-80 transition-opacity"
+                        className="mt-2 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md hover:opacity-80 transition-opacity"
+                        style={{ background: "#c3faf5", color: "#187574", fontFamily: "DM Sans, sans-serif" }}
                       >
                         <ExternalLink className="w-3 h-3" />
                         Open Issue
@@ -345,29 +419,29 @@ export default function MyIssuesPage() {
         </div>
 
         {/* Desktop table view */}
-        <div className="hidden md:block rounded-xl border border-[var(--color-border)] overflow-hidden" style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)" }}>
+        <div className="hidden md:block rounded-2xl border overflow-hidden" style={{ borderColor: "#e9eaef", background: "#ffffff", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-[var(--color-border)]" style={{ background: "var(--color-surface)" }}>
+                <tr style={{ background: "#fafafa" }}>
                   <th className="text-left px-3 md:px-4 py-3 w-10">
                     <input type="checkbox" checked={issues.length > 0 && selectedIssueIds.length === issues.length} onChange={toggleSelectAll} className="w-4 h-4 rounded border-[var(--color-border)]" />
                   </th>
-                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">ID</th>
-                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Title</th>
-                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden md:table-cell">Project</th>
-                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase">Type</th>
-                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden sm:table-cell">Status</th>
-                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden lg:table-cell">Priority</th>
-                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden xl:table-cell">Due</th>
-                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase hidden md:table-cell">Assignees</th>
-                  <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-[var(--color-text-secondary)] uppercase w-20">Action</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>ID</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Title</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-semibold uppercase tracking-wide hidden md:table-cell" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Project</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Type</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-semibold uppercase tracking-wide hidden sm:table-cell" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Status</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-semibold uppercase tracking-wide hidden lg:table-cell" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Priority</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-semibold uppercase tracking-wide hidden xl:table-cell" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Due</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-semibold uppercase tracking-wide hidden md:table-cell" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Assignees</th>
+                  <th className="text-left px-3 md:px-4 py-3 text-xs font-semibold uppercase tracking-wide w-20" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {issues.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-12 text-[var(--color-text-secondary)]">
+                    <td colSpan={10} className="text-center py-12" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
                       No issues found
                     </td>
                   </tr>
@@ -375,12 +449,12 @@ export default function MyIssuesPage() {
                   issues.map((issue) => {
                     const dueInfo = formatDate(issue.dueDate);
                     return (
-                      <tr key={issue.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface)]">
+                      <tr key={issue.id} className="border-b transition-colors hover:bg-gray-50" style={{ borderColor: "#f5f5f5" }}>
                         <td className="px-3 md:px-4 py-3">
                           <input type="checkbox" checked={selectedIssueIds.includes(issue.id)} onChange={() => toggleSelectIssue(issue.id)} className="w-4 h-4 rounded border-[var(--color-border)]" />
                         </td>
-                        <td className="px-3 md:px-4 py-3 text-sm font-mono text-[var(--color-text-secondary)]">#{issue.id}</td>
-                        <td className="px-3 md:px-4 py-3 text-sm font-medium text-[var(--color-text-primary)] max-w-[200px] truncate">{issue.title}</td>
+                        <td className="px-3 md:px-4 py-3 text-sm font-mono" style={{ color: "#a5a8b5" }}>#{issue.id}</td>
+                        <td className="px-3 md:px-4 py-3 text-sm font-medium max-w-[200px] truncate" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>{issue.title}</td>
                         <td className="px-3 md:px-4 py-3 text-sm text-[var(--color-text-secondary)] hidden md:table-cell">
                           <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color-accent)]">{issue.project.name}</Link>
                         </td>
@@ -390,7 +464,8 @@ export default function MyIssuesPage() {
                             <select
                               value={issue.status}
                               onChange={(e) => handleStatusChange(issue.id, e.target.value)}
-                              className="text-xs px-2 py-1 rounded border border-[var(--color-border)] bg-white cursor-pointer"
+                              className="text-sm px-3 py-2 rounded-lg border cursor-pointer bg-white"
+                              style={{ borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
                             >
                               {Object.values(ISSUE_STATUSES).map(s => (
                                 <option key={s} value={s}>{s}</option>
@@ -408,7 +483,8 @@ export default function MyIssuesPage() {
                         <td className="px-3 md:px-4 py-3">
                           <button
                             onClick={() => window.open(`/issues/${issue.id}`, "_blank")}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-[var(--color-accent)] bg-[var(--color-accent-light,#e8f0fb)] rounded-md hover:opacity-80 transition-opacity"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md hover:opacity-80 transition-opacity"
+                            style={{ background: "#c3faf5", color: "#187574", fontFamily: "DM Sans, sans-serif" }}
                           >
                             <ExternalLink className="w-3 h-3" />
                             Open
