@@ -193,6 +193,68 @@ export const milestoneNotes = sqliteTable("milestone_notes", {
   userIdx: index("idx_notes_user").on(table.userId),
 }));
 
+// Context entries: flexible per-project workspace records
+export const contextEntries = sqliteTable("context_entries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  kind: text("kind", { enum: ["question", "answer", "note", "ingest", "ingest_chunk", "treemap", "task", "custom"] }).notNull(),
+  parentId: integer("parent_id"),
+  title: text("title"),
+  body: text("body").notNull(),
+  source: text("source", { enum: ["user", "ai", "admin_pin"] }).notNull().default("user"),
+  status: text("status", { enum: ["active", "completed", "archived"] }).notNull().default("active"),
+  pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+  metadata: text("metadata"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  projectIdx: index("idx_context_entries_project").on(table.projectId),
+  kindIdx: index("idx_context_entries_kind").on(table.kind),
+  statusIdx: index("idx_context_entries_status").on(table.status),
+  parentIdx: index("idx_context_entries_parent").on(table.parentId),
+  updatedAtIdx: index("idx_context_entries_updated_at").on(table.updatedAt),
+}));
+
+// Embeddings linked to context entries (one row per entry)
+export const contextEntryEmbeddings = sqliteTable("context_entry_embeddings", {
+  entryId: integer("entry_id").primaryKey().references(() => contextEntries.id, { onDelete: "cascade" }),
+  model: text("model").notNull(),
+  dim: integer("dim").notNull(),
+  vector: text("vector").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// Per-path tested state for treemap nodes; survives treemap re-paste
+export const treemapPaths = sqliteTable("treemap_paths", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  path: text("path").notNull(),
+  tested: integer("tested", { mode: "boolean" }).notNull().default(false),
+  notes: text("notes"),
+  lastTestedAt: integer("last_tested_at", { mode: "timestamp" }),
+  updatedBy: integer("updated_by").references(() => users.id),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  projectPathIdx: index("idx_treemap_paths_project_path").on(table.projectId, table.path),
+}));
+
+// Activity log for context workspace
+export const contextActivity = sqliteTable("context_activity", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  entryId: integer("entry_id").references(() => contextEntries.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  action: text("action").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  projectIdx: index("idx_context_activity_project").on(table.projectId),
+  entryIdx: index("idx_context_activity_entry").on(table.entryId),
+  createdAtIdx: index("idx_context_activity_created_at").on(table.createdAt),
+}));
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
@@ -352,6 +414,55 @@ export const milestoneNotesRelations = relations(milestoneNotes, ({ one }) => ({
   }),
   user: one(users, {
     fields: [milestoneNotes.userId],
+    references: [users.id],
+  }),
+}));
+
+export const contextEntriesRelations = relations(contextEntries, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [contextEntries.projectId],
+    references: [projects.id],
+  }),
+  creator: one(users, {
+    fields: [contextEntries.createdBy],
+    references: [users.id],
+  }),
+  embedding: one(contextEntryEmbeddings, {
+    fields: [contextEntries.id],
+    references: [contextEntryEmbeddings.entryId],
+  }),
+  activities: many(contextActivity),
+}));
+
+export const contextEntryEmbeddingsRelations = relations(contextEntryEmbeddings, ({ one }) => ({
+  entry: one(contextEntries, {
+    fields: [contextEntryEmbeddings.entryId],
+    references: [contextEntries.id],
+  }),
+}));
+
+export const treemapPathsRelations = relations(treemapPaths, ({ one }) => ({
+  project: one(projects, {
+    fields: [treemapPaths.projectId],
+    references: [projects.id],
+  }),
+  updatedByUser: one(users, {
+    fields: [treemapPaths.updatedBy],
+    references: [users.id],
+  }),
+}));
+
+export const contextActivityRelations = relations(contextActivity, ({ one }) => ({
+  project: one(projects, {
+    fields: [contextActivity.projectId],
+    references: [projects.id],
+  }),
+  entry: one(contextEntries, {
+    fields: [contextActivity.entryId],
+    references: [contextEntries.id],
+  }),
+  user: one(users, {
+    fields: [contextActivity.userId],
     references: [users.id],
   }),
 }));

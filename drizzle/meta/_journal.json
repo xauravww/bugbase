@@ -8,6 +8,13 @@
       "when": 1772289250722,
       "tag": "0000_low_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777569318188,
+      "tag": "0001_abandoned_guardian",
+      "breakpoints": true
     }
   ]
 }

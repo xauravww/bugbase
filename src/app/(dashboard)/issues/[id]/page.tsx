@@ -631,7 +631,10 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       <div className="p-4 max-w-7xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
           <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-            <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color-accent)] flex items-center gap-1">
+            <Link
+              href={(typeof window !== "undefined" && sessionStorage.getItem(`project-return:${issue.project.id}`)) || `/projects/${issue.project.id}`}
+              className="hover:text-[var(--color-accent)] flex items-center gap-1"
+            >
               <ChevronLeft className="w-4 h-4" />
               {issue.project.name}
             </Link>
