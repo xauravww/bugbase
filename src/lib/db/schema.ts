@@ -197,7 +197,7 @@ export const milestoneNotes = sqliteTable("milestone_notes", {
 export const contextEntries = sqliteTable("context_entries", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  kind: text("kind", { enum: ["question", "answer", "note", "ingest", "ingest_chunk", "treemap", "task", "custom"] }).notNull(),
+  kind: text("kind", { enum: ["question", "answer", "note", "ingest", "ingest_chunk", "treemap", "task", "feature", "custom"] }).notNull(),
   parentId: integer("parent_id"),
   title: text("title"),
   body: text("body").notNull(),

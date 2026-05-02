@@ -14,6 +14,7 @@ interface Props {
 
 const FILTERS: { key: "all" | ContextKind | "treemap_view"; label: string }[] = [
   { key: "all", label: "All" },
+  { key: "feature", label: "Features" },
   { key: "question", label: "Questions" },
   { key: "task", label: "Tasks" },
   { key: "note", label: "Notes" },

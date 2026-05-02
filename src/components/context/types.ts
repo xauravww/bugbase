@@ -6,7 +6,21 @@ export type ContextKind =
   | "ingest_chunk"
   | "treemap"
   | "task"
+  | "feature"
   | "custom";
+
+export interface ContextAttachment {
+  url: string;
+  thumbnail?: string;
+  caption?: string;
+  type?: "image" | "link";
+}
+
+export interface ContextEntryMetadata {
+  attachments?: ContextAttachment[];
+  references?: { url: string; label?: string }[];
+  [k: string]: unknown;
+}
 
 export type ContextSource = "user" | "ai" | "admin_pin";
 

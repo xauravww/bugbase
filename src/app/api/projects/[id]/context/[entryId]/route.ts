@@ -11,7 +11,7 @@ const updateSchema = z.object({
   body: z.string().min(1).optional(),
   status: z.enum(["active", "completed", "archived"]).optional(),
   pinned: z.boolean().optional(),
-  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+  metadata: z.union([z.string(), z.record(z.string(), z.unknown())]).nullable().optional(),
 });
 
 async function loadEntry(projectId: number, entryId: number) {
@@ -73,7 +73,13 @@ export async function PUT(
     if (parsed.data.body !== undefined) patch.body = parsed.data.body;
     if (parsed.data.status !== undefined) patch.status = parsed.data.status;
     if (parsed.data.pinned !== undefined) patch.pinned = parsed.data.pinned;
-    if (parsed.data.metadata !== undefined) patch.metadata = parsed.data.metadata ? JSON.stringify(parsed.data.metadata) : null;
+    if (parsed.data.metadata !== undefined) {
+      patch.metadata = parsed.data.metadata
+        ? typeof parsed.data.metadata === "string"
+          ? parsed.data.metadata
+          : JSON.stringify(parsed.data.metadata)
+        : null;
+    }
 
     await db.update(contextEntries).set(patch).where(eq(contextEntries.id, eid));
 

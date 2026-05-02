@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2, Sparkles, Pin, Save, X, CheckCircle, Archive } from "lucide-react";
-import type { ContextEntry } from "./types";
+import { Pencil, Trash2, Sparkles, Pin, Save, X, CheckCircle, Archive, Link as LinkIcon } from "lucide-react";
+import type { ContextEntry, ContextAttachment, ContextEntryMetadata } from "./types";
 
 interface Props {
   entry: ContextEntry;
@@ -16,6 +16,7 @@ interface Props {
 }
 
 const KIND_LABEL: Record<string, string> = {
+  feature: "Feature",
   question: "Question",
   answer: "Answer",
   note: "Note",
@@ -27,6 +28,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 const KIND_COLOR: Record<string, { bg: string; fg: string }> = {
+  feature: { bg: "#dff5e8", fg: "#1a6b3a" },
   question: { bg: "#fff7e0", fg: "#8a6300" },
   answer: { bg: "#e8f7ec", fg: "#1f7a3a" },
   note: { bg: "#eef0ff", fg: "#3a4abf" },
@@ -36,6 +38,15 @@ const KIND_COLOR: Record<string, { bg: string; fg: string }> = {
   treemap: { bg: "#fde8ec", fg: "#a3324a" },
   custom: { bg: "#f0f0f0", fg: "#555a6a" },
 };
+
+function parseMeta(raw: string | null): ContextEntryMetadata {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw) as ContextEntryMetadata;
+  } catch {
+    return {};
+  }
+}
 
 function timeAgo(iso: string): string {
   const t = new Date(iso).getTime();
@@ -58,6 +69,9 @@ export function EntryCard({ entry, canEdit, canDelete, isAdmin, onEdit, onDelete
   const [confirmDel, setConfirmDel] = useState(false);
 
   const kindStyle = KIND_COLOR[entry.kind] || KIND_COLOR.custom;
+  const meta = parseMeta(entry.metadata);
+  const atts: ContextAttachment[] = Array.isArray(meta.attachments) ? meta.attachments : [];
+  const refs = Array.isArray(meta.references) ? meta.references : [];
 
   const handleSave = async () => {
     if (!draftBody.trim()) return;
@@ -246,6 +260,42 @@ export function EntryCard({ entry, canEdit, canDelete, isAdmin, onEdit, onDelete
           >
             {entry.body.length > 800 ? entry.body.slice(0, 800) + "…" : entry.body}
           </div>
+          {atts.length > 0 && (
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {atts.map((a, i) => (
+                <a
+                  key={a.url + i}
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-md overflow-hidden hover:opacity-90 transition-opacity"
+                  style={{ border: "1px solid #e9e9e9", background: "#fafafa" }}
+                  title={a.caption || "Open full image"}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={a.thumbnail || a.url} alt={a.caption || "screenshot"} className="w-full h-28 object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
+          {refs.length > 0 && (
+            <ul className="mt-3 space-y-1">
+              {refs.map((r, i) => (
+                <li key={r.url + i} className="flex items-center gap-1.5 text-xs">
+                  <LinkIcon className="w-3 h-3 shrink-0" style={{ color: "#187574" }} />
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="truncate hover:underline"
+                    style={{ color: "#187574", fontFamily: "DM Sans, sans-serif" }}
+                  >
+                    {r.label || r.url}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
 

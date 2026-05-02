@@ -6,7 +6,7 @@ import { getAuthUser } from "@/lib/auth";
 import { and, desc, eq, sql, inArray } from "drizzle-orm";
 import { ERR, ensureProjectAccess, logContextActivity, syncEntryEmbedding, findSimilar } from "@/lib/context-helpers";
 
-const KIND_VALUES = ["question", "answer", "note", "ingest", "ingest_chunk", "treemap", "task", "custom"] as const;
+const KIND_VALUES = ["question", "answer", "note", "ingest", "ingest_chunk", "treemap", "task", "feature", "custom"] as const;
 const STATUS_VALUES = ["active", "completed", "archived"] as const;
 
 const createSchema = z.object({
@@ -16,7 +16,7 @@ const createSchema = z.object({
   parentId: z.number().int().positive().optional(),
   source: z.enum(["user", "ai", "admin_pin"]).optional(),
   pinned: z.boolean().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
   skipSimilarity: z.boolean().optional(),
 });
 
@@ -123,7 +123,11 @@ export async function POST(
         parentId: data.parentId || null,
         source: data.source || "user",
         pinned: !!data.pinned,
-        metadata: data.metadata ? JSON.stringify(data.metadata) : null,
+        metadata: data.metadata
+          ? typeof data.metadata === "string"
+            ? data.metadata
+            : JSON.stringify(data.metadata)
+          : null,
         createdBy: authUser.id,
       })
       .returning();
