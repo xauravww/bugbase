@@ -11,6 +11,7 @@ import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityBadge, Avat
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES } from "@/constants";
 import { useClickOutside } from "@/hooks/useClickOutside";
+import MultiSelectChips from "@/components/ui/MultiSelectChips";
 
 interface Member {
   id: number;
@@ -44,6 +45,7 @@ interface IssueDetail {
   assignees: Array<{ user: { id: number; name: string; email: string } }>;
   verifiers: Array<{ user: { id: number; name: string; email: string } }>;
   verifications: Array<{ user: { id: number; name: string; email: string } }>;
+  categories?: Array<{ category: { id: number; name: string; color: string } }>;
   attachments: Attachment[];
   comments: Array<{
     id: number;
@@ -93,6 +95,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   });
   const [isSaving, setIsSaving] = useState(false);
   const [refiningField, setRefiningField] = useState<string | null>(null);
+  const [projectCategories, setProjectCategories] = useState<Array<{ id: number; name: string; color: string }>>([]);
 
   const assigneeDropdownRef = useClickOutside<HTMLDivElement>(() => setShowAssigneeDropdown(false));
   const verifierDropdownRef = useClickOutside<HTMLDivElement>(() => setShowVerifierDropdown(false));
@@ -107,6 +110,9 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       if (res.ok) {
         const data = await res.json();
         setIssue(data.issue);
+        if (data.issue?.project?.id) {
+          fetchProjectCategories(data.issue.project.id);
+        }
       } else if (res.status === 403 || res.status === 404) {
         router.push("/projects");
       }
@@ -115,6 +121,18 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fetchProjectCategories = async (projectId: number) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/categories`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectCategories(data.categories || []);
+      }
+    } catch {}
   };
 
   const fetchMembers = async (search: string = "") => {
@@ -213,6 +231,22 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
       setShowAssigneeDropdown(false);
     } catch (error) {
       console.error("Failed to update assignees:", error);
+    }
+  };
+
+  const handleCategoriesChange = async (categoryIds: number[]) => {
+    try {
+      await fetch(`/api/issues/${issueId}/categories`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ categoryIds }),
+      });
+      fetchIssue();
+    } catch (error) {
+      console.error("Failed to update categories:", error);
     }
   };
 
@@ -1428,6 +1462,37 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                           )}
                         </div>
                       </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
+                  Categories
+                </label>
+                {canEdit ? (
+                  <MultiSelectChips
+                    options={projectCategories.map((c) => ({ id: c.id, label: c.name, color: c.color }))}
+                    value={(issue.categories || []).map((c) => c.category.id)}
+                    onChange={handleCategoriesChange}
+                    placeholder={projectCategories.length === 0 ? "No categories \u2014 add in project settings" : "Add categories"}
+                    disabled={projectCategories.length === 0}
+                  />
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {(issue.categories || []).length === 0 ? (
+                      <span className="text-sm text-[var(--color-text-secondary)]">No categories</span>
+                    ) : (
+                      (issue.categories || []).map(({ category }) => (
+                        <span
+                          key={category.id}
+                          className="px-2 py-0.5 rounded-full text-xs font-medium"
+                          style={{ backgroundColor: category.color, color: "#fff" }}
+                        >
+                          {category.name}
+                        </span>
+                      ))
                     )}
                   </div>
                 )}

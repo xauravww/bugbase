@@ -255,6 +255,28 @@ export const contextActivity = sqliteTable("context_activity", {
   createdAtIdx: index("idx_context_activity_created_at").on(table.createdAt),
 }));
 
+// Categories table (per-project tags)
+export const categories = sqliteTable("categories", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#5b76fe"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  projectIdx: index("idx_categories_project").on(table.projectId),
+  projectNameIdx: index("idx_categories_project_name").on(table.projectId, table.name),
+}));
+
+// Issue categories join table
+export const issueCategories = sqliteTable("issue_categories", {
+  issueId: integer("issue_id").notNull().references(() => issues.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.issueId, table.categoryId] }),
+  categoryIdx: index("idx_issue_categories_category").on(table.categoryId),
+}));
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
@@ -272,6 +294,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   members: many(projectMembers),
   issues: many(issues),
   milestones: many(milestones),
+  categories: many(categories),
 }));
 
 export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
@@ -300,6 +323,7 @@ export const issuesRelations = relations(issues, ({ one, many }) => ({
   comments: many(comments),
   attachments: many(attachments),
   activities: many(activityLog),
+  categories: many(issueCategories),
 }));
 
 export const issueAssigneesRelations = relations(issueAssignees, ({ one }) => ({
@@ -464,5 +488,28 @@ export const contextActivityRelations = relations(contextActivity, ({ one }) => 
   user: one(users, {
     fields: [contextActivity.userId],
     references: [users.id],
+  }),
+}));
+
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [categories.projectId],
+    references: [projects.id],
+  }),
+  creator: one(users, {
+    fields: [categories.createdBy],
+    references: [users.id],
+  }),
+  issues: many(issueCategories),
+}));
+
+export const issueCategoriesRelations = relations(issueCategories, ({ one }) => ({
+  issue: one(issues, {
+    fields: [issueCategories.issueId],
+    references: [issues.id],
+  }),
+  category: one(categories, {
+    fields: [issueCategories.categoryId],
+    references: [categories.id],
   }),
 }));

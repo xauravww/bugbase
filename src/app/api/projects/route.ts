@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { projects, projectMembers, issues } from "@/lib/db/schema";
+import { projects, projectMembers, issues, categories } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, desc, inArray, like, and, or, sql } from "drizzle-orm";
+import { DEFAULT_CATEGORIES } from "@/lib/categories";
 
 const createProjectSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -170,6 +171,15 @@ export async function POST(request: NextRequest) {
       userId: authUser.id,
       role: "admin",
     });
+
+    await db.insert(categories).values(
+      DEFAULT_CATEGORIES.map((cat) => ({
+        projectId: newProject.id,
+        name: cat.name,
+        color: cat.color,
+        createdBy: authUser.id,
+      }))
+    );
 
     return NextResponse.json({ project: newProject }, { status: 201 });
     

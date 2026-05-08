@@ -10,6 +10,10 @@ import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 import type { Pagination } from "@/types/issue";
 
 import { ContextWorkspace } from "@/components/context";
+import CategoriesManager from "@/components/projects/CategoriesManager";
+import TeamProgress from "@/components/projects/TeamProgress";
+import MultiSelectChips from "@/components/ui/MultiSelectChips";
+import { contrastingText } from "@/lib/categories";
 
 interface Issue {
   id: number;
@@ -18,8 +22,11 @@ interface Issue {
   status: string;
   priority: string;
   reporterId: number;
+  createdAt?: string;
   updatedAt: string;
+  reporter?: { id: number; name: string; email?: string };
   assignees: Array<{ user: { id: number; name: string } }>;
+  categories?: Array<{ category: { id: number; name: string; color: string } }>;
 }
 
 interface Project {
@@ -30,6 +37,25 @@ interface Project {
   members: Array<{ user: { id: number; name: string; email: string }; role: string }>;
 }
 
+function formatActivity(iso?: string): { label: string; isToday: boolean } | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+  let label: string;
+  if (diffMin < 1) label = "just now";
+  else if (diffMin < 60) label = `${diffMin}m ago`;
+  else if (diffHr < 24 && sameDay) label = `${diffHr}h ago`;
+  else if (diffDay < 7) label = `${diffDay}d ago`;
+  else label = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return { label, isToday: sameDay };
+}
+
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
@@ -38,8 +64,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const initialTab = (() => {
     const t = searchParams.get("tab");
     if (t === "context" || t === "milestones") return "context";
+    if (t === "team") return "team";
+    if (t === "settings") return "settings";
     return "issues";
-  })() as "issues" | "context";
+  })() as "issues" | "context" | "team" | "settings";
   const initialStatus = searchParams.get("status") ?? "all";
   const [project, setProject] = useState<Project | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -55,7 +83,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
-  const [activeTab, setActiveTab] = useState<"issues" | "context">(initialTab);
+  const [activeTab, setActiveTab] = useState<"issues" | "context" | "team" | "settings">(initialTab);
   const [issueStatusTab, setIssueStatusTab] = useState<string>(initialStatus);
   const [issuesPaginationState, setIssuesPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Closed: 1 });
   const [selectedProjectIssueIds, setSelectedProjectIssueIds] = useState<number[]>([]);
@@ -73,6 +101,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     startDate: "",
     dueDate: "",
   });
+  const [createCategoryIds, setCreateCategoryIds] = useState<number[]>([]);
+  const [projectCategories, setProjectCategories] = useState<Array<{ id: number; name: string; color: string }>>([]);
   const [screenshots, setScreenshots] = useState<{ url: string; preview: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -84,6 +114,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
+  const [filterCategoryIds, setFilterCategoryIds] = useState<number[]>([]);
+  const [filterCategoryMode, setFilterCategoryMode] = useState<"any" | "all">("any");
   const [copiedIssues, setCopiedIssues] = useState(false);
   const [issueSearch, setIssueSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -101,6 +133,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       if (filterType !== "all") params.set("type", filterType);
       if (filterPriority !== "all") params.set("priority", filterPriority);
       if (debouncedSearch) params.set("search", debouncedSearch);
+      if (filterCategoryIds.length > 0) {
+        params.set("categoryIds", filterCategoryIds.join(","));
+        params.set("categoryMode", filterCategoryMode);
+      }
 
       // Tab filter controls status
       if (issueStatusTab !== "all") {
@@ -130,7 +166,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, filterPriority, filterType, issueStatusTab, projectId, router, token]);
+  }, [debouncedSearch, filterPriority, filterType, filterCategoryIds, filterCategoryMode, issueStatusTab, projectId, router, token]);
 
 
 
@@ -149,9 +185,29 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   }, [fetchProject, issueStatusTab, issuesPaginationState, projectId, token]);
 
+  const fetchProjectCategories = useCallback(async () => {
+    if (!token || !projectId) return;
+    try {
+      const res = await fetch(`/api/projects/${projectId}/categories`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectCategories(data.categories || []);
+      }
+    } catch {}
+  }, [projectId, token]);
+
+  useEffect(() => {
+    fetchProjectCategories();
+  }, [fetchProjectCategories]);
+
   useEffect(() => {
     const params = new URLSearchParams(Array.from(searchParams.entries()));
-    if (activeTab === "context") params.set("tab", "context"); else params.delete("tab");
+    if (activeTab === "context") params.set("tab", "context");
+    else if (activeTab === "team") params.set("tab", "team");
+    else if (activeTab === "settings") params.set("tab", "settings");
+    else params.delete("tab");
     if (issueStatusTab !== "all") params.set("status", issueStatusTab); else params.delete("status");
     const qs = params.toString();
     const next = qs ? `?${qs}` : "";
@@ -178,6 +234,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         body: JSON.stringify({
           ...createForm,
           projectId: parseInt(projectId),
+          categoryIds: createCategoryIds,
         }),
       });
 
@@ -202,6 +259,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       setShowCreateModal(false);
       setCreateForm({ title: "", type: "Bug", description: "", stepsToReproduce: "", expectedResult: "", actualResult: "", priority: "Medium", startDate: "", dueDate: "" });
+      setCreateCategoryIds([]);
       setScreenshots([]);
       fetchProject();
     } catch (err) {
@@ -602,7 +660,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         {/* Tab Navigation - Unified segment control */}
         <div className="px-3 md:px-8 mb-4 md:mb-6">
           <div className="flex items-center gap-2 md:gap-1 max-w-[1400px] mx-auto">
-            <div className="flex p-1 rounded-xl flex-1 md:flex-none" style={{ background: "#f7f6f3" }}>
+            <div className="flex-1 overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0 md:flex-none">
+            <div className="flex p-1 rounded-xl" style={{ background: "#f7f6f3", width: "fit-content", minWidth: "max-content" }}>
               <button
                 onClick={() => setActiveTab("issues")}
                 className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
@@ -640,6 +699,42 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               >
                 <span className="md:hidden">Context</span>
                 <span className="hidden md:inline">Context</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("team")}
+                className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
+                style={{
+                  background: activeTab === "team" ? "#ffffff" : "transparent",
+                  color: activeTab === "team" ? "#1c1c1e" : "#555a6a",
+                  fontFamily: "DM Sans, sans-serif",
+                  boxShadow: activeTab === "team" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== "team") e.currentTarget.style.background = "#e9e9e9";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = activeTab === "team" ? "#ffffff" : "transparent";
+                }}
+              >
+                Team Progress
+              </button>
+              <button
+                onClick={() => setActiveTab("settings")}
+                className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
+                style={{
+                  background: activeTab === "settings" ? "#ffffff" : "transparent",
+                  color: activeTab === "settings" ? "#1c1c1e" : "#555a6a",
+                  fontFamily: "DM Sans, sans-serif",
+                  boxShadow: activeTab === "settings" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== "settings") e.currentTarget.style.background = "#e9e9e9";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = activeTab === "settings" ? "#ffffff" : "transparent";
+                }}
+              >
+                Settings
               </button>
             </div>
             
@@ -694,6 +789,33 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
 
+            {/* Today's activity proof-of-work banner */}
+            {(() => {
+              const todayUpdated = issues.filter((i) => formatActivity(i.updatedAt)?.isToday);
+              const todayCreated = issues.filter((i) => formatActivity(i.createdAt)?.isToday);
+              const actorSet = new Set<string>();
+              todayUpdated.forEach((i) => i.assignees.forEach((a) => actorSet.add(a.user.name)));
+              todayCreated.forEach((i) => { if (i.reporter) actorSet.add(i.reporter.name); });
+              if (todayUpdated.length === 0 && todayCreated.length === 0) {
+                return (
+                  <div className="mb-4 px-4 py-2.5 rounded-xl flex items-center gap-3 text-sm" style={{ background: "#fff7ed", border: "1px solid #fdba74", fontFamily: "DM Sans, sans-serif" }}>
+                    <span className="font-semibold" style={{ color: "#9a3412" }}>No activity today</span>
+                    <span style={{ color: "#7c2d12" }}>· Visible page shows nothing updated/created today</span>
+                  </div>
+                );
+              }
+              return (
+                <div className="mb-4 px-4 py-2.5 rounded-xl flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" style={{ background: "#ecfdf5", border: "1px solid #6ee7b7", fontFamily: "DM Sans, sans-serif" }}>
+                  <span className="font-semibold" style={{ color: "#065f46" }}>Today</span>
+                  <span style={{ color: "#047857" }}>{todayCreated.length} created</span>
+                  <span style={{ color: "#047857" }}>{todayUpdated.length} updated</span>
+                  {actorSet.size > 0 && (
+                    <span style={{ color: "#065f46" }}>by {Array.from(actorSet).slice(0, 4).join(", ")}{actorSet.size > 4 ? ` +${actorSet.size - 4}` : ""}</span>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Filters & View Toggle - Stack on mobile */}
             <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-4 md:mb-6">
               <Select
@@ -714,7 +836,49 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 onChange={(e) => { setFilterPriority(e.target.value); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
                 className="w-40"
               />
-              
+
+              {projectCategories.length > 0 && (
+                <div className="flex items-center gap-2 min-w-[260px]">
+                  <div className="flex-1">
+                    <MultiSelectChips
+                      options={projectCategories.map((c) => ({ id: c.id, label: c.name, color: c.color }))}
+                      value={filterCategoryIds}
+                      onChange={(ids) => { setFilterCategoryIds(ids); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
+                      placeholder="Filter by categories"
+                      searchable
+                    />
+                  </div>
+                  {filterCategoryIds.length > 1 && (
+                    <div className="flex p-0.5 rounded-md text-xs" style={{ background: "#f7f6f3", border: "1px solid #e9eaef" }}>
+                      <button
+                        type="button"
+                        onClick={() => setFilterCategoryMode("any")}
+                        className="px-2 py-1 rounded"
+                        style={{
+                          background: filterCategoryMode === "any" ? "#ffffff" : "transparent",
+                          color: filterCategoryMode === "any" ? "#1c1c1e" : "#555a6a",
+                          fontFamily: "DM Sans, sans-serif",
+                          fontWeight: 500,
+                        }}
+                        title="Match ANY (OR)"
+                      >ANY</button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterCategoryMode("all")}
+                        className="px-2 py-1 rounded"
+                        style={{
+                          background: filterCategoryMode === "all" ? "#ffffff" : "transparent",
+                          color: filterCategoryMode === "all" ? "#1c1c1e" : "#555a6a",
+                          fontFamily: "DM Sans, sans-serif",
+                          fontWeight: 500,
+                        }}
+                        title="Match ALL (AND)"
+                      >ALL</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center gap-2 ml-auto">
                 {/* View Toggle */}
                 <div className="flex p-1 rounded-xl" style={{ background: "#f7f6f3" }}>
@@ -840,13 +1004,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                         <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Status</th>
                         <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Priority</th>
                         <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Assignees</th>
+                        <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Created</th>
+                        <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>Updated</th>
                         <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide w-24" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredIssues.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="text-center py-16" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
+                          <td colSpan={10} className="text-center py-16" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
                             No issues found — create your first issue to get started
                           </td>
                         </tr>
@@ -870,7 +1036,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                               #{issue.id}
                             </td>
                             <td className="px-5 py-4 text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
-                              {issue.title}
+                              <div className="flex flex-col gap-1">
+                                <span>{issue.title}</span>
+                                {issue.categories && issue.categories.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {issue.categories.map(({ category }) => (
+                                      <span
+                                        key={category.id}
+                                        className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                        style={{ backgroundColor: category.color, color: contrastingText(category.color) }}
+                                      >
+                                        {category.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </td>
                             <td className="px-5 py-4">
                               <TypeBadge type={issue.type} />
@@ -902,6 +1083,31 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                               ) : (
                                 <span className="text-sm" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>Unassigned</span>
                               )}
+                            </td>
+                            <td className="px-5 py-4">
+                              {(() => {
+                                const c = formatActivity(issue.createdAt);
+                                if (!c) return <span className="text-xs" style={{ color: "#a5a8b5" }}>—</span>;
+                                return (
+                                  <div className="flex flex-col" title={issue.createdAt ? new Date(issue.createdAt).toLocaleString() : ""}>
+                                    <span className="text-xs font-medium" style={{ color: c.isToday ? "#187574" : "#555a6a", fontFamily: "DM Sans, sans-serif" }}>{c.label}</span>
+                                    {c.isToday && <span className="text-[10px] font-semibold" style={{ color: "#187574" }}>TODAY</span>}
+                                    {issue.reporter && <span className="text-[10px]" style={{ color: "#a5a8b5" }}>by {issue.reporter.name.split(" ")[0]}</span>}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                            <td className="px-5 py-4">
+                              {(() => {
+                                const u = formatActivity(issue.updatedAt);
+                                if (!u) return <span className="text-xs" style={{ color: "#a5a8b5" }}>—</span>;
+                                return (
+                                  <div className="flex flex-col" title={new Date(issue.updatedAt).toLocaleString()}>
+                                    <span className="text-xs font-medium" style={{ color: u.isToday ? "#187574" : "#555a6a", fontFamily: "DM Sans, sans-serif" }}>{u.label}</span>
+                                    {u.isToday && <span className="text-[10px] font-semibold" style={{ color: "#187574" }}>TODAY</span>}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="px-5 py-4">
                               <button
@@ -1017,6 +1223,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {activeTab === "context" && <ContextWorkspace projectId={parseInt(projectId)} />}
+
+        {activeTab === "team" && <TeamProgress projectId={projectId} />}
+
+        {activeTab === "settings" && (
+          <CategoriesManager
+            projectId={parseInt(projectId)}
+            canEdit={user?.role === "Admin" || user?.role === "QA"}
+          />
+        )}
       </div>
 
       {/* Create Issue Modal */}
@@ -1082,6 +1297,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               onChange={(e) => setCreateForm({ ...createForm, priority: e.target.value })}
             />
           </div>
+
+          <MultiSelectChips
+            label="Categories"
+            options={projectCategories.map((c) => ({ id: c.id, label: c.name, color: c.color }))}
+            value={createCategoryIds}
+            onChange={setCreateCategoryIds}
+            placeholder={projectCategories.length === 0 ? "No categories yet \u2014 create in Settings tab" : "Add categories"}
+            disabled={projectCategories.length === 0}
+          />
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -1353,10 +1577,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />
-        </div>
-      )}
+        </div>)}
+
 
 
     </div>
-  );
+    </div>
+  )
 }

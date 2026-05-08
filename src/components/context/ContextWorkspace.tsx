@@ -258,6 +258,7 @@ export function ContextWorkspace({ projectId }: Props) {
         ) : (
           <div className="space-y-3">
             <EntryComposer
+              key={`composer-${filter}`}
               projectId={projectId}
               token={token}
               isAdmin={isAdmin}

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { projects, projectMembers, issues } from "@/lib/db/schema";
+import { projects, projectMembers, issues, issueCategories } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, and, inArray, like, or } from "drizzle-orm";
+import { eq, and, inArray, like, or, sql } from "drizzle-orm";
 
 const updateProjectSchema = z.object({
   name: z.string().min(2).optional(),
@@ -145,6 +145,34 @@ export async function GET(
       whereClause = and(whereClause, eq(issues.priority, priority as "Low" | "Medium" | "High" | "Critical")) as typeof whereClause;
     }
 
+    const categoryIdsParam = searchParams.get("categoryIds");
+    const categoryMode = searchParams.get("categoryMode") || "any";
+    if (categoryIdsParam) {
+      const categoryIds = categoryIdsParam
+        .split(",")
+        .map((s) => parseInt(s.trim()))
+        .filter((n) => !isNaN(n));
+      if (categoryIds.length > 0) {
+        if (categoryMode === "all") {
+          const matching = await db
+            .select({ issueId: issueCategories.issueId })
+            .from(issueCategories)
+            .where(inArray(issueCategories.categoryId, categoryIds))
+            .groupBy(issueCategories.issueId)
+            .having(sql`COUNT(DISTINCT ${issueCategories.categoryId}) = ${categoryIds.length}`);
+          const ids = matching.map((m) => m.issueId);
+          whereClause = and(whereClause, ids.length > 0 ? inArray(issues.id, ids) : sql`1=0`) as typeof whereClause;
+        } else {
+          const matching = await db
+            .selectDistinct({ issueId: issueCategories.issueId })
+            .from(issueCategories)
+            .where(inArray(issueCategories.categoryId, categoryIds));
+          const ids = matching.map((m) => m.issueId);
+          whereClause = and(whereClause, ids.length > 0 ? inArray(issues.id, ids) : sql`1=0`) as typeof whereClause;
+        }
+      }
+    }
+
     // Get total count with filters for pagination
     const totalCountResult = await db
       .select({ count: issues.id })
@@ -173,6 +201,11 @@ export async function GET(
                 email: true,
               },
             },
+          },
+        },
+        categories: {
+          with: {
+            category: true,
           },
         },
       },

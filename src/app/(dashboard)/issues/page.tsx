@@ -7,6 +7,8 @@ import { Header } from "@/components/layout";
 import { Button, Select, PageLoader, TypeBadge, PriorityDot, AvatarGroup } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
+import MultiSelectChips from "@/components/ui/MultiSelectChips";
+import { contrastingText } from "@/lib/categories";
 
 interface Issue {
   id: number;
@@ -19,6 +21,7 @@ interface Issue {
   updatedAt: string;
   project: { id: number; name: string; key: string };
   assignees: Array<{ user: { id: number; name: string } }>;
+  categories?: Array<{ category: { id: number; name: string; color: string } }>;
 }
 
 interface Pagination {
@@ -42,6 +45,11 @@ export default function MyIssuesPage() {
 
   const [filterType, setFilterType] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
+  const [filterProjectId, setFilterProjectId] = useState<string>("all");
+  const [filterCategoryIds, setFilterCategoryIds] = useState<number[]>([]);
+  const [categoryMode, setCategoryMode] = useState<"any" | "all">("any");
+  const [projectsList, setProjectsList] = useState<Array<{ id: number; name: string; key: string }>>([]);
+  const [projectCategories, setProjectCategories] = useState<Array<{ id: number; name: string; color: string }>>([]);
 
   const [selectedIssueIds, setSelectedIssueIds] = useState<number[]>([]);
   const [bulkStatus, setBulkStatus] = useState("");
@@ -49,7 +57,16 @@ export default function MyIssuesPage() {
   const [isCopying, setIsCopying] = useState(false);
   const isAdmin = user?.role === "Admin";
 
-  const fetchIssues = useCallback(async (searchTerm: string, page: number, tab: string, type: string, priority: string) => {
+  const fetchIssues = useCallback(async (
+    searchTerm: string,
+    page: number,
+    tab: string,
+    type: string,
+    priority: string,
+    projectId: string,
+    categoryIds: number[],
+    catMode: "any" | "all"
+  ) => {
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
@@ -58,6 +75,11 @@ export default function MyIssuesPage() {
       if (searchTerm) params.set("search", searchTerm);
       if (type !== "all") params.set("type", type);
       if (priority !== "all") params.set("priority", priority);
+      if (projectId !== "all") params.set("projectId", projectId);
+      if (categoryIds.length > 0) {
+        params.set("categoryIds", categoryIds.join(","));
+        params.set("categoryMode", catMode);
+      }
 
       if (tab !== "all") {
         params.set("status", tab);
@@ -78,12 +100,55 @@ export default function MyIssuesPage() {
     }
   }, [isAdmin, token]);
 
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/projects?limit=200`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setProjectsList(data.projects || []);
+        }
+      } catch {}
+    })();
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || filterProjectId === "all") {
+      setProjectCategories([]);
+      setFilterCategoryIds([]);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`/api/projects/${filterProjectId}/categories`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setProjectCategories(data.categories || []);
+        }
+      } catch {}
+    })();
+  }, [token, filterProjectId]);
+
   // Main fetch effect - triggers when tab, pagination, or filters change
   useEffect(() => {
     if (token) {
-      fetchIssues(debouncedSearch, paginationState[activeTab], activeTab, filterType, filterPriority);
+      fetchIssues(
+        debouncedSearch,
+        paginationState[activeTab],
+        activeTab,
+        filterType,
+        filterPriority,
+        filterProjectId,
+        filterCategoryIds,
+        categoryMode
+      );
     }
-  }, [token, activeTab, paginationState, filterType, filterPriority, debouncedSearch, fetchIssues]);
+  }, [token, activeTab, paginationState, filterType, filterPriority, filterProjectId, filterCategoryIds, categoryMode, debouncedSearch, fetchIssues]);
 
   // Debounced search effect
   useEffect(() => {
@@ -278,6 +343,15 @@ export default function MyIssuesPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <Select
+              options={[{ value: "all", label: "All Projects" }, ...projectsList.map((p) => ({ value: String(p.id), label: p.name }))]}
+              value={filterProjectId}
+              onChange={(e) => {
+                setFilterProjectId(e.target.value);
+                setPaginationState((prev) => ({ ...prev, [activeTab]: 1 }));
+              }}
+              className="w-44"
+            />
+            <Select
               options={[{ value: "all", label: "All Types" }, ...Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t }))]}
               value={filterType}
               onChange={(e) => handleFilterTypeChange(e.target.value)}
@@ -322,6 +396,51 @@ export default function MyIssuesPage() {
               {pagination.total} {pagination.total === 1 ? "issue" : "issues"}
             </span>
           </div>
+
+          {filterProjectId !== "all" && projectCategories.length > 0 && (
+            <div className="flex flex-wrap items-end gap-2 mt-2">
+              <div className="flex-1 min-w-[260px]">
+                <MultiSelectChips
+                  label="Categories"
+                  options={projectCategories.map((c) => ({ id: c.id, label: c.name, color: c.color }))}
+                  value={filterCategoryIds}
+                  onChange={(ids) => {
+                    setFilterCategoryIds(ids);
+                    setPaginationState((prev) => ({ ...prev, [activeTab]: 1 }));
+                  }}
+                  placeholder="Filter by categories"
+                />
+              </div>
+              {filterCategoryIds.length > 1 && (
+                <div className="flex p-1 rounded-lg" style={{ background: "#f7f6f3" }}>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryMode("any")}
+                    className="px-3 py-1.5 text-xs font-medium rounded-md"
+                    style={{
+                      background: categoryMode === "any" ? "#ffffff" : "transparent",
+                      color: categoryMode === "any" ? "#1c1c1e" : "#555a6a",
+                      boxShadow: categoryMode === "any" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                    }}
+                  >
+                    Match ANY
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryMode("all")}
+                    className="px-3 py-1.5 text-xs font-medium rounded-md"
+                    style={{
+                      background: categoryMode === "all" ? "#ffffff" : "transparent",
+                      color: categoryMode === "all" ? "#1c1c1e" : "#555a6a",
+                      boxShadow: categoryMode === "all" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                    }}
+                  >
+                    Match ALL
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Bulk status update bar */}
@@ -396,6 +515,16 @@ export default function MyIssuesPage() {
                             Assignees: {issue.assignees.map(a => a.user.name).join(", ")}
                           </div>
                         )}
+                        {issue.categories && issue.categories.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {issue.categories.map(({ category }) => (
+                              <span key={category.id} className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                style={{ backgroundColor: category.color, color: contrastingText(category.color) }}>
+                                {category.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {dueInfo && (
                           <div className={`mt-1 ${dueInfo.isOverdue && issue.status !== "Closed" ? "text-[var(--color-danger)]" : ""}`}>
                             Due: {dueInfo.date}
@@ -454,7 +583,21 @@ export default function MyIssuesPage() {
                           <input type="checkbox" checked={selectedIssueIds.includes(issue.id)} onChange={() => toggleSelectIssue(issue.id)} className="w-4 h-4 rounded border-[var(--color-border)]" />
                         </td>
                         <td className="px-3 md:px-4 py-3 text-sm font-mono" style={{ color: "#a5a8b5" }}>#{issue.id}</td>
-                        <td className="px-3 md:px-4 py-3 text-sm font-medium max-w-[200px] truncate" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>{issue.title}</td>
+                        <td className="px-3 md:px-4 py-3 text-sm font-medium max-w-[260px]" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
+                          <div className="flex flex-col gap-1">
+                            <span className="truncate">{issue.title}</span>
+                            {issue.categories && issue.categories.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {issue.categories.map(({ category }) => (
+                                  <span key={category.id} className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                    style={{ backgroundColor: category.color, color: contrastingText(category.color) }}>
+                                    {category.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-3 md:px-4 py-3 text-sm text-[var(--color-text-secondary)] hidden md:table-cell">
                           <Link href={`/projects/${issue.project.id}`} className="hover:text-[var(--color-accent)]">{issue.project.name}</Link>
                         </td>

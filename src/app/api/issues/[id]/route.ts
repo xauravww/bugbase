@@ -89,6 +89,9 @@ export async function GET(
           },
           orderBy: (activities, { desc }) => [desc(activities.createdAt)],
         },
+        categories: {
+          with: { category: true },
+        },
       },
     });
 

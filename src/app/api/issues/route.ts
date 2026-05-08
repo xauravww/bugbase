@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { issues, issueAssignees, issueVerifiers, projectMembers, activityLog, projects } from "@/lib/db/schema";
+import { issues, issueAssignees, issueVerifiers, projectMembers, activityLog, projects, issueCategories } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, desc, and, inArray, like, or } from "drizzle-orm";
+import { eq, desc, and, inArray, like, or, sql } from "drizzle-orm";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 
 const createIssueSchema = z.object({
@@ -19,6 +19,7 @@ const createIssueSchema = z.object({
   dueDate: z.string().optional(),
   assigneeIds: z.array(z.number()).optional(),
   verifierIds: z.array(z.number()).optional(),
+  categoryIds: z.array(z.number()).optional(),
 });
 
 // GET /api/issues - List issues with search, filters, and pagination
@@ -40,6 +41,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type");
     const status = searchParams.get("status");
     const priority = searchParams.get("priority");
+    const categoryIdsParam = searchParams.get("categoryIds");
+    const categoryMode = (searchParams.get("categoryMode") || "any").toLowerCase() === "all" ? "all" : "any";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
     const offset = (page - 1) * limit;
@@ -126,12 +129,45 @@ export async function GET(request: NextRequest) {
       whereClause = and(whereClause, eq(issues.priority, priority as "Low" | "Medium" | "High" | "Critical")) as typeof whereClause;
     }
 
+    if (categoryIdsParam) {
+      const categoryIds = categoryIdsParam
+        .split(",")
+        .map((s) => parseInt(s.trim()))
+        .filter((n) => !isNaN(n));
+      if (categoryIds.length > 0) {
+        if (categoryMode === "all") {
+          const matchingIssueIds = await db
+            .select({ issueId: issueCategories.issueId })
+            .from(issueCategories)
+            .where(inArray(issueCategories.categoryId, categoryIds))
+            .groupBy(issueCategories.issueId)
+            .having(sql`COUNT(DISTINCT ${issueCategories.categoryId}) = ${categoryIds.length}`);
+          const ids = matchingIssueIds.map((r) => r.issueId);
+          if (ids.length === 0) {
+            return NextResponse.json({ issues: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+          }
+          whereClause = and(whereClause, inArray(issues.id, ids)) as typeof whereClause;
+        } else {
+          const matchingIssueIds = await db
+            .selectDistinct({ issueId: issueCategories.issueId })
+            .from(issueCategories)
+            .where(inArray(issueCategories.categoryId, categoryIds));
+          const ids = matchingIssueIds.map((r) => r.issueId);
+          if (ids.length === 0) {
+            return NextResponse.json({ issues: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+          }
+          whereClause = and(whereClause, inArray(issues.id, ids)) as typeof whereClause;
+        }
+      }
+    }
+
     const issueList = await db.query.issues.findMany({
       where: whereClause,
       with: {
         project: true,
         reporter: { columns: { id: true, name: true, email: true } },
         assignees: { with: { user: { columns: { id: true, name: true, email: true } } } },
+        categories: { with: { category: true } },
       },
       orderBy: desc(issues.updatedAt),
       limit,
@@ -184,7 +220,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { projectId, title, type, description, stepsToReproduce, expectedResult, actualResult, priority, startDate, dueDate, assigneeIds, verifierIds } = validation.data;
+    const { projectId, title, type, description, stepsToReproduce, expectedResult, actualResult, priority, startDate, dueDate, assigneeIds, verifierIds, categoryIds } = validation.data;
 
     const membership = await db.query.projectMembers.findFirst({
       where: and(
@@ -224,6 +260,12 @@ export async function POST(request: NextRequest) {
     if (verifierIds && verifierIds.length > 0) {
       await db.insert(issueVerifiers).values(
         verifierIds.map(userId => ({ issueId: newIssue.id, userId }))
+      );
+    }
+
+    if (categoryIds && categoryIds.length > 0) {
+      await db.insert(issueCategories).values(
+        categoryIds.map(categoryId => ({ issueId: newIssue.id, categoryId }))
       );
     }
 
