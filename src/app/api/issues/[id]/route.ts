@@ -202,7 +202,7 @@ export async function PUT(
       await db.insert(activityLog).values({
         issueId,
         userId: authUser.id,
-        action: "changed status",
+        action: "status_changed",
         oldValue: existingIssue.status,
         newValue: updates.status,
       });
@@ -213,7 +213,7 @@ export async function PUT(
       await db.insert(activityLog).values({
         issueId,
         userId: authUser.id,
-        action: "changed priority",
+        action: "priority_changed",
         oldValue: existingIssue.priority,
         newValue: updates.priority,
       });

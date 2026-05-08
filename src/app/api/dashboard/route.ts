@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         .innerJoin(issues, eq(activityLog.issueId, issues.id))
         .where(and(
           inArray(issues.projectId, projectIds),
-          eq(activityLog.action, "changed status"),
+          eq(activityLog.action, "status_changed"),
           gte(activityLog.createdAt, today)
         ))
         .groupBy(activityLog.newValue);
@@ -222,7 +222,7 @@ export async function GET(request: NextRequest) {
       const statusActivities = await db.query.activityLog.findMany({
         where: and(
           inArray(activityLog.issueId, projectIssueIds),
-          eq(activityLog.action, "changed status"),
+          eq(activityLog.action, "status_changed"),
           gte(activityLog.createdAt, today)
         ),
         with: {
