@@ -297,7 +297,22 @@ ${featureDesc}
   const handleImportAI = async () => {
     setIsImporting(true);
     try {
-      const json = JSON.parse(importText);
+      let cleanText = importText.replace(/```json/gi, "").replace(/```/g, "");
+      
+      // Extract just the JSON object part
+      const firstBrace = cleanText.indexOf('{');
+      const lastBrace = cleanText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && firstBrace < lastBrace) {
+        cleanText = cleanText.substring(firstBrace, lastBrace + 1);
+      }
+      
+      // Replace literal newlines and tabs with space, to fix unescaped control chars
+      cleanText = cleanText.replace(/[\n\r\t]/g, " ");
+      
+      // Remove trailing commas which are invalid in strict JSON
+      cleanText = cleanText.replace(/,\s*([}\]])/g, "$1");
+
+      const json = JSON.parse(cleanText);
       const tests = Array.isArray(json) ? json : (json.testCases || [json]);
       
       let importedCount = 0;
