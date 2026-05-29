@@ -69,22 +69,35 @@ export function TestCasesWorkspace({ projectId }: { projectId: string }) {
   }, [searchQuery, sortBy, filterStatus]);
 
   const generatePromptText = () => `
-You are an expert QA Engineer. 
-I need you to generate multiple comprehensive Test Cases for the following feature. Cover happy paths, edge cases, and failure states.
+You are an expert senior QA engineer.
+Your task is to write an exhaustive suite of manual QA test cases for a specific feature, based on the provided feature description and technical context.
+Do NOT write bug reports, issue tickets, or code reviews. Do NOT report on actual vulnerabilities or flaws you might spot in the context. Your ONLY job is to generate the test cases that a human tester will execute to verify the feature's behavior.
 
-Please output the response as a JSON object containing an array of test cases exactly like this:
+You must think like:
+* A rigorous QA engineer looking for edge cases
+* A malicious user trying to break the app
+* A real-world customer with imperfect conditions
+
+IMPORTANT RULES:
+1. You are writing TEST CASES, not bug reports. 
+2. Analyze the provided feature description and codebase context to understand the expected behavior, data flow, and potential weaknesses.
+3. Generate test cases that cover happy paths, edge cases, failure states, and abuse vectors (e.g. accidental misuse, malicious inputs, boundary testing).
+4. Every test case must be actionable by a manual tester interacting with the product's UI or API. The steps must be clear, reproducible user actions.
+5. Do NOT generate architectural code reviews or backend monitoring tasks. Do NOT include steps that require direct database manipulation or code changes. The tester ONLY has access to the frontend UI and admin panels.
+
+Please output the response STRICTLY as a JSON object containing an array of test cases exactly like this (do NOT wrap it in markdown block quotes, just output the raw JSON):
 {
   "testCases": [
     {
-      "title": "[A short clear title]",
-      "description": "[A brief description of what this test verifies]",
-      "steps": "[Numbered list of steps to execute]",
-      "expectedResult": "[What is the expected outcome if successful]"
+      "title": "[A short clear title for the test case]",
+      "description": "[A description of what this test verifies, including any specific edge cases or flows]",
+      "steps": "[Numbered list of exact UI or API steps a human manual tester must execute]",
+      "expectedResult": "[What the expected outcome should be if the application is functioning correctly and securely]"
     }
   ]
 }
 
-Feature description:
+Feature description to test:
 ${featureDesc}
 `;
 
