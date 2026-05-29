@@ -163,6 +163,34 @@ export default function MyIssuesPage() {
   }, [search, activeTab]);
 
   // Reset pagination to page 1 when filters change
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+
+  const handleCreateCategory = async (name: string) => {
+    if (!token || filterProjectId === "all") return null;
+    setIsCreatingCategory(true);
+    try {
+      const res = await fetch(`/api/projects/${filterProjectId}/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectCategories(prev => [...prev, data.category]);
+        return data.category.id;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Failed to create category");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error creating category");
+    } finally {
+      setIsCreatingCategory(false);
+    }
+    return null;
+  };
+
   const handleFilterTypeChange = (value: string) => {
     setFilterType(value);
     setPaginationState(prev => ({ ...prev, [activeTab]: 1 }));
@@ -409,6 +437,14 @@ export default function MyIssuesPage() {
                     setPaginationState((prev) => ({ ...prev, [activeTab]: 1 }));
                   }}
                   placeholder="Filter by categories"
+                  onCreateOption={async (name) => {
+                    const id = await handleCreateCategory(name);
+                    if (id) {
+                      setFilterCategoryIds([...filterCategoryIds, id]);
+                      setPaginationState((prev) => ({ ...prev, [activeTab]: 1 }));
+                    }
+                  }}
+                  isCreating={isCreatingCategory}
                 />
               </div>
               {filterCategoryIds.length > 1 && (

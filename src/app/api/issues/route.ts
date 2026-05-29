@@ -47,46 +47,32 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const offset = (page - 1) * limit;
 
-    const accessibleProjects = authUser.role === "Admin"
-      ? await db.query.projects.findMany({
-        where: eq(projects.archived, false),
-        columns: { id: true },
-      })
-      : await db.query.projectMembers.findMany({
-        where: eq(projectMembers.userId, authUser.id),
-        columns: { projectId: true },
-      });
+    let whereClause: any;
 
-    const projectIds = accessibleProjects.map(project =>
-      "projectId" in project ? project.projectId : project.id
-    );
-
-    if (projectIds.length === 0) {
-      return NextResponse.json({ issues: [], pagination: { page, limit, total: 0, totalPages: 0 } });
+    if (authUser.role === "Admin") {
+      whereClause = inArray(
+        issues.projectId,
+        db.select({ id: projects.id }).from(projects).where(eq(projects.archived, false))
+      );
+    } else {
+      whereClause = inArray(
+        issues.projectId,
+        db.select({ projectId: projectMembers.projectId }).from(projectMembers).where(eq(projectMembers.userId, authUser.id))
+      );
     }
 
-    // Get assigned issues if needed
-    let assignedIssueIds: number[] = [];
     if (assignedToMe) {
-      const assignments = await db.query.issueAssignees.findMany({
-        where: eq(issueAssignees.userId, authUser.id),
-      });
-      assignedIssueIds = assignments.map(a => a.issueId);
-
-      if (assignedIssueIds.length === 0) {
-        return NextResponse.json({ issues: [], pagination: { page, limit, total: 0, totalPages: 0 } });
-      }
-    }
-
-    // Build where clause
-    let whereClause = inArray(issues.projectId, projectIds);
-
-    if (assignedToMe) {
-      whereClause = and(whereClause, inArray(issues.id, assignedIssueIds)) as typeof whereClause;
+      whereClause = and(
+        whereClause,
+        inArray(
+          issues.id,
+          db.select({ issueId: issueAssignees.issueId }).from(issueAssignees).where(eq(issueAssignees.userId, authUser.id))
+        )
+      );
     }
 
     if (projectId) {
-      whereClause = and(whereClause, eq(issues.projectId, parseInt(projectId))) as typeof whereClause;
+      whereClause = and(whereClause, eq(issues.projectId, parseInt(projectId)));
     }
 
     if (search) {
@@ -100,7 +86,7 @@ export async function GET(request: NextRequest) {
             like(issues.title, `%${search}%`),
             like(issues.description, `%${search}%`)
           )
-        ) as typeof whereClause;
+        );
       } else {
         whereClause = and(
           whereClause,
@@ -108,7 +94,7 @@ export async function GET(request: NextRequest) {
             like(issues.title, `%${search}%`),
             like(issues.description, `%${search}%`)
           )
-        ) as typeof whereClause;
+        );
       }
     }
 
@@ -236,43 +222,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const [newIssue] = await db.insert(issues).values({
-      projectId,
-      title,
-      type,
-      description,
-      stepsToReproduce,
-      expectedResult,
-      actualResult,
-      priority,
-      status: ISSUE_STATUSES.OPEN,
-      reporterId: authUser.id,
-      startDate: startDate ? new Date(startDate) : null,
-      dueDate: dueDate ? new Date(dueDate) : null,
-    }).returning();
+    const newIssue = await db.transaction(async (tx) => {
+      const [insertedIssue] = await tx.insert(issues).values({
+        projectId,
+        title,
+        type,
+        description,
+        stepsToReproduce,
+        expectedResult,
+        actualResult,
+        priority,
+        status: ISSUE_STATUSES.OPEN,
+        reporterId: authUser.id,
+        startDate: startDate ? new Date(startDate) : null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+      }).returning();
 
-    if (assigneeIds && assigneeIds.length > 0) {
-      await db.insert(issueAssignees).values(
-        assigneeIds.map(userId => ({ issueId: newIssue.id, userId }))
-      );
-    }
+      if (assigneeIds && assigneeIds.length > 0) {
+        await tx.insert(issueAssignees).values(
+          assigneeIds.map(userId => ({ issueId: insertedIssue.id, userId }))
+        );
+      }
 
-    if (verifierIds && verifierIds.length > 0) {
-      await db.insert(issueVerifiers).values(
-        verifierIds.map(userId => ({ issueId: newIssue.id, userId }))
-      );
-    }
+      if (verifierIds && verifierIds.length > 0) {
+        await tx.insert(issueVerifiers).values(
+          verifierIds.map(userId => ({ issueId: insertedIssue.id, userId }))
+        );
+      }
 
-    if (categoryIds && categoryIds.length > 0) {
-      await db.insert(issueCategories).values(
-        categoryIds.map(categoryId => ({ issueId: newIssue.id, categoryId }))
-      );
-    }
+      if (categoryIds && categoryIds.length > 0) {
+        await tx.insert(issueCategories).values(
+          categoryIds.map(categoryId => ({ issueId: insertedIssue.id, categoryId }))
+        );
+      }
 
-    await db.insert(activityLog).values({
-      issueId: newIssue.id,
-      userId: authUser.id,
-      action: "created issue",
+      await tx.insert(activityLog).values({
+        issueId: insertedIssue.id,
+        userId: authUser.id,
+        action: "created issue",
+      });
+
+      return insertedIssue;
     });
 
     return NextResponse.json({ issue: newIssue }, { status: 201 });

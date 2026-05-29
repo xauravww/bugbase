@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 import type { Pagination } from "@/types/issue";
 
-import { ContextWorkspace } from "@/components/context";
+import { TestCasesWorkspace } from "@/components/test-cases/TestCasesWorkspace";
 import CategoriesManager from "@/components/projects/CategoriesManager";
 import TeamProgress from "@/components/projects/TeamProgress";
 import MultiSelectChips from "@/components/ui/MultiSelectChips";
@@ -35,6 +35,11 @@ interface Project {
   key: string;
   description: string | null;
   members: Array<{ user: { id: number; name: string; email: string }; role: string }>;
+  todayActivity?: {
+    created: number;
+    updated: number;
+    actors: string[];
+  };
 }
 
 function formatActivity(iso?: string): { label: string; isToday: boolean } | null {
@@ -63,11 +68,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const { token, user } = useAuth();
   const initialTab = (() => {
     const t = searchParams.get("tab");
-    if (t === "context" || t === "milestones") return "context";
+    if (t === "context" || t === "milestones" || t === "test-cases") return "test-cases";
     if (t === "team") return "team";
     if (t === "settings") return "settings";
     return "issues";
-  })() as "issues" | "context" | "team" | "settings";
+  })() as "issues" | "test-cases" | "team" | "settings";
   const initialStatus = searchParams.get("status") ?? "all";
   const [project, setProject] = useState<Project | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -83,7 +88,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
-  const [activeTab, setActiveTab] = useState<"issues" | "context" | "team" | "settings">(initialTab);
+  const [activeTab, setActiveTab] = useState<"issues" | "test-cases" | "team" | "settings">(initialTab);
   const [issueStatusTab, setIssueStatusTab] = useState<string>(initialStatus);
   const [issuesPaginationState, setIssuesPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Closed: 1 });
   const [selectedProjectIssueIds, setSelectedProjectIssueIds] = useState<number[]>([]);
@@ -204,7 +209,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     const params = new URLSearchParams(Array.from(searchParams.entries()));
-    if (activeTab === "context") params.set("tab", "context");
+    if (activeTab === "test-cases") params.set("tab", "test-cases");
     else if (activeTab === "team") params.set("tab", "team");
     else if (activeTab === "settings") params.set("tab", "settings");
     else params.delete("tab");
@@ -217,7 +222,33 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   }, [activeTab, issueStatusTab, projectId, router, searchParams]);
 
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
+  const handleCreateCategory = async (name: string) => {
+    if (!token) return null;
+    setIsCreatingCategory(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectCategories(prev => [...prev, data.category]);
+        return data.category.id;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Failed to create category");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error creating category");
+    } finally {
+      setIsCreatingCategory(false);
+    }
+    return null;
+  };
 
   const handleCreateIssue = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -682,23 +713,23 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <span className="hidden md:inline">Issues</span>
               </button>
               <button
-                onClick={() => setActiveTab("context")}
+                onClick={() => setActiveTab("test-cases")}
                 className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
                 style={{
-                  background: activeTab === "context" ? "#ffffff" : "transparent",
-                  color: activeTab === "context" ? "#1c1c1e" : "#555a6a",
+                  background: activeTab === "test-cases" ? "#ffffff" : "transparent",
+                  color: activeTab === "test-cases" ? "#1c1c1e" : "#555a6a",
                   fontFamily: "DM Sans, sans-serif",
-                  boxShadow: activeTab === "context" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                  boxShadow: activeTab === "test-cases" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
                 }}
                 onMouseEnter={(e) => {
-                  if (activeTab !== "context") e.currentTarget.style.background = "#e9e9e9";
+                  if (activeTab !== "test-cases") e.currentTarget.style.background = "#e9e9e9";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = activeTab === "context" ? "#ffffff" : "transparent";
+                  e.currentTarget.style.background = activeTab === "test-cases" ? "#ffffff" : "transparent";
                 }}
               >
-                <span className="md:hidden">Context</span>
-                <span className="hidden md:inline">Context</span>
+                <span className="md:hidden">Test Cases</span>
+                <span className="hidden md:inline">Test Cases</span>
               </button>
               <button
                 onClick={() => setActiveTab("team")}
@@ -742,7 +773,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <span className="ml-auto text-sm whitespace-nowrap" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
               {activeTab === "issues"
                 ? `${issuesPagination.total} ${issuesPagination.total === 1 ? "issue" : "issues"}`
-                : "Context"}
+                : "Test Cases"}
             </span>
           </div>
         </div>
@@ -791,26 +822,23 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
             {/* Today's activity proof-of-work banner */}
             {(() => {
-              const todayUpdated = issues.filter((i) => formatActivity(i.updatedAt)?.isToday);
-              const todayCreated = issues.filter((i) => formatActivity(i.createdAt)?.isToday);
-              const actorSet = new Set<string>();
-              todayUpdated.forEach((i) => i.assignees.forEach((a) => actorSet.add(a.user.name)));
-              todayCreated.forEach((i) => { if (i.reporter) actorSet.add(i.reporter.name); });
-              if (todayUpdated.length === 0 && todayCreated.length === 0) {
+              if (!project?.todayActivity) return null;
+              const { created, updated, actors } = project.todayActivity;
+              if (created === 0 && updated === 0) {
                 return (
                   <div className="mb-4 px-4 py-2.5 rounded-xl flex items-center gap-3 text-sm" style={{ background: "#fff7ed", border: "1px solid #fdba74", fontFamily: "DM Sans, sans-serif" }}>
                     <span className="font-semibold" style={{ color: "#9a3412" }}>No activity today</span>
-                    <span style={{ color: "#7c2d12" }}>· Visible page shows nothing updated/created today</span>
+                    <span style={{ color: "#7c2d12" }}>· Nothing was updated or created across the project today</span>
                   </div>
                 );
               }
               return (
                 <div className="mb-4 px-4 py-2.5 rounded-xl flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" style={{ background: "#ecfdf5", border: "1px solid #6ee7b7", fontFamily: "DM Sans, sans-serif" }}>
                   <span className="font-semibold" style={{ color: "#065f46" }}>Today</span>
-                  <span style={{ color: "#047857" }}>{todayCreated.length} created</span>
-                  <span style={{ color: "#047857" }}>{todayUpdated.length} updated</span>
-                  {actorSet.size > 0 && (
-                    <span style={{ color: "#065f46" }}>by {Array.from(actorSet).slice(0, 4).join(", ")}{actorSet.size > 4 ? ` +${actorSet.size - 4}` : ""}</span>
+                  <span style={{ color: "#047857" }}>{created} created</span>
+                  <span style={{ color: "#047857" }}>{updated} updated</span>
+                  {actors.length > 0 && (
+                    <span style={{ color: "#065f46" }}>by {actors.slice(0, 4).join(", ")}{actors.length > 4 ? ` +${actors.length - 4}` : ""}</span>
                   )}
                 </div>
               );
@@ -846,6 +874,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       onChange={(ids) => { setFilterCategoryIds(ids); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
                       placeholder="Filter by categories"
                       searchable
+                      onCreateOption={async (name) => {
+                        const id = await handleCreateCategory(name);
+                        if (id) {
+                          setFilterCategoryIds([...filterCategoryIds, id]);
+                          setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1])));
+                        }
+                      }}
+                      isCreating={isCreatingCategory}
                     />
                   </div>
                   {filterCategoryIds.length > 1 && (
@@ -1222,7 +1258,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </>
         )}
 
-        {activeTab === "context" && <ContextWorkspace projectId={parseInt(projectId)} />}
+        {activeTab === "test-cases" && <TestCasesWorkspace projectId={projectId} />}
 
         {activeTab === "team" && <TeamProgress projectId={projectId} />}
 
@@ -1303,8 +1339,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             options={projectCategories.map((c) => ({ id: c.id, label: c.name, color: c.color }))}
             value={createCategoryIds}
             onChange={setCreateCategoryIds}
-            placeholder={projectCategories.length === 0 ? "No categories yet \u2014 create in Settings tab" : "Add categories"}
-            disabled={projectCategories.length === 0}
+            placeholder="Search or add category..."
+            onCreateOption={async (name) => {
+              const id = await handleCreateCategory(name);
+              if (id) {
+                setCreateCategoryIds([...createCategoryIds, id]);
+              }
+            }}
+            isCreating={isCreatingCategory}
           />
 
           <div>

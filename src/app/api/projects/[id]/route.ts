@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { projects, projectMembers, issues, issueCategories } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, and, inArray, like, or, sql } from "drizzle-orm";
+import { eq, and, inArray, like, or, sql, gte } from "drizzle-orm";
 
 const updateProjectSchema = z.object({
   name: z.string().min(2).optional(),
@@ -227,11 +227,47 @@ export async function GET(
     const closedCount = closedCountResult.length;
     const openIssueCount = allTotal - closedCount;
 
+    // Today's activity calculation
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const allUpdatedTodayIssues = await db.query.issues.findMany({
+      where: and(
+        eq(issues.projectId, projectId),
+        gte(issues.updatedAt, today)
+      ),
+      with: { 
+        reporter: { columns: { name: true } },
+        assignees: { with: { user: { columns: { name: true } } } } 
+      }
+    });
+
+    const actorSet = new Set<string>();
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    allUpdatedTodayIssues.forEach(issue => {
+      const isCreatedToday = issue.createdAt && new Date(issue.createdAt) >= today;
+      if (isCreatedToday) {
+        createdCount++;
+        if (issue.reporter) actorSet.add(issue.reporter.name);
+      }
+      updatedCount++; // Since all items returned by the query were updated today
+      issue.assignees.forEach(a => actorSet.add(a.user.name));
+    });
+
+    const todayActivity = {
+      created: createdCount,
+      updated: updatedCount,
+      actors: Array.from(actorSet),
+    };
+
     return NextResponse.json({
       project: {
         ...project,
         issueCount: allTotal,
         openIssueCount,
+        todayActivity,
       },
       issues: projectIssues,
       pagination: {

@@ -255,6 +255,43 @@ export const contextActivity = sqliteTable("context_activity", {
   createdAtIdx: index("idx_context_activity_created_at").on(table.createdAt),
 }));
 
+// Test Cases table
+export const testCases = sqliteTable("test_cases", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  steps: text("steps"),
+  expectedResult: text("expected_result"),
+  categoryId: integer("category_id"), // Optional automatic category
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  projectIdx: index("idx_test_cases_project").on(table.projectId),
+}));
+
+// Test Case Results (QA runs)
+export const testCaseResults = sqliteTable("test_case_results", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  testCaseId: integer("test_case_id").notNull().references(() => testCases.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  status: text("status", { enum: ["Pass", "Fail", "Blocked"] }).notNull(),
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  testCaseIdx: index("idx_test_case_results_test_case").on(table.testCaseId),
+}));
+
+// Test Case Embeddings for deduplication
+export const testCaseEmbeddings = sqliteTable("test_case_embeddings", {
+  testCaseId: integer("test_case_id").primaryKey().references(() => testCases.id, { onDelete: "cascade" }),
+  model: text("model").notNull(),
+  dim: integer("dim").notNull(),
+  vector: text("vector").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
 // Categories table (per-project tags)
 export const categories = sqliteTable("categories", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -511,5 +548,39 @@ export const issueCategoriesRelations = relations(issueCategories, ({ one }) => 
   category: one(categories, {
     fields: [issueCategories.categoryId],
     references: [categories.id],
+  }),
+}));
+
+export const testCasesRelations = relations(testCases, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [testCases.projectId],
+    references: [projects.id],
+  }),
+  creator: one(users, {
+    fields: [testCases.createdBy],
+    references: [users.id],
+  }),
+  results: many(testCaseResults),
+  embedding: one(testCaseEmbeddings, {
+    fields: [testCases.id],
+    references: [testCaseEmbeddings.testCaseId],
+  }),
+}));
+
+export const testCaseResultsRelations = relations(testCaseResults, ({ one }) => ({
+  testCase: one(testCases, {
+    fields: [testCaseResults.testCaseId],
+    references: [testCases.id],
+  }),
+  tester: one(users, {
+    fields: [testCaseResults.userId],
+    references: [users.id],
+  }),
+}));
+
+export const testCaseEmbeddingsRelations = relations(testCaseEmbeddings, ({ one }) => ({
+  testCase: one(testCases, {
+    fields: [testCaseEmbeddings.testCaseId],
+    references: [testCases.id],
   }),
 }));

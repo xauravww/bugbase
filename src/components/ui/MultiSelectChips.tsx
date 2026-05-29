@@ -21,6 +21,8 @@ export interface MultiSelectChipsProps {
   className?: string;
   disabled?: boolean;
   searchable?: boolean;
+  onCreateOption?: (name: string) => void;
+  isCreating?: boolean;
 }
 
 export function MultiSelectChips({
@@ -33,6 +35,8 @@ export function MultiSelectChips({
   className,
   disabled,
   searchable = true,
+  onCreateOption,
+  isCreating,
 }: MultiSelectChipsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -161,6 +165,23 @@ export function MultiSelectChips({
                   style={{ borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
                 />
               </div>
+            </div>
+          )}
+          {searchable && search.trim() !== "" && onCreateOption && !options.some(o => o.label.toLowerCase() === search.trim().toLowerCase()) && (
+            <div className="border-b" style={{ borderColor: "#e9eaef" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  onCreateOption(search.trim());
+                  setSearch("");
+                }}
+                disabled={isCreating}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-[#f7f6f3] transition-colors"
+                style={{ fontFamily: "DM Sans, sans-serif", color: "#5b76fe" }}
+              >
+                <Plus className="w-4 h-4" />
+                {isCreating ? "Creating..." : `Create "${search.trim()}"`}
+              </button>
             </div>
           )}
           {filtered.length === 0 ? (
