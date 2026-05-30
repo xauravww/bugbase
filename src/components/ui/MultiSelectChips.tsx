@@ -44,7 +44,8 @@ export function MultiSelectChips({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selected = useMemo(
-    () => value.map((id) => options.find((o) => o.id === id)).filter(Boolean) as MultiSelectOption[],
+    () =>
+      value.map((id) => options.find((o) => o.id === id)).filter(Boolean) as MultiSelectOption[],
     [value, options]
   );
 
@@ -86,31 +87,35 @@ export function MultiSelectChips({
   return (
     <div className={cn("w-full relative", className)} ref={containerRef}>
       {label && (
-        <label
-          className="block text-sm font-medium mb-1.5"
-          style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}
-        >
-          {label}
-        </label>
+        <label className="block text-sm font-medium text-fg mb-1.5">{label}</label>
       )}
 
       <div
         className={cn(
-          "flex flex-wrap items-center gap-1.5 min-h-[40px] px-2 py-1.5 rounded-lg border transition-all",
-          !disabled && "cursor-text hover:border-[#5b76fe]",
+          "flex flex-wrap items-center gap-1.5 min-h-[40px] px-2 py-1.5 rounded-md border",
+          "bg-surface border-border transition-colors",
+          !disabled && "cursor-text hover:border-border-strong",
+          isOpen && !disabled && "border-accent ring-2 ring-accent-ring",
           disabled && "opacity-60 cursor-not-allowed"
         )}
-        style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
         onClick={() => !disabled && setIsOpen(true)}
       >
         {selected.map((opt) => {
-          const bg = opt.color || "#5b76fe";
-          const fg = contrastingText(bg);
+          // Honor user-set color (categories); fallback to accent-subtle/accent.
+          const customColor = !!opt.color;
+          const fg = customColor && opt.color ? contrastingText(opt.color) : undefined;
           return (
             <span
               key={opt.id}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-              style={{ backgroundColor: bg, color: fg }}
+              className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                !customColor && "bg-accent-subtle text-accent"
+              )}
+              style={
+                customColor && opt.color
+                  ? { backgroundColor: opt.color, color: fg }
+                  : undefined
+              }
             >
               {opt.label}
               {!disabled && (
@@ -136,8 +141,12 @@ export function MultiSelectChips({
               e.stopPropagation();
               setIsOpen((v) => !v);
             }}
-            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-dashed hover:bg-[#f7f6f3]"
-            style={{ borderColor: "#e9eaef", color: "#555a6a" }}
+            className={cn(
+              "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full",
+              "border border-dashed border-border text-fg-muted",
+              "hover:bg-bg-hover hover:border-border-strong hover:text-fg",
+              "transition-colors"
+            )}
           >
             <Plus className="w-3 h-3" />
             {selected.length === 0 ? placeholder : "Add"}
@@ -147,45 +156,47 @@ export function MultiSelectChips({
       </div>
 
       {isOpen && !disabled && (
-        <div
-          className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-auto rounded-lg border shadow-lg z-50"
-          style={{ background: "#ffffff", borderColor: "#e9eaef" }}
-        >
+        <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-auto rounded-lg border border-border bg-surface shadow-popover z-50">
           {searchable && (
-            <div className="sticky top-0 p-2 border-b" style={{ background: "#ffffff", borderColor: "#e9eaef" }}>
+            <div className="sticky top-0 p-2 border-b border-border bg-surface">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-2 top-1/2 -translate-y-1/2" style={{ color: "#a5a8b5" }} />
+                <Search className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-muted" />
                 <input
                   ref={inputRef}
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search..."
-                  className="w-full pl-8 pr-2 py-1.5 text-sm rounded border focus:outline-none focus:border-[#5b76fe]"
-                  style={{ borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
+                  className={cn(
+                    "w-full h-8 pl-7 pr-2 text-sm rounded-md",
+                    "bg-bg-subtle border border-border text-fg placeholder:text-fg-placeholder",
+                    "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-ring"
+                  )}
                 />
               </div>
             </div>
           )}
-          {searchable && search.trim() !== "" && onCreateOption && !options.some(o => o.label.toLowerCase() === search.trim().toLowerCase()) && (
-            <div className="border-b" style={{ borderColor: "#e9eaef" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  onCreateOption(search.trim());
-                  setSearch("");
-                }}
-                disabled={isCreating}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-[#f7f6f3] transition-colors"
-                style={{ fontFamily: "DM Sans, sans-serif", color: "#5b76fe" }}
-              >
-                <Plus className="w-4 h-4" />
-                {isCreating ? "Creating..." : `Create "${search.trim()}"`}
-              </button>
-            </div>
-          )}
+          {searchable &&
+            search.trim() !== "" &&
+            onCreateOption &&
+            !options.some((o) => o.label.toLowerCase() === search.trim().toLowerCase()) && (
+              <div className="border-b border-border">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCreateOption(search.trim());
+                    setSearch("");
+                  }}
+                  disabled={isCreating}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-accent hover:bg-bg-hover transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  {isCreating ? "Creating..." : `Create "${search.trim()}"`}
+                </button>
+              </div>
+            )}
           {filtered.length === 0 ? (
-            <div className="px-3 py-4 text-sm text-center" style={{ color: "#a5a8b5" }}>
+            <div className="px-3 py-4 text-sm text-center text-fg-placeholder">
               {emptyMessage}
             </div>
           ) : (
@@ -196,8 +207,7 @@ export function MultiSelectChips({
                   key={opt.id}
                   type="button"
                   onClick={() => toggle(opt.id)}
-                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-[#f7f6f3] transition-colors"
-                  style={{ fontFamily: "DM Sans, sans-serif" }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-left text-fg hover:bg-bg-hover transition-colors"
                 >
                   <span className="flex items-center gap-2">
                     {opt.color && (
@@ -206,9 +216,9 @@ export function MultiSelectChips({
                         style={{ backgroundColor: opt.color }}
                       />
                     )}
-                    <span style={{ color: "#1c1c1e" }}>{opt.label}</span>
+                    <span>{opt.label}</span>
                   </span>
-                  {isSelected && <Check className="w-4 h-4" style={{ color: "#5b76fe" }} />}
+                  {isSelected && <Check className="w-4 h-4 text-accent" />}
                 </button>
               );
             })

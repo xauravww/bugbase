@@ -1,28 +1,106 @@
 import { cn } from "@/lib/utils/cn";
+import type { ReactNode } from "react";
+
+export type BadgeVariant =
+  // Generic semantic
+  | "neutral"
+  | "brand"
+  | "info"
+  | "success"
+  | "warning"
+  | "danger"
+  // App-specific status
+  | "open"
+  | "in-progress"
+  | "in-review"
+  | "verified"
+  | "closed"
+  // App-specific type
+  | "bug"
+  | "feature";
+
+export type BadgeStyle = "subtle" | "solid" | "outline";
+export type BadgeSize = "sm" | "md";
 
 interface BadgeProps {
-  children: React.ReactNode;
-  variant?: "default" | "open" | "in-progress" | "in-review" | "verified" | "closed" | "bug" | "feature";
+  children: ReactNode;
+  variant?: BadgeVariant;
+  style?: BadgeStyle;
+  size?: BadgeSize;
   className?: string;
 }
 
-const variantStyles = {
-  default: "bg-[var(--color-tag-bg)] text-[var(--color-text-primary)]",
-  open: "bg-[var(--color-status-open-bg)] text-[var(--color-status-open-text)]",
-  "in-progress": "bg-[var(--color-status-progress-bg)] text-[var(--color-status-progress-text)]",
-  "in-review": "bg-[var(--color-status-review-bg)] text-[var(--color-status-review-text)]",
-  verified: "bg-[var(--color-status-verified-bg)] text-[var(--color-status-verified-text)]",
-  closed: "bg-[var(--color-status-closed-bg)] text-[var(--color-status-closed-text)]",
-  bug: "bg-[var(--color-type-bug-bg)] text-[var(--color-type-bug-text)]",
-  feature: "bg-[var(--color-type-feature-bg)] text-[var(--color-type-feature-text)]",
+// Background/foreground pairs per variant. Tokens used here resolve via Tailwind
+// utilities (bg-*, text-*) backed by globals.css.
+const subtleClasses: Record<BadgeVariant, string> = {
+  neutral: "bg-bg-subtle text-fg-muted",
+  brand: "bg-accent-subtle text-accent",
+  info: "bg-info-bg text-info",
+  success: "bg-success-bg text-success",
+  warning: "bg-warning-bg text-warning",
+  danger: "bg-danger-bg text-danger",
+  open: "bg-[var(--status-open-bg)] text-[var(--status-open-fg)]",
+  "in-progress": "bg-[var(--status-progress-bg)] text-[var(--status-progress-fg)]",
+  "in-review": "bg-[var(--status-review-bg)] text-[var(--status-review-fg)]",
+  verified: "bg-[var(--status-verified-bg)] text-[var(--status-verified-fg)]",
+  closed: "bg-[var(--status-closed-bg)] text-[var(--status-closed-fg)]",
+  bug: "bg-[var(--type-bug-bg)] text-[var(--type-bug-fg)]",
+  feature: "bg-[var(--type-feature-bg)] text-[var(--type-feature-fg)]",
 };
 
-export function Badge({ children, variant = "default", className }: BadgeProps) {
+const solidClasses: Record<BadgeVariant, string> = {
+  neutral: "bg-fg-muted text-bg",
+  brand: "bg-accent text-accent-fg",
+  info: "bg-info text-info-fg",
+  success: "bg-success text-success-fg",
+  warning: "bg-warning text-warning-fg",
+  danger: "bg-danger text-danger-fg",
+  open: "bg-[var(--status-open-fg)] text-bg",
+  "in-progress": "bg-[var(--status-progress-fg)] text-bg",
+  "in-review": "bg-[var(--status-review-fg)] text-bg",
+  verified: "bg-[var(--status-verified-fg)] text-bg",
+  closed: "bg-[var(--status-closed-fg)] text-bg",
+  bug: "bg-[var(--type-bug-fg)] text-bg",
+  feature: "bg-[var(--type-feature-fg)] text-bg",
+};
+
+const outlineClasses: Record<BadgeVariant, string> = {
+  neutral: "border border-border text-fg-muted",
+  brand: "border border-accent text-accent",
+  info: "border border-info text-info",
+  success: "border border-success text-success",
+  warning: "border border-warning text-warning",
+  danger: "border border-danger text-danger",
+  open: "border border-[var(--status-open-fg)] text-[var(--status-open-fg)]",
+  "in-progress": "border border-[var(--status-progress-fg)] text-[var(--status-progress-fg)]",
+  "in-review": "border border-[var(--status-review-fg)] text-[var(--status-review-fg)]",
+  verified: "border border-[var(--status-verified-fg)] text-[var(--status-verified-fg)]",
+  closed: "border border-[var(--status-closed-fg)] text-[var(--status-closed-fg)]",
+  bug: "border border-[var(--type-bug-fg)] text-[var(--type-bug-fg)]",
+  feature: "border border-[var(--type-feature-fg)] text-[var(--type-feature-fg)]",
+};
+
+const sizeClasses: Record<BadgeSize, string> = {
+  sm: "px-1.5 py-0.5 text-[10px]",
+  md: "px-2 py-0.5 text-xs",
+};
+
+export function Badge({
+  children,
+  variant = "neutral",
+  style = "subtle",
+  size = "md",
+  className,
+}: BadgeProps) {
+  const styleMap =
+    style === "solid" ? solidClasses : style === "outline" ? outlineClasses : subtleClasses;
+
   return (
     <span
       className={cn(
-        "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded",
-        variantStyles[variant],
+        "inline-flex items-center font-medium rounded-md whitespace-nowrap",
+        styleMap[variant],
+        sizeClasses[size],
         className
       )}
     >
@@ -31,53 +109,54 @@ export function Badge({ children, variant = "default", className }: BadgeProps) 
   );
 }
 
+// ----- App-specific convenience wrappers (back-compat API) -----
+
 export function StatusBadge({ status }: { status: string }) {
-  const variantMap: Record<string, BadgeProps["variant"]> = {
-    "Open": "open",
+  const variantMap: Record<string, BadgeVariant> = {
+    Open: "open",
     "In Progress": "in-progress",
     "In Review": "in-review",
-    "Verified": "verified",
-    "Closed": "closed",
+    Verified: "verified",
+    Closed: "closed",
   };
-  
-  return <Badge variant={variantMap[status] || "default"}>{status}</Badge>;
+  return <Badge variant={variantMap[status] ?? "neutral"}>{status}</Badge>;
 }
 
 export function TypeBadge({ type }: { type: string }) {
-  const variantMap: Record<string, BadgeProps["variant"]> = {
-    "Bug": "bug",
-    "Feature": "feature",
+  const variantMap: Record<string, BadgeVariant> = {
+    Bug: "bug",
+    Feature: "feature",
   };
-  
-  return <Badge variant={variantMap[type] || "default"}>{type}</Badge>;
+  return <Badge variant={variantMap[type] ?? "neutral"}>{type}</Badge>;
 }
 
-interface PriorityBadgeProps {
+interface PriorityProps {
   priority: string;
 }
 
-const priorityColors: Record<string, string> = {
-  "Low": "bg-[var(--color-priority-low)]",
-  "Medium": "bg-[var(--color-priority-medium)]",
-  "High": "bg-[var(--color-priority-high)]",
-  "Critical": "bg-[var(--color-priority-critical)]",
+const priorityClasses: Record<string, string> = {
+  Low: "bg-[var(--priority-low)]",
+  Medium: "bg-[var(--priority-medium)]",
+  High: "bg-[var(--priority-high)]",
+  Critical: "bg-[var(--priority-critical)]",
 };
 
-export function PriorityDot({ priority }: PriorityBadgeProps) {
+export function PriorityDot({ priority }: PriorityProps) {
   return (
     <span
       className={cn(
         "inline-block w-2 h-2 rounded-full",
-        priorityColors[priority] || "bg-gray-400"
+        priorityClasses[priority] ?? "bg-fg-subtle"
       )}
       title={priority}
+      aria-label={`Priority ${priority}`}
     />
   );
 }
 
-export function PriorityBadge({ priority }: PriorityBadgeProps) {
+export function PriorityBadge({ priority }: PriorityProps) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
+    <span className="inline-flex items-center gap-1.5 text-xs text-fg-muted">
       <PriorityDot priority={priority} />
       {priority}
     </span>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, use, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, List, LayoutGrid, ChevronLeft, ChevronRight, Image, X, Download, Sparkles, Wand2, Clipboard, Check, ExternalLink, RefreshCw } from "lucide-react";
-import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup, FabButton } from "@/components/ui";
+import { Button, Modal, Input, Select, PageLoader, StatusBadge, TypeBadge, PriorityDot, AvatarGroup, FabButton, Checkbox } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 import type { Pagination } from "@/types/issue";
@@ -1026,12 +1026,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     <thead>
                       <tr style={{ background: "#fafafa" }}>
                         <th className="text-left px-5 py-4 w-10">
-                          <input 
-                            type="checkbox" 
+                          <Checkbox 
                             checked={filteredIssues.length > 0 && selectedProjectIssueIds.length === filteredIssues.length} 
-                            onChange={toggleProjectSelectAll} 
-                            className="w-4 h-4 rounded"
-                            style={{ borderColor: "#c7cad5" }}
+                            onCheckedChange={toggleProjectSelectAll} 
+                            aria-label="Select all issues"
                           />
                         </th>
                         <th className="text-left px-5 py-4 text-xs font-semibold uppercase tracking-wide" style={{ color: "#555a6a", fontFamily: "DM Sans, sans-serif" }}>ID</th>
@@ -1060,12 +1058,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                             style={{ borderColor: "#f5f5f5" }}
                           >
                             <td className="px-5 py-4">
-                              <input 
-                                type="checkbox" 
+                              <Checkbox 
                                 checked={selectedProjectIssueIds.includes(issue.id)} 
-                                onChange={() => toggleProjectIssue(issue.id)} 
-                                className="w-4 h-4 rounded"
-                                style={{ borderColor: "#c7cad5" }}
+                                onCheckedChange={() => toggleProjectIssue(issue.id)} 
+                                aria-label={`Select issue ${issue.id}`}
                               />
                             </td>
                             <td className="px-5 py-4 text-sm font-mono" style={{ color: "#a5a8b5" }}>
@@ -1283,7 +1279,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           )}
 
-          <div className="relative">
+          <div>
             <Input
               id="title"
               label="Title"
@@ -1291,39 +1287,29 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               value={createForm.title}
               onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
               required
+              rightSlot={
+                <button
+                  type="button"
+                  onClick={() => createForm.title ? handleRefine("title") : handleSuggest("title")}
+                  disabled={refiningField === "title"}
+                  className="p-1.5 hover:opacity-80 disabled:opacity-50 cursor-pointer transition-opacity"
+                  title={createForm.title ? "AI Refine" : "AI Suggest"}
+                >
+                  <Sparkles className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
+                </button>
+              }
             />
-            {createForm.title ? (
-              <button
-                type="button"
-                onClick={() => handleRefine("title")}
-                disabled={refiningField === "title"}
-                className="absolute right-2 top-9 p-1.5 hover:opacity-80 disabled:opacity-50 touch-target z-10"
-                style={{ color: "#555a6a" }}
-                title="AI Refine"
-              >
-                <Sparkles className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => handleSuggest("title")}
-                disabled={refiningField === "title"}
-                className="absolute right-2 top-9 p-1.5 hover:opacity-80 disabled:opacity-50 touch-target z-10"
-                style={{ color: "#555a6a" }}
-                title="AI Suggest"
-              >
-                <Wand2 className={`w-4 h-4 ${refiningField === "title" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-              </button>
-            )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="flex" style={{ gap: '1rem' }}>
             <Select
               id="type"
               label="Type"
               options={Object.values(ISSUE_TYPES).map((t) => ({ value: t, label: t }))}
               value={createForm.type}
               onChange={(e) => setCreateForm({ ...createForm, type: e.target.value })}
+              fullWidth={false}
+              wrapperClassName="flex-1 min-w-0 w-full"
             />
             <Select
               id="priority"
@@ -1331,6 +1317,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               options={Object.values(ISSUE_PRIORITIES).map((p) => ({ value: p, label: p }))}
               value={createForm.priority}
               onChange={(e) => setCreateForm({ ...createForm, priority: e.target.value })}
+              fullWidth={false}
+              wrapperClassName="flex-1 min-w-0 w-full"
             />
           </div>
 
@@ -1354,31 +1342,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <label className="block text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                 Description
               </label>
-              {createForm.description ? (
-                <button
-                  type="button"
-                  onClick={() => handleRefine("description")}
-                  disabled={refiningField === "description"}
-                  className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
-                  style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
-                  title="AI Refine"
-                >
-                  <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-                  {refiningField === "description" ? "Refining..." : "AI Refine"}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleSuggest("description")}
-                  disabled={refiningField === "description"}
-                  className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
-                  style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
-                  title="AI Suggest"
-                >
-                  <Wand2 className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-                  {refiningField === "description" ? "Suggesting..." : "AI Suggest"}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => createForm.description ? handleRefine("description") : handleSuggest("description")}
+                disabled={refiningField === "description"}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-all disabled:opacity-50 hover:bg-[#5b76fe]/10"
+                style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
+                title={createForm.description ? "AI Refine" : "AI Suggest"}
+              >
+                <Sparkles className={`w-3 h-3 ${refiningField === "description" ? "animate-pulse" : ""}`} />
+                {refiningField === "description" ? (createForm.description ? "Refining..." : "Suggesting...") : (createForm.description ? "AI Refine" : "AI Suggest")}
+              </button>
             </div>
             <textarea
               className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
@@ -1397,31 +1371,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   <label className="block text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                     Steps to Reproduce
                   </label>
-                  {createForm.stepsToReproduce ? (
-                    <button
-                      type="button"
-                      onClick={() => handleRefine("stepsToReproduce")}
-                      disabled={refiningField === "stepsToReproduce"}
-                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
-                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
-                      title="AI Refine"
-                    >
-                      <Sparkles className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-                      {refiningField === "stepsToReproduce" ? "Refining..." : "AI Refine"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSuggest("stepsToReproduce")}
-                      disabled={refiningField === "stepsToReproduce"}
-                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
-                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
-                      title="AI Suggest"
-                    >
-                      <Wand2 className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-                      {refiningField === "stepsToReproduce" ? "Suggesting..." : "AI Suggest"}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => createForm.stepsToReproduce ? handleRefine("stepsToReproduce") : handleSuggest("stepsToReproduce")}
+                    disabled={refiningField === "stepsToReproduce"}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-all disabled:opacity-50 hover:bg-[#5b76fe]/10"
+                    style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
+                    title={createForm.stepsToReproduce ? "AI Refine" : "AI Suggest"}
+                  >
+                    <Sparkles className={`w-3 h-3 ${refiningField === "stepsToReproduce" ? "animate-pulse" : ""}`} />
+                    {refiningField === "stepsToReproduce" ? (createForm.stepsToReproduce ? "Refining..." : "Suggesting...") : (createForm.stepsToReproduce ? "AI Refine" : "AI Suggest")}
+                  </button>
                 </div>
                 <textarea
                   className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
@@ -1438,31 +1398,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   <label className="block text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                     Expected Result
                   </label>
-                  {createForm.expectedResult ? (
-                    <button
-                      type="button"
-                      onClick={() => handleRefine("expectedResult")}
-                      disabled={refiningField === "expectedResult"}
-                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
-                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
-                      title="AI Refine"
-                    >
-                      <Sparkles className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-                      {refiningField === "expectedResult" ? "Refining..." : "AI Refine"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSuggest("expectedResult")}
-                      disabled={refiningField === "expectedResult"}
-                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
-                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
-                      title="AI Suggest"
-                    >
-                      <Wand2 className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-                      {refiningField === "expectedResult" ? "Suggesting..." : "AI Suggest"}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => createForm.expectedResult ? handleRefine("expectedResult") : handleSuggest("expectedResult")}
+                    disabled={refiningField === "expectedResult"}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-all disabled:opacity-50 hover:bg-[#5b76fe]/10"
+                    style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
+                    title={createForm.expectedResult ? "AI Refine" : "AI Suggest"}
+                  >
+                    <Sparkles className={`w-3 h-3 ${refiningField === "expectedResult" ? "animate-pulse" : ""}`} />
+                    {refiningField === "expectedResult" ? (createForm.expectedResult ? "Refining..." : "Suggesting...") : (createForm.expectedResult ? "AI Refine" : "AI Suggest")}
+                  </button>
                 </div>
                 <textarea
                   className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
@@ -1479,31 +1425,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   <label className="block text-sm font-medium" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                     Actual Result
                   </label>
-                  {createForm.actualResult ? (
-                    <button
-                      type="button"
-                      onClick={() => handleRefine("actualResult")}
-                      disabled={refiningField === "actualResult"}
-                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
-                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
-                      title="AI Refine"
-                    >
-                      <Sparkles className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-                      {refiningField === "actualResult" ? "Refining..." : "AI Refine"}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSuggest("actualResult")}
-                      disabled={refiningField === "actualResult"}
-                      className="flex items-center gap-1 text-xs hover:underline disabled:opacity-50"
-                      style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
-                      title="AI Suggest"
-                    >
-                      <Wand2 className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} style={{ color: "#5b76fe" }} />
-                      {refiningField === "actualResult" ? "Suggesting..." : "AI Suggest"}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => createForm.actualResult ? handleRefine("actualResult") : handleSuggest("actualResult")}
+                    disabled={refiningField === "actualResult"}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium cursor-pointer transition-all disabled:opacity-50 hover:bg-[#5b76fe]/10"
+                    style={{ color: "#5b76fe", fontFamily: "DM Sans, sans-serif" }}
+                    title={createForm.actualResult ? "AI Refine" : "AI Suggest"}
+                  >
+                    <Sparkles className={`w-3 h-3 ${refiningField === "actualResult" ? "animate-pulse" : ""}`} />
+                    {refiningField === "actualResult" ? (createForm.actualResult ? "Refining..." : "Suggesting...") : (createForm.actualResult ? "AI Refine" : "AI Suggest")}
+                  </button>
                 </div>
                 <textarea
                   className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
@@ -1517,8 +1449,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          <div className="flex" style={{ gap: '1rem' }}>
+            <div className="flex-1 min-w-0 w-full">
               <label className="block text-sm font-medium mb-1.5" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                 Start Date
               </label>
@@ -1530,7 +1462,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })}
               />
             </div>
-            <div>
+            <div className="flex-1 min-w-0 w-full">
               <label className="block text-sm font-medium mb-1.5" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>
                 Due Date
               </label>

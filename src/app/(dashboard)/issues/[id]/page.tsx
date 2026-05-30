@@ -1179,51 +1179,60 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
             </div>
 
             {canEdit && (
-              <form onSubmit={handleSubmitComment} className="flex gap-3">
-                <Avatar name={user?.name || ""} size="sm" />
-                <div className="flex-1 space-y-2">
-                  <div className="flex flex-col sm:flex-row gap-2 relative">
-                    <div className="flex-1 relative">
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] pr-10"
-                        placeholder="Add a comment... (Paste image with Ctrl+V)"
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        onPaste={handleCommentPaste}
-                      />
-                      {commentText && (
+              <form onSubmit={handleSubmitComment} className="flex gap-4 items-start mt-6 pt-6 border-t border-[var(--color-border)]">
+                <Avatar name={user?.name || ""} size="md" className="shadow-sm" />
+                <div className="flex-1 space-y-3">
+                  <div className="relative min-h-[120px] flex flex-col border border-[var(--color-border)] rounded-xl overflow-hidden focus-within:border-[var(--color-accent)] focus-within:ring-1 focus-within:ring-[var(--color-accent)] transition-all bg-[var(--color-surface)] shadow-sm">
+                    <textarea
+                      className="w-full flex-1 px-4 py-3 text-sm bg-transparent focus:outline-none resize-none"
+                      placeholder="Add a comment... (Markdown supported, Paste images with Ctrl+V)"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      onPaste={handleCommentPaste}
+                      rows={3}
+                    />
+                    
+                    <div className="flex items-center justify-between px-3 py-2 bg-[var(--color-bg-subtle)] border-t border-[var(--color-border)]">
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={handleRefineComment}
-                          disabled={refiningField === "comment"}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] disabled:opacity-50 z-10"
-                          title="AI Refine"
+                          onClick={() => commentFileInputRef.current?.click()}
+                          disabled={isUploadingComment}
+                          className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)] rounded-md transition-colors disabled:opacity-50 cursor-pointer"
+                          title="Attach screenshot"
                         >
-                          <Sparkles className={`w-4 h-4`} style={{ animation: refiningField === "comment" ? "spin 1s linear infinite" : "none" }} />
+                          <Image className="w-4 h-4" />
                         </button>
-                      )}
+                        {commentText && (
+                          <button
+                            type="button"
+                            onClick={handleRefineComment}
+                            disabled={refiningField === "comment"}
+                            className="flex items-center gap-1.5 p-1.5 text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)] rounded-md transition-colors disabled:opacity-50 text-xs font-medium cursor-pointer"
+                            title="AI Refine"
+                          >
+                            <Sparkles className={`w-3 h-3 ${refiningField === "comment" ? "animate-pulse" : ""}`} />
+                            {refiningField === "comment" ? "Refining..." : "AI Refine"}
+                          </button>
+                        )}
+                        <input
+                          type="file"
+                          ref={commentFileInputRef}
+                          accept="image/*"
+                          onChange={handleCommentScreenshotUpload}
+                          className="hidden"
+                        />
+                      </div>
+                      <Button 
+                        type="submit" 
+                        disabled={(!commentText.trim() && commentScreenshots.length === 0) || isSubmitting} 
+                        size="sm"
+                        className="h-8 px-3 rounded-md font-medium"
+                      >
+                        <Send className="w-3.5 h-3.5 mr-1.5" />
+                        Comment
+                      </Button>
                     </div>
-                    <input
-                      type="file"
-                      ref={commentFileInputRef}
-                      accept="image/*"
-                      onChange={handleCommentScreenshotUpload}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => commentFileInputRef.current?.click()}
-                      disabled={isUploadingComment}
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center border border-[var(--color-border)] rounded-md hover:bg-[var(--color-surface)] text-[var(--color-text-secondary)] touch-target disabled:opacity-50"
-                      title="Add screenshot"
-                      aria-label="Add screenshot"
-                    >
-                      <Image className="w-4 h-4" />
-                    </button>
-                    <Button type="submit" disabled={(!commentText.trim() && commentScreenshots.length === 0) || isSubmitting} className="touch-target">
-                      <Send className="w-4 h-4" />
-                    </Button>
                   </div>
                   {commentScreenshots.length > 0 && (
                     <div className="flex flex-wrap gap-2">

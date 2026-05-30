@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -13,12 +13,15 @@ import {
   Bug,
   X,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Plus,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/contexts/AuthContext";
-import { Avatar } from "@/components/ui";
-import { Badge } from "@/components/ui/Badge";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Avatar, Badge, Button, IconButton, Kbd } from "@/components/ui";
 import { useMobileSidebar } from "@/hooks/useMobileSidebar";
 import { useBreakpoint } from "@/hooks/useBreakpoint";
 
@@ -34,216 +37,277 @@ const adminNavItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const { isOpen, close, isCollapsed, toggleCollapse } = useMobileSidebar();
   const breakpoint = useBreakpoint();
 
-  const isDesktop = breakpoint === 'tablet' || breakpoint === 'desktop';
+  const isDesktop = breakpoint === "tablet" || breakpoint === "desktop";
   const collapsed = isDesktop && isCollapsed;
 
   const isActive = (href: string) => {
-    if (href === "/dashboard") {
-      return pathname === "/dashboard";
-    }
+    if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   };
 
-  // Close sidebar on route change for mobile
+  // Close on route change for mobile.
   useEffect(() => {
-    if (breakpoint === 'mobile') {
-      close();
-    }
+    if (breakpoint === "mobile") close();
   }, [pathname, breakpoint, close]);
+
+  const renderNavItem = (item: { href: string; label: string; icon: typeof LayoutDashboard }) => {
+    const Active = isActive(item.href);
+    return (
+      <li key={item.href}>
+        <Link
+          href={item.href}
+          onClick={() => breakpoint === "mobile" && close()}
+          title={collapsed ? item.label : undefined}
+          className={cn(
+            "group relative flex items-center gap-3 px-3 py-2 text-sm rounded-md touch-target",
+            "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            collapsed && "justify-center px-2",
+            Active
+              ? "bg-bg-selected text-fg font-medium"
+              : "text-fg-muted hover:bg-bg-hover hover:text-fg"
+          )}
+        >
+          {Active && (
+            <span
+              aria-hidden
+              className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-accent"
+            />
+          )}
+          <item.icon
+            className={cn(
+              "w-4 h-4 flex-shrink-0",
+              Active ? "text-accent" : "text-current"
+            )}
+          />
+          {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <>
-      {/* Mobile sidebar overlay */}
+      {/* Mobile overlay */}
       <div
         className={cn("mobile-sidebar-overlay", {
-          "open": isOpen && breakpoint === 'mobile'
+          open: isOpen && breakpoint === "mobile",
         })}
         onClick={close}
       />
 
-      {/* Sidebar - desktop and mobile */}
-      <aside className={cn(
-        "fixed left-0 top-0 bottom-0 bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border)] flex flex-col transition-all duration-300 z-50",
-        {
-          "mobile-sidebar": breakpoint === 'mobile',
-          "w-[var(--mobile-sidebar-width)]": breakpoint === 'mobile',
-          "-translate-x-full": breakpoint === 'mobile' && !isOpen,
-          "translate-x-0": breakpoint === 'mobile' && isOpen,
-          "w-16": collapsed,
-          "w-[var(--sidebar-width)]": isDesktop && !collapsed,
-        }
-      )}>
-        {/* Mobile header with close button */}
-        {breakpoint === 'mobile' && (
-          <div className="p-4 border-b border-[var(--color-border)] flex justify-between items-center">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[var(--color-accent)] rounded flex items-center justify-center">
-                <Bug className="w-5 h-5 text-white" />
-              </div>
-              <span className="font-semibold text-[var(--color-text-primary)]">
-                BugBase
-              </span>
-            </Link>
-            <button
+      <aside
+        className={cn(
+          "fixed left-0 top-0 bottom-0 z-50 flex flex-col",
+          "bg-sidebar",
+          "transition-[width,transform] duration-[var(--duration-base)] ease-[var(--ease-out)]",
+          {
+            "mobile-sidebar": breakpoint === "mobile",
+            "w-[var(--mobile-sidebar-width)]": breakpoint === "mobile",
+            "-translate-x-full": breakpoint === "mobile" && !isOpen,
+            "translate-x-0": breakpoint === "mobile" && isOpen,
+            "w-16": collapsed,
+            "w-[var(--sidebar-width)]": isDesktop && !collapsed,
+          }
+        )}
+      >
+        {/* Mobile header with close */}
+        {breakpoint === "mobile" && (
+          <div className="px-4 h-14 flex justify-between items-center">
+            <Brand />
+            <IconButton
+              icon={X}
+              label="Close menu"
+              variant="ghost"
+              size="sm"
               onClick={close}
-              className="p-2 rounded-md hover:bg-[var(--color-hover-bg)] transition-colors"
-              aria-label="Close menu"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            />
           </div>
         )}
 
         {/* Desktop logo */}
         {isDesktop && (
-          <div className="p-4 border-b border-[var(--color-border)] flex items-center justify-between">
-            <Link href="/dashboard" className={cn("flex items-center gap-2", { "justify-center w-full": collapsed })}>
-              <div className="w-8 h-8 bg-[var(--color-accent)] rounded flex items-center justify-center flex-shrink-0">
-                <Bug className="w-5 h-5 text-white" />
-              </div>
-              {!collapsed && (
-                <span className="font-semibold text-[var(--color-text-primary)]">
-                  BugBase
-                </span>
-              )}
-            </Link>
+          <div
+            className={cn(
+              "px-3 h-14 flex items-center",
+              collapsed && "justify-center px-2"
+            )}
+          >
+            <Brand collapsed={collapsed} />
+          </div>
+        )}
+
+        {/* New Issue CTA */}
+        {!collapsed && (
+          <div className="px-3 pt-3">
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={Plus}
+              className="w-full justify-start"
+              onClick={() => router.push("/issues?new=1")}
+            >
+              <span className="flex-1 text-left">New issue</span>
+              <Kbd className="ml-2 bg-white/10 border-white/20 text-white/80">C</Kbd>
+            </Button>
+          </div>
+        )}
+        {collapsed && (
+          <div className="px-2 pt-3 flex justify-center">
+            <IconButton
+              icon={Plus}
+              label="New issue"
+              variant="primary"
+              size="md"
+              tooltip
+              onClick={() => router.push("/issues?new=1")}
+            />
           </div>
         )}
 
         {/* Navigation */}
-        <nav className="flex-1 p-2 overflow-y-auto">
-          <ul className="space-y-1">
-            {navItems.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors touch-target",
-                    collapsed && "justify-center px-2",
-                    isActive(item.href)
-                      ? "bg-[var(--color-hover-bg)] text-[var(--color-text-primary)] border-l-[3px] border-[var(--color-accent)] -ml-[3px] pl-[calc(0.75rem+3px)]"
-                      : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] hover:text-[var(--color-text-primary)]"
-                  )}
-                  onClick={() => breakpoint === 'mobile' && close()}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <item.icon className="w-4 h-4 flex-shrink-0" />
-                  {!collapsed && item.label}
-                </Link>
-              </li>
-            ))}
+        <nav className="flex-1 px-2 pt-3 overflow-y-auto">
+          <ul className="space-y-0.5">
+            {navItems.map(renderNavItem)}
 
-            {/* Admin-only items */}
             {user?.role === "Admin" && (
               <>
-                {!collapsed && (
-                  <li className="pt-4 pb-2">
-                    <span className="px-3 text-xs font-medium text-[var(--color-text-placeholder)] uppercase tracking-wider">
+                {!collapsed ? (
+                  <li className="pt-4 pb-1.5 px-3">
+                    <span className="text-[11px] font-medium text-fg-subtle uppercase tracking-wider">
                       Admin
                     </span>
                   </li>
-                )}
-                {collapsed && <li className="pt-2"><hr className="border-[var(--color-border)] mx-2" /></li>}
-                {adminNavItems.map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors touch-target",
-                        collapsed && "justify-center px-2",
-                        isActive(item.href)
-                          ? "bg-[var(--color-hover-bg)] text-[var(--color-text-primary)] border-l-[3px] border-[var(--color-accent)] -ml-[3px] pl-[calc(0.75rem+3px)]"
-                          : "text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] hover:text-[var(--color-text-primary)]"
-                      )}
-                      onClick={() => breakpoint === 'mobile' && close()}
-                      title={collapsed ? item.label : undefined}
-                    >
-                      <item.icon className="w-4 h-4 flex-shrink-0" />
-                      {!collapsed && item.label}
-                    </Link>
+                ) : (
+                  <li className="pt-3 pb-1">
+                    <hr className="border-sidebar-border mx-2" />
                   </li>
-                ))}
+                )}
+                {adminNavItems.map(renderNavItem)}
               </>
             )}
           </ul>
         </nav>
 
-        {/* Collapse toggle - desktop only */}
-        {isDesktop && (
-          <div className="px-2 py-1 border-t border-[var(--color-border)]">
-            <button
-              onClick={toggleCollapse}
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] hover:text-[var(--color-text-primary)] transition-colors touch-target",
-                collapsed && "justify-center px-2"
-              )}
-              title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {collapsed ? <PanelLeftOpen className="w-4 h-4 flex-shrink-0" /> : <PanelLeftClose className="w-4 h-4 flex-shrink-0" />}
-              {!collapsed && "Collapse"}
-            </button>
-          </div>
-        )}
-
-        {/* User Section */}
-        <div className="p-3 border-t border-[var(--color-border)]">
-          {collapsed ? (
-            <div className="flex flex-col items-center gap-2">
-              {user && <Avatar name={user.name} size="md" />}
-              <Link
-                href="/settings"
-                className="p-2 text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] rounded-md transition-colors"
-                title="Settings"
-              >
-                <Settings className="w-3.5 h-3.5" />
-              </Link>
+        {/* Theme + collapse + user */}
+        <div className="mt-auto">
+          {isDesktop && (
+            <div className={cn("px-2 py-1", collapsed && "flex justify-center")}>
               <button
-                onClick={logout}
-                className="p-2 text-[var(--color-danger)] hover:bg-[var(--color-hover-bg)] rounded-md transition-colors"
-                title="Logout"
+                onClick={toggleCollapse}
+                title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md cursor-pointer",
+                  "text-fg-muted hover:bg-bg-hover hover:text-fg",
+                  "transition-colors duration-[var(--duration-fast)]",
+                  collapsed && "justify-center px-2 w-auto"
+                )}
               >
-                <LogOut className="w-3.5 h-3.5" />
+                {collapsed ? (
+                  <PanelLeftOpen className="w-4 h-4 flex-shrink-0" />
+                ) : (
+                  <PanelLeftClose className="w-4 h-4 flex-shrink-0" />
+                )}
+                {!collapsed && <span className="flex-1 text-left">Collapse</span>}
               </button>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 mb-3">
-                {user && <Avatar name={user.name} size="md" />}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[var(--color-text-primary)] truncate">
-                    {user?.name}
-                  </p>
-                  <Badge variant="default" className="text-[10px]">
-                    {user?.role}
-                  </Badge>
-                </div>
-              </div>
+          )}
 
-              <div className="flex gap-2 min-w-0">
+          {/* User block */}
+          <div className="p-3">
+            {collapsed ? (
+              <div className="flex flex-col items-center gap-2">
+                {user && <Avatar name={user.name} size="md" />}
                 <Link
                   href="/settings"
-                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-hover-bg)] rounded-md transition-colors touch-target min-w-0"
-                  onClick={() => breakpoint === 'mobile' && close()}
+                  title="Settings"
+                  className="p-2 text-fg-muted hover:text-fg hover:bg-bg-hover rounded-md transition-colors cursor-pointer"
                 >
-                  <Settings className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="hidden md:inline">Settings</span>
+                  <Settings className="w-3.5 h-3.5" />
                 </Link>
                 <button
-                  onClick={() => { logout(); if (breakpoint === 'mobile') close(); }}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-[var(--color-danger)] hover:bg-[var(--color-hover-bg)] rounded-md transition-colors touch-target min-w-0"
+                  onClick={logout}
+                  title="Logout"
+                  className="p-2 text-danger hover:bg-danger-bg rounded-md transition-colors cursor-pointer"
                 >
-                  <LogOut className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span className="hidden md:inline">Logout</span>
+                  <LogOut className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </>
-          )}
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  {user && <Avatar name={user.name} size="md" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-fg truncate">{user?.name}</p>
+                    {user?.role && (
+                      <Badge variant="neutral" size="sm" className="text-[10px]">
+                        {user.role}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5">
+                  <Link
+                    href="/settings"
+                    onClick={() => breakpoint === "mobile" && close()}
+                    className={cn(
+                      "flex-1 inline-flex items-center justify-center gap-1.5 px-2 h-8 text-xs rounded-md",
+                      "text-fg-muted hover:bg-bg-hover hover:text-fg",
+                      "transition-colors duration-[var(--duration-fast)]"
+                    )}
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    Settings
+                  </Link>
+                  <button
+                    onClick={() => {
+                      logout();
+                      if (breakpoint === "mobile") close();
+                    }}
+                    className={cn(
+                      "flex-1 inline-flex items-center justify-center gap-1.5 px-2 h-8 text-xs rounded-md cursor-pointer",
+                      "text-danger hover:bg-danger-bg",
+                      "transition-colors duration-[var(--duration-fast)]"
+                    )}
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Logout
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </aside>
     </>
+  );
+}
+
+function Brand({ collapsed }: { collapsed?: boolean } = {}) {
+  return (
+    <Link
+      href="/dashboard"
+      className={cn("flex items-center gap-2.5 min-w-0", collapsed && "justify-center")}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "relative inline-flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0",
+          "bg-gradient-to-br from-accent to-accent-active",
+          "shadow-[0_0_0_1px_var(--accent-ring),0_6px_18px_var(--accent-ring)]"
+        )}
+      >
+        <Bug className="w-4 h-4 text-white" strokeWidth={2.5} />
+      </span>
+      {!collapsed && (
+        <span className="font-semibold text-fg tracking-tight">BugBase</span>
+      )}
+    </Link>
   );
 }

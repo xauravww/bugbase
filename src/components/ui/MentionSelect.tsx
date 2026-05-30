@@ -1,3 +1,5 @@
+"use client";
+
 import { forwardRef, useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils/cn";
 import { Search, X, Check } from "lucide-react";
@@ -14,17 +16,27 @@ export interface MentionSelectProps {
 }
 
 export const MentionSelect = forwardRef<HTMLInputElement, MentionSelectProps>(
-  ({ className, label, error, options, value, onChange, placeholder = "Search...", emptyMessage = "No options found" }, ref) => {
+  (
+    {
+      className,
+      label,
+      error,
+      options,
+      value,
+      onChange,
+      placeholder = "Search...",
+      emptyMessage = "No options found",
+    },
+    ref
+  ) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
-    const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const filteredOptions = options.filter(opt => 
+    const filteredOptions = options.filter((opt) =>
       opt.label.toLowerCase().includes(search.toLowerCase())
     );
-
-    const selectedOption = options.find(opt => opt.value === value);
+    const selectedOption = options.find((opt) => opt.value === value);
 
     useEffect(() => {
       const handleClickOutside = (e: MouseEvent) => {
@@ -39,30 +51,28 @@ export const MentionSelect = forwardRef<HTMLInputElement, MentionSelectProps>(
     return (
       <div className="w-full relative" ref={containerRef}>
         {label && (
-          <label
-            className="block text-sm font-medium mb-1.5"
-            style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}
-          >
-            {label}
-          </label>
+          <label className="block text-sm font-medium text-fg mb-1.5">{label}</label>
         )}
-        
+
         {selectedOption && !isOpen ? (
           <button
             type="button"
             onClick={() => setIsOpen(true)}
-            className="w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg border transition-all hover:border-[#5b76fe]"
-            style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
+            className={cn(
+              "w-full h-9 flex items-center justify-between px-3 text-sm rounded-md",
+              "bg-surface border border-border text-fg transition-colors",
+              "hover:border-border-strong",
+              "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-ring"
+            )}
           >
-            <span className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-[#f7f6f3] text-xs" style={{ color: "#555a6a" }}>
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="px-1.5 py-0.5 rounded bg-accent-subtle text-accent text-[11px] font-mono flex-shrink-0">
                 @
               </span>
-              {selectedOption.label}
+              <span className="truncate">{selectedOption.label}</span>
             </span>
-            <X 
-              className="w-4 h-4" 
-              style={{ color: "#a5a8b5" }}
+            <X
+              className="w-4 h-4 text-fg-muted hover:text-fg flex-shrink-0"
               onClick={(e) => {
                 e.stopPropagation();
                 onChange("");
@@ -71,11 +81,9 @@ export const MentionSelect = forwardRef<HTMLInputElement, MentionSelectProps>(
           </button>
         ) : (
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-              <Search className="w-4 h-4" style={{ color: "#a5a8b5" }} />
-            </div>
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
             <input
-              ref={inputRef as any}
+              ref={ref}
               type="text"
               value={search}
               onChange={(e) => {
@@ -84,29 +92,25 @@ export const MentionSelect = forwardRef<HTMLInputElement, MentionSelectProps>(
               }}
               onFocus={() => setIsOpen(true)}
               placeholder={placeholder}
+              aria-invalid={error ? true : undefined}
               className={cn(
-                "w-full pl-10 pr-3 py-2 text-sm rounded-lg border transition-all duration-150",
-                "focus:outline-none focus:border-[#5b76fe] focus:ring-2 focus:ring-[#5b76fe]/20",
+                "w-full h-9 pl-9 pr-3 text-sm rounded-md",
+                "bg-surface border border-border text-fg placeholder:text-fg-placeholder",
+                "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+                "hover:border-border-strong",
+                "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-ring",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
-                error && "border-[#eb5757] focus:border-[#eb5757]",
+                error && "border-danger focus:border-danger focus:ring-danger/30",
                 className
               )}
-              style={{ 
-                background: "#ffffff", 
-                borderColor: error ? "#eb5757" : "#e9eaef",
-                fontFamily: "DM Sans, sans-serif"
-              }}
             />
           </div>
         )}
 
         {isOpen && search && (
-          <div 
-            className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-auto rounded-lg border shadow-lg z-50"
-            style={{ background: "#ffffff", borderColor: "#e9eaef" }}
-          >
+          <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-auto rounded-lg border border-border bg-surface shadow-popover z-50">
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-center" style={{ color: "#a5a8b5" }}>
+              <div className="px-3 py-4 text-sm text-center text-fg-placeholder">
                 {emptyMessage}
               </div>
             ) : (
@@ -119,27 +123,24 @@ export const MentionSelect = forwardRef<HTMLInputElement, MentionSelectProps>(
                     setSearch("");
                     setIsOpen(false);
                   }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-left hover:bg-[#f7f6f3] transition-colors"
-                  style={{ fontFamily: "DM Sans, sans-serif" }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm text-left text-fg hover:bg-bg-hover transition-colors"
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded bg-[#f7f6f3] text-xs" style={{ color: "#555a6a" }}>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="px-1.5 py-0.5 rounded bg-accent-subtle text-accent text-[11px] font-mono flex-shrink-0">
                       @
                     </span>
-                    <span style={{ color: "#1c1c1e" }}>{option.label}</span>
+                    <span className="truncate">{option.label}</span>
                   </span>
                   {option.value === value && (
-                    <Check className="w-4 h-4" style={{ color: "#5b76fe" }} />
+                    <Check className="w-4 h-4 text-accent flex-shrink-0" />
                   )}
                 </button>
               ))
             )}
           </div>
         )}
-        
-        {error && (
-          <p className="mt-1 text-xs" style={{ color: "#eb5757" }}>{error}</p>
-        )}
+
+        {error && <p className="mt-1 text-xs text-danger">{error}</p>}
       </div>
     );
   }

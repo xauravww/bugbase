@@ -7,40 +7,44 @@ interface FabButtonProps {
   labelMobile?: string;
   onClick: () => void;
   isLoading?: boolean;
+  variant?: "primary" | "secondary";
   className?: string;
 }
 
-export function FabButton({ icon: Icon, label, labelMobile, onClick, isLoading, className }: FabButtonProps) {
+const variantClasses = {
+  primary:
+    "bg-accent text-accent-fg hover:bg-accent-hover active:bg-accent-active shadow-md hover:shadow-lg hover:-translate-y-px",
+  secondary:
+    "bg-surface text-fg border border-border hover:bg-bg-hover hover:border-border-strong shadow-sm hover:shadow-md",
+};
+
+export function FabButton({
+  icon: Icon,
+  label,
+  labelMobile,
+  onClick,
+  isLoading,
+  variant = "primary",
+  className,
+}: FabButtonProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={isLoading}
       className={cn(
-        "flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed",
+        "inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap cursor-pointer",
+        "transition-all duration-[var(--duration-base)] ease-[var(--ease-out)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
+        "disabled:opacity-70 disabled:cursor-not-allowed",
+        variantClasses[variant],
         className
       )}
-      style={{ 
-        background: "#5b76fe", 
-        color: "#ffffff", 
-        fontFamily: "DM Sans, sans-serif" 
-      }}
-      onMouseEnter={(e) => {
-        if (!isLoading) {
-          e.currentTarget.style.background = "#4a63d8";
-          e.currentTarget.style.transform = "translateY(-1px)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!isLoading) {
-          e.currentTarget.style.background = "#5b76fe";
-          e.currentTarget.style.transform = "translateY(0)";
-        }
-      }}
     >
       {isLoading ? (
-        <RefreshCw className="w-4 h-4" style={{ animation: "spin 1s linear infinite" }} />
+        <RefreshCw className="w-4 h-4 animate-spin" aria-hidden />
       ) : (
-        <Icon className="w-4 h-4" />
+        <Icon className="w-4 h-4" aria-hidden />
       )}
       <span className="hidden md:inline">{label}</span>
       <span className="md:hidden">{labelMobile || label}</span>
