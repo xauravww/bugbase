@@ -674,9 +674,9 @@ export default function SettingsPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-medium">{EMAIL_EVENTS[template.event] || template.event}</h3>
                             {template.enabled ? (
-                              <Badge variant="default" className="bg-green-50 text-green-700">Enabled</Badge>
+                              <Badge variant="neutral" className="bg-green-50 text-green-700">Enabled</Badge>
                             ) : (
-                              <Badge variant="default" className="bg-gray-50 text-gray-500">Disabled</Badge>
+                              <Badge variant="neutral" className="bg-gray-50 text-gray-500">Disabled</Badge>
                             )}
                           </div>
                           <div className="flex gap-1">

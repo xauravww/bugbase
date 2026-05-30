@@ -1164,8 +1164,8 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                             {" "}{item.action}
                             {item.oldValue && item.newValue && (
                               <>
-                                {" "}from <Badge variant="default">{item.oldValue}</Badge>
-                                {" "}to <Badge variant="default">{item.newValue}</Badge>
+                                {" "}from <Badge variant="neutral">{item.oldValue}</Badge>
+                                {" "}to <Badge variant="neutral">{item.newValue}</Badge>
                               </>
                             )}
                             <span className="ml-2 text-xs">{formatRelativeTime(item.createdAt)}</span>

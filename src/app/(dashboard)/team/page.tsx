@@ -275,7 +275,7 @@ export default function TeamPage() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-3">
-                    <Badge variant="default">{member.role}</Badge>
+                    <Badge variant="neutral">{member.role}</Badge>
                     <span className="text-xs text-[var(--color-text-secondary)]">
                       Joined: {new Date(member.createdAt).toLocaleDateString()}
                     </span>
@@ -312,7 +312,7 @@ export default function TeamPage() {
                           {member.email}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge variant="default">{member.role}</Badge>
+                          <Badge variant="neutral">{member.role}</Badge>
                         </td>
                         <td className="px-4 py-3 text-sm text-[var(--color-text-secondary)] hidden lg:table-cell">
                           {new Date(member.createdAt).toLocaleDateString()}

@@ -325,7 +325,7 @@ export default function ProjectsPage() {
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <h3 className="font-semibold text-[var(--color-text-primary)]">{project.name}</h3>
-                          <Badge variant="default" className="mt-1">{project.key}</Badge>
+                          <Badge variant="neutral" className="mt-1">{project.key}</Badge>
                         </div>
                         {project.archived && <Archive className="w-4 h-4 text-[var(--color-text-secondary)]" />}
                       </div>
@@ -387,7 +387,7 @@ export default function ProjectsPage() {
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h3 className="font-semibold text-[var(--color-text-primary)]">{project.name}</h3>
-                          <Badge variant="default" className="mt-1.5">{project.key}</Badge>
+                          <Badge variant="neutral" className="mt-1.5">{project.key}</Badge>
                         </div>
                         {project.archived && <Archive className="w-4 h-4 text-[var(--color-text-secondary)]" />}
                       </div>
