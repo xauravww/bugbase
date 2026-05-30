@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -14,6 +15,11 @@ interface ModalProps {
 
 export function Modal({ isOpen, onClose, title, children, className }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -33,10 +39,10 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
     };
   }, [isOpen, onClose]);
   
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
   
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center modal-responsive">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center modal-responsive">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/30"
@@ -71,6 +77,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

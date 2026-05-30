@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       .select({
         projectId: issues.projectId,
         totalCount: sql<number>`count(${issues.id})`.mapWith(Number),
-        openCount: sql<number>`sum(case when ${issues.status} != 'Closed' then 1 else 0 end)`.mapWith(Number),
+        openCount: sql<number>`sum(case when ${issues.status} = 'Open' then 1 else 0 end)`.mapWith(Number),
       })
       .from(issues)
       .where(inArray(issues.projectId, projectIds))

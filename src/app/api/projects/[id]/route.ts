@@ -220,12 +220,11 @@ export async function GET(
       .from(issues)
       .where(eq(issues.projectId, projectId));
     const allTotal = allIssuesCount.length;
-    const closedCountResult = await db
+    const openCountResult = await db
       .select({ count: issues.id })
       .from(issues)
-      .where(and(eq(issues.projectId, projectId), inArray(issues.status, ["Verified", "Closed"])));
-    const closedCount = closedCountResult.length;
-    const openIssueCount = allTotal - closedCount;
+      .where(and(eq(issues.projectId, projectId), eq(issues.status, "Open")));
+    const openIssueCount = openCountResult.length;
 
     // Today's activity calculation
     const today = new Date();
