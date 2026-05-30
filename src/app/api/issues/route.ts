@@ -222,8 +222,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newIssue = await db.transaction(async (tx) => {
-      const [insertedIssue] = await tx.insert(issues).values({
+    const newIssue = db.transaction((tx) => {
+      const [insertedIssue] = tx.insert(issues).values({
         projectId,
         title,
         type,
@@ -236,31 +236,31 @@ export async function POST(request: NextRequest) {
         reporterId: authUser.id,
         startDate: startDate ? new Date(startDate) : null,
         dueDate: dueDate ? new Date(dueDate) : null,
-      }).returning();
+      }).returning().all();
 
       if (assigneeIds && assigneeIds.length > 0) {
-        await tx.insert(issueAssignees).values(
+        tx.insert(issueAssignees).values(
           assigneeIds.map(userId => ({ issueId: insertedIssue.id, userId }))
-        );
+        ).run();
       }
 
       if (verifierIds && verifierIds.length > 0) {
-        await tx.insert(issueVerifiers).values(
+        tx.insert(issueVerifiers).values(
           verifierIds.map(userId => ({ issueId: insertedIssue.id, userId }))
-        );
+        ).run();
       }
 
       if (categoryIds && categoryIds.length > 0) {
-        await tx.insert(issueCategories).values(
+        tx.insert(issueCategories).values(
           categoryIds.map(categoryId => ({ issueId: insertedIssue.id, categoryId }))
-        );
+        ).run();
       }
 
-      await tx.insert(activityLog).values({
+      tx.insert(activityLog).values({
         issueId: insertedIssue.id,
         userId: authUser.id,
         action: "created issue",
-      });
+      }).run();
 
       return insertedIssue;
     });

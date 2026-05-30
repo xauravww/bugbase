@@ -117,39 +117,39 @@ export async function PATCH(
     if (validation.data.description !== undefined) updates.description = validation.data.description;
     if (validation.data.status) updates.status = validation.data.status;
 
-    const [updatedMilestone] = await db.transaction(async (tx) => {
-      const [m] = await tx.update(milestones)
+    const [updatedMilestone] = db.transaction((tx) => {
+      const [m] = tx.update(milestones)
         .set(updates)
         .where(and(eq(milestones.id, milestoneIdNum), eq(milestones.projectId, projectId)))
-        .returning();
+        .returning().all();
 
       if (!m) return [null];
 
       if (validation.data.checklistItems) {
-        const existingItems = await tx.query.milestoneChecklistItems.findMany({
-          where: eq(milestoneChecklistItems.milestoneId, milestoneIdNum),
-        });
+        const existingItems = tx.select().from(milestoneChecklistItems).where(
+          eq(milestoneChecklistItems.milestoneId, milestoneIdNum)
+        ).all();
 
         const newItems = validation.data.checklistItems;
         const newItemIds = newItems.map(item => item.id).filter(id => id !== undefined) as number[];
 
         const itemsToDelete = existingItems.filter(item => !newItemIds.includes(item.id));
         for (const item of itemsToDelete) {
-          await tx.delete(milestoneChecklistItems).where(eq(milestoneChecklistItems.id, item.id));
+          tx.delete(milestoneChecklistItems).where(eq(milestoneChecklistItems.id, item.id)).run();
         }
 
         for (let i = 0; i < newItems.length; i++) {
           const item = newItems[i];
           if (item.id) {
-            await tx.update(milestoneChecklistItems)
+            tx.update(milestoneChecklistItems)
               .set({ content: item.content, order: i })
-              .where(eq(milestoneChecklistItems.id, item.id));
+              .where(eq(milestoneChecklistItems.id, item.id)).run();
           } else {
-            await tx.insert(milestoneChecklistItems).values({
+            tx.insert(milestoneChecklistItems).values({
               milestoneId: milestoneIdNum,
               content: item.content,
               order: i,
-            });
+            }).run();
           }
         }
       }
