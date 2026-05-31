@@ -93,17 +93,21 @@ export function Modal({
     document.addEventListener("keydown", handleTab);
     document.body.style.overflow = "hidden";
 
-    // Initial focus.
-    requestAnimationFrame(() => {
-      panelRef.current?.focus();
-    });
-
     return () => {
       document.removeEventListener("keydown", handleEscape);
       document.removeEventListener("keydown", handleTab);
       document.body.style.overflow = "";
     };
   }, [visible, onClose]);
+
+  // Initial focus - only run when visibility changes to true
+  useEffect(() => {
+    if (visible) {
+      requestAnimationFrame(() => {
+        panelRef.current?.focus();
+      });
+    }
+  }, [visible]);
 
   if (!visible || !mounted) return null;
 
