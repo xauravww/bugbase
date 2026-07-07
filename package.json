@@ -11,9 +11,12 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "npx tsx src/lib/seed.ts"
+    "db:seed": "npx tsx src/lib/seed.ts",
+    "dev:tracker": "PORT=3100 next dev",
+    "mcp": "npx tsx mcp/server.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "clsx": "^2.1.1",

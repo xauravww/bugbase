@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { marked } from "marked";
-import { Search, ChevronLeft, ChevronRight, Activity, Mail, Pencil, Save, X, ToggleLeft, ToggleRight, Eye, Plus, Bold, Italic, List, ListOrdered, Link as LinkIcon, Heading2, Code } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Activity, Mail, Pencil, Save, X, ToggleLeft, ToggleRight, Eye, Plus, Bold, Italic, List, ListOrdered, Link as LinkIcon, Heading2, Code, Plug } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, Input, Select, PageLoader, Avatar, Badge } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -187,7 +187,7 @@ function parseMarkdown(md: string): string {
 export default function SettingsPage() {
   const router = useRouter();
   const { user, token } = useAuth();
-  const [activeTab, setActiveTab] = useState<"profile" | "logs" | "emails">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "logs" | "emails" | "mcp">("profile");
   
   // Profile state
   const [name, setName] = useState(user?.name || "");
@@ -416,6 +416,17 @@ export default function SettingsPage() {
           >
             Profile
           </button>
+          <button
+            onClick={() => setActiveTab("mcp")}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-2 touch-target ${
+              activeTab === "mcp"
+                ? "border-[var(--color-accent)] text-[var(--color-accent)]"
+                : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+            }`}
+          >
+            <Plug className="w-4 h-4" />
+            MCP Server
+          </button>
           {user.role === "Admin" && (
             <>
               <button
@@ -480,6 +491,9 @@ export default function SettingsPage() {
             </section>
           </div>
         )}
+
+        {/* MCP Server Tab */}
+        {activeTab === "mcp" && <McpSettings />}
 
         {/* Activity Logs Tab */}
         {activeTab === "logs" && user.role === "Admin" && (
@@ -887,3 +901,176 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+// ─────────────────────────── MCP Server settings ───────────────────────────
+
+function CopyBlock({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  };
+  return (
+    <div className="relative group">
+      <pre className="text-xs sm:text-[13px] leading-relaxed overflow-x-auto rounded-lg p-3 pr-12 bg-[var(--color-bg-subtle)] border border-[var(--color-border)] text-[var(--color-text-primary)]">
+        <code>{text}</code>
+      </pre>
+      <button
+        onClick={copy}
+        className="absolute top-2 right-2 px-2 py-1 text-[11px] rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
+  );
+}
+
+function McpSettings() {
+  const { token } = useAuth();
+  const [origin, setOrigin] = useState("http://localhost:3000");
+  const [tokens, setTokens] = useState<Array<{ id: number; name: string; prefix: string; lastUsedAt: string | null; createdAt: string }>>([]);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [freshToken, setFreshToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") setOrigin(window.location.origin);
+  }, []);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/mcp/tokens", { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setTokens((await res.json()).tokens || []);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { if (token) load(); }, [token, load]);
+
+  const createToken = async () => {
+    setCreating(true);
+    setFreshToken(null);
+    try {
+      const res = await fetch("/api/mcp/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newName }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setFreshToken(d.token);
+        setNewName("");
+        await load();
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const revoke = async (id: number) => {
+    await fetch(`/api/mcp/tokens/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    await load();
+  };
+
+  const mcpUrl = `${origin}/api/mcp`;
+  const config = JSON.stringify(
+    {
+      mcpServers: {
+        bugbase: {
+          url: mcpUrl,
+          headers: { Authorization: `Bearer ${freshToken || "mcp_YOUR_TOKEN"}` },
+        },
+      },
+    },
+    null,
+    2
+  );
+
+  return (
+    <div className="max-w-full space-y-8">
+      <section>
+        <h2 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">MCP Server</h2>
+        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+          Connect any MCP client (Claude Code, Claude Desktop, Cursor) to bugbase over
+          the network — no local install. The server exposes projects, issues, test
+          cases, the task tracker, team progress, and admin settings as tools. Every
+          call runs as <strong>you</strong>, scoped to your role and project memberships.
+        </p>
+      </section>
+
+      {/* 1. Token */}
+      <section>
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">1. Create an access token</h3>
+        <div className="flex flex-col sm:flex-row gap-2 mb-3">
+          <Input
+            id="tokenName"
+            placeholder="Token name (e.g. Laptop, CI, Alice)"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            wrapperClassName="flex-1"
+          />
+          <Button onClick={createToken} disabled={creating} className="sm:w-auto">
+            {creating ? "Generating…" : "Generate token"}
+          </Button>
+        </div>
+
+        {freshToken && (
+          <div className="mb-3">
+            <p className="text-xs mb-1.5 font-medium text-[var(--color-warning,#b45309)]">
+              Copy this now — it won&apos;t be shown again.
+            </p>
+            <CopyBlock text={freshToken} />
+          </div>
+        )}
+
+        {/* Existing tokens */}
+        {!loading && tokens.length > 0 && (
+          <div className="border border-[var(--color-border)] rounded-lg divide-y divide-[var(--color-border)]">
+            {tokens.map((t) => (
+              <div key={t.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                <div className="min-w-0">
+                  <div className="text-sm text-[var(--color-text-primary)] truncate">{t.name}</div>
+                  <div className="text-[11px] text-[var(--color-text-secondary)]">
+                    {t.prefix}…{" · "}
+                    {t.lastUsedAt ? `last used ${new Date(t.lastUsedAt).toLocaleDateString()}` : "never used"}
+                  </div>
+                </div>
+                <button
+                  onClick={() => revoke(t.id)}
+                  className="text-[11px] px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-danger)] hover:bg-red-50 transition-colors flex-shrink-0"
+                >
+                  Revoke
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {!loading && tokens.length === 0 && !freshToken && (
+          <p className="text-xs text-[var(--color-text-secondary)]">No tokens yet.</p>
+        )}
+      </section>
+
+      {/* 2. Config */}
+      <section>
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">2. Add to your MCP client</h3>
+        <p className="text-sm text-[var(--color-text-secondary)] mb-3">
+          Paste into your client&apos;s MCP config (e.g.{" "}
+          <code className="text-xs px-1 py-0.5 rounded bg-[var(--color-bg-subtle)]">.mcp.json</code>). The
+          server URL is <code className="text-xs px-1 py-0.5 rounded bg-[var(--color-bg-subtle)]">{mcpUrl}</code>.
+        </p>
+        <CopyBlock text={config} />
+        <p className="text-xs text-[var(--color-text-secondary)] mt-2">
+          Reload MCP servers in your client, then use any tool. No login step — the token identifies you.
+        </p>
+      </section>
+    </div>
+  );
+}
+

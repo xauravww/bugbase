@@ -62,7 +62,7 @@ export const MentionSelect = forwardRef<HTMLInputElement, MentionSelectProps>(
               "w-full h-9 flex items-center justify-between px-3 text-sm rounded-md",
               "bg-surface border border-border text-fg transition-colors",
               "hover:border-border-strong",
-              "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-ring"
+              "focus:outline-none"
             )}
           >
             <span className="flex items-center gap-2 min-w-0">
@@ -98,9 +98,9 @@ export const MentionSelect = forwardRef<HTMLInputElement, MentionSelectProps>(
                 "bg-surface border border-border text-fg placeholder:text-fg-placeholder",
                 "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
                 "hover:border-border-strong",
-                "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-ring",
+                "focus:outline-none",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
-                error && "border-danger focus:border-danger focus:ring-danger/30",
+                error && "border-danger",
                 className
               )}
             />

@@ -170,7 +170,7 @@ export function MultiSelectChips({
                   className={cn(
                     "w-full h-8 pl-7 pr-2 text-sm rounded-md",
                     "bg-bg-subtle border border-border text-fg placeholder:text-fg-placeholder",
-                    "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-ring"
+                    "focus:outline-none"
                   )}
                 />
               </div>
