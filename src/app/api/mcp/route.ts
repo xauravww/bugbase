@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
   // Mint a short-lived JWT so downstream API calls carry the user's identity.
   const jwt = signToken({ id: user.id, email: user.email, role: user.role });
-  const origin = request.nextUrl.origin;
+  const origin = process.env.INTERNAL_ORIGIN || request.nextUrl.origin;
 
   let body: JsonRpcRequest | JsonRpcRequest[];
   try {
