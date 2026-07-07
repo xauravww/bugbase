@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveApiToken } from "@/lib/auth/apiToken";
 import { signToken } from "@/lib/auth/jwt";
 import { TOOLS, TOOLS_BY_NAME, type ToolContext } from "@/lib/mcp/tools";
+import { directCall } from "@/lib/mcp/directRouter";
 
 // Remote MCP endpoint (Streamable HTTP, stateless JSON-RPC).
 //
 // Clients connect with a URL + `Authorization: Bearer mcp_...` header. The token
-// resolves to a bugbase user; every tool call self-fetches the REST API with a
-// short-lived JWT minted for that user, so all role + membership checks apply.
+// resolves to a bugbase user; every tool call dispatches directly to the
+// imported route handler in-process — no HTTP self-fetch roundtrip.
 
 const PROTOCOL_VERSION = "2024-11-05";
 
@@ -26,23 +27,10 @@ function error(id: JsonRpcId, code: number, message: string) {
   return { jsonrpc: "2.0" as const, id, error: { code, message } };
 }
 
-// Build a ToolContext whose `call` hits this same app's REST API with a minted JWT.
+// Build a ToolContext that dispatches directly to imported route handlers.
 function makeContext(origin: string, jwt: string): ToolContext {
   return {
-    call: async (method, path, body) => {
-      const res = await fetch(`${origin}${path}`, {
-        method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      });
-      const text = await res.text();
-      if (!res.ok) throw new Error(`API ${method} ${path} → ${res.status}: ${text}`);
-      try {
-        return JSON.parse(text);
-      } catch {
-        return text;
-      }
-    },
+    call: (method, path, body) => directCall(method, path, body, origin, jwt),
   };
 }
 
