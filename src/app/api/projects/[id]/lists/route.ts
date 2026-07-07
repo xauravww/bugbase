@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { lists, taskActivity } from "@/lib/db/schema";
+import { lists, tasks, taskActivity } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, asc, and, isNull } from "drizzle-orm";
+import { eq, asc, and, isNull, sql } from "drizzle-orm";
 
 export async function GET(
   request: NextRequest,
@@ -13,6 +13,39 @@ export async function GET(
     const projectId = parseInt(id);
     const authUser = getAuthUser(request);
     if (!authUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const shallow = request.nextUrl.searchParams.get("shallow") === "true";
+
+    if (shallow) {
+      const result = await db.query.lists.findMany({
+        where: and(eq(lists.projectId, projectId), isNull(lists.deletedAt)),
+        orderBy: asc(lists.sortOrder),
+        with: { creator: { columns: { id: true, name: true } } },
+      });
+
+      const counts = db
+        .select({
+          listId: tasks.listId,
+          total: sql<number>`count(*)`.as("total"),
+          active: sql<number>`sum(case when ${tasks.status} = 'active' then 1 else 0 end)`.as("active"),
+          completed: sql<number>`sum(case when ${tasks.status} = 'completed' then 1 else 0 end)`.as("completed"),
+        })
+        .from(tasks)
+        .where(isNull(tasks.deletedAt))
+        .groupBy(tasks.listId)
+        .all();
+
+      const countMap = Object.fromEntries(counts.map(c => [c.listId, c]));
+
+      return NextResponse.json({
+        lists: result.map(l => ({
+          ...l,
+          taskCount: countMap[l.id]?.total || 0,
+          activeTaskCount: countMap[l.id]?.active || 0,
+          completedTaskCount: countMap[l.id]?.completed || 0,
+        })),
+      });
+    }
 
     const result = await db.query.lists.findMany({
       where: and(eq(lists.projectId, projectId), isNull(lists.deletedAt)),

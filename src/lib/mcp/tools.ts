@@ -206,15 +206,19 @@ export const TOOLS: ToolDef[] = [
   // ── task tracker ──
   {
     name: "list_lists",
-    description: "List all task lists in a project with their tasks/subtasks/checklist.",
-    inputSchema: { type: "object", properties: { projectId: num }, required: ["projectId"] },
-    handler: (a, ctx) => ctx.call("GET", `/api/projects/${a.projectId}/lists`),
+    description: "List task lists in a project. Use shallow=true for metadata + task counts only (faster). Without shallow, returns full nested tasks/subtasks/checklist.",
+    inputSchema: { type: "object", properties: { projectId: num, shallow: bool }, required: ["projectId"] },
+    handler: (a, ctx) => ctx.call("GET", `/api/projects/${a.projectId}/lists${a.shallow ? "?shallow=true" : ""}`),
   },
   {
     name: "list_tasks",
-    description: "List tasks in a list.",
-    inputSchema: { type: "object", properties: { projectId: num, listId: num }, required: ["projectId", "listId"] },
-    handler: (a, ctx) => ctx.call("GET", `/api/projects/${a.projectId}/lists/${a.listId}/tasks`),
+    description: "List tasks in a list. Paginated (default 50, max 100). Returns pagination metadata.",
+    inputSchema: {
+      type: "object",
+      properties: { projectId: num, listId: num, page: num, limit: num },
+      required: ["projectId", "listId"],
+    },
+    handler: (a, ctx) => ctx.call("GET", `/api/projects/${a.projectId}/lists/${a.listId}/tasks${qs({ page: a.page, limit: a.limit })}`),
   },
   {
     name: "get_task",
@@ -238,7 +242,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "create_task",
-    description: "Create a task. Optionally assign users and labels on create.",
+    description: "Create a task. Valid status: 'active' (default) | 'completed'. Valid priority: 'none' (default) | 'low' | 'medium' | 'high'. Optionally assign users and labels on create.",
     inputSchema: {
       type: "object",
       properties: {
@@ -252,7 +256,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "update_task",
-    description: "Update a task: fields, status, assignees, completers, labels, or restore a soft-deleted task.",
+    description: "Update a task: fields, status, assignees, completers, labels, or restore a soft-deleted task. Valid status: 'active' | 'completed'. Valid priority: 'none' | 'low' | 'medium' | 'high'.",
     inputSchema: {
       type: "object",
       properties: {
@@ -288,7 +292,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "update_subtask",
-    description: "Update a subtask (title/description/status, or restore).",
+    description: "Update a subtask (title/description/status, or restore). Valid status: 'active' | 'completed'.",
     inputSchema: {
       type: "object",
       properties: { projectId: num, listId: num, taskId: num, subtaskId: num, title: str, description: str, status: str, restore: bool },

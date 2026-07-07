@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { tasks, taskActivity, taskAssignees, taskCategories } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
-import { eq, asc, and, isNull } from "drizzle-orm";
+import { eq, asc, and, isNull, sql } from "drizzle-orm";
 
 export async function GET(
   request: NextRequest,
@@ -13,9 +13,24 @@ export async function GET(
     const authUser = getAuthUser(request);
     if (!authUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const listIdNum = parseInt(listId);
+    const sp = request.nextUrl.searchParams;
+    const page = Math.max(1, parseInt(sp.get("page") || "1"));
+    const limit = Math.min(100, Math.max(1, parseInt(sp.get("limit") || "50")));
+    const offset = (page - 1) * limit;
+
+    const [countRow] = db
+      .select({ total: sql<number>`count(*)` })
+      .from(tasks)
+      .where(and(eq(tasks.listId, listIdNum), isNull(tasks.deletedAt)))
+      .all();
+    const total = countRow?.total || 0;
+
     const result = await db.query.tasks.findMany({
-      where: and(eq(tasks.listId, parseInt(listId)), isNull(tasks.deletedAt)),
+      where: and(eq(tasks.listId, listIdNum), isNull(tasks.deletedAt)),
       orderBy: asc(tasks.sortOrder),
+      limit,
+      offset,
       with: {
         creator: { columns: { id: true, name: true } },
         assignees: { with: { user: { columns: { id: true, name: true } } } },
@@ -34,7 +49,10 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({ tasks: result });
+    return NextResponse.json({
+      tasks: result,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (error) {
     console.error("GET tasks error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
