@@ -984,6 +984,7 @@ function McpSettings() {
     {
       mcpServers: {
         bugbase: {
+          type: "http",
           url: mcpUrl,
           headers: { Authorization: `Bearer ${freshToken || "mcp_YOUR_TOKEN"}` },
         },
