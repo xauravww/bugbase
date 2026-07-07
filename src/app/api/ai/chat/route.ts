@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { issues, projects, milestones, projectMembers, activityLog } from "@/lib/db/schema";
+import { issues, projects, projectMembers, activityLog } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, and, sql, desc, inArray } from "drizzle-orm";
 
@@ -109,14 +109,6 @@ export async function POST(request: NextRequest) {
           context += `\nRecent issues:\n${recentIssues.map(i => `- [${i.type}] ${i.title} (${i.status}, ${i.priority})`).join("\n")}\n`;
         }
 
-        // Milestone progress
-        const projectMilestones = await db.query.milestones.findMany({
-          where: eq(milestones.projectId, targetProjectId),
-          columns: { id: true, title: true, status: true },
-        });
-        if (projectMilestones.length > 0) {
-          context += `\nMilestones:\n${projectMilestones.map(m => `- ${m.title} (${m.status})`).join("\n")}\n`;
-        }
       }
 
       // Recent activity (last 10)
@@ -179,7 +171,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const systemPrompt = `You are BugBase Assistant, an AI helper for a bug tracking and project management platform. Answer questions about project status, bugs, testing progress, milestones, and team activity using the provided context. Be concise and helpful. If you don't have enough information to answer, say so.
+    const systemPrompt = `You are BugBase Assistant, an AI helper for a bug tracking and project management platform. Answer questions about project status, bugs, testing progress, and team activity using the provided context. Be concise and helpful. If you don't have enough information to answer, say so.
 
 ${context}`;
 

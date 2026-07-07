@@ -53,10 +53,10 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             "bg-surface border border-border text-fg placeholder:text-fg-placeholder",
             "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:border-border-strong",
-            "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-ring",
+            "focus:outline-none",
             "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-bg-subtle",
             autoResize && "overflow-hidden resize-none",
-            error && "border-danger focus:border-danger focus:ring-danger/30",
+            error && "border-danger",
             className
           )}
           {...props}

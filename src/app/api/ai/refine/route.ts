@@ -29,14 +29,8 @@ export async function POST(req: Request) {
                 prompt = `Refine the following steps to reproduce an issue into a clean, numbered list format (Step 1:, Step 2:, etc.). Use clear, imperative language (e.g., "Click", "Navigate to", "Observe"). Ensure the tone is professional and instructions are unambiguous. Content: "${content}". Just return the refined steps, nothing else.`;
             } else if (field === "comment") {
                 prompt = `Refine the following comment to be professional, constructive, and clear. Ensure it sounds like a helpful collaborator in a software project. Content: "${content}". Just return the refined comment, nothing else.`;
-            } else if (field === "milestone_title") {
-                prompt = `Refine the following milestone title to be professional, outcome-oriented, and clear. Milestone Title: "${content}". Just return the refined title, nothing else.`;
-            } else if (field === "milestone_description") {
-                prompt = `Refine the following milestone description to be professional, clear, and inspiring. Focus on the value and goals of the milestone. Content: "${content}". Just return the refined description, nothing else.`;
             } else if (field === "checklist_notes") {
                 prompt = `Refine the following task notes to be clear, professional, and grammatically correct. Use direct language. Content: "${content}". Just return the refined notes, nothing else.`;
-            } else if (field === "milestone_note") {
-                prompt = `Refine the following milestone activity note to be professional, objective, and clear. Content: "${content}". Just return the refined note, nothing else.`;
             } else {
                 prompt = `Refine the following content to be professional, clear, and grammatically correct. Use a simple and direct tone. Content: "${content}". Just return the refined content, nothing else.`;
             }

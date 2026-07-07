@@ -13,6 +13,21 @@ export const users = sqliteTable("users", {
   emailIdx: index("idx_users_email").on(table.email),
 }));
 
+// API tokens for remote MCP access (bearer `mcp_...`). Only the hash is stored.
+export const apiTokens = sqliteTable("api_tokens", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  prefix: text("prefix").notNull(), // first chars shown in UI, e.g. "mcp_ab12"
+  lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
+  revokedAt: integer("revoked_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  userIdx: index("idx_api_tokens_user").on(table.userId),
+  hashIdx: index("idx_api_tokens_hash").on(table.tokenHash),
+}));
+
 // Projects table
 export const projects = sqliteTable("projects", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -143,56 +158,6 @@ export const emailTemplates = sqliteTable("email_templates", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
-// Milestones table
-export const milestones = sqliteTable("milestones", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  description: text("description"),
-  status: text("status", { enum: ["Not Started", "In Progress", "Completed"] }).notNull().default("Not Started"),
-  createdBy: integer("created_by").notNull().references(() => users.id),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-}, (table) => ({
-  projectIdx: index("idx_milestones_project").on(table.projectId),
-  statusIdx: index("idx_milestones_status").on(table.status),
-}));
-
-// Milestone checklist items table
-export const milestoneChecklistItems = sqliteTable("milestone_checklist_items", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  milestoneId: integer("milestone_id").notNull().references(() => milestones.id, { onDelete: "cascade" }),
-  content: text("content").notNull(),
-  order: integer("order").notNull().default(0),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-}, (table) => ({
-  milestoneIdx: index("idx_checklist_milestone").on(table.milestoneId),
-}));
-
-// Milestone checklist completions table
-export const milestoneChecklistCompletions = sqliteTable("milestone_checklist_completions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  checklistItemId: integer("checklist_item_id").notNull().references(() => milestoneChecklistItems.id, { onDelete: "cascade" }),
-  userId: integer("user_id").notNull().references(() => users.id),
-  notes: text("notes"),
-  completedAt: integer("completed_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-}, (table) => ({
-  itemIdx: index("idx_completions_item").on(table.checklistItemId),
-  userIdx: index("idx_completions_user").on(table.userId),
-}));
-
-// Milestone notes table
-export const milestoneNotes = sqliteTable("milestone_notes", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  milestoneId: integer("milestone_id").notNull().references(() => milestones.id, { onDelete: "cascade" }),
-  userId: integer("user_id").notNull().references(() => users.id),
-  content: text("content").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
-}, (table) => ({
-  milestoneIdx: index("idx_notes_milestone").on(table.milestoneId),
-  userIdx: index("idx_notes_user").on(table.userId),
-}));
-
 // Context entries: flexible per-project workspace records
 export const contextEntries = sqliteTable("context_entries", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -314,6 +279,119 @@ export const issueCategories = sqliteTable("issue_categories", {
   categoryIdx: index("idx_issue_categories_category").on(table.categoryId),
 }));
 
+// Lists (TickTick-style task hierarchy)
+export const lists = sqliteTable("lists", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: text("color").notNull().default("#5b76fe"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  deletedAt: integer("deleted_at", { mode: "timestamp" }),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  projectIdx: index("idx_lists_project").on(table.projectId),
+  sortIdx: index("idx_lists_sort").on(table.projectId, table.sortOrder),
+}));
+
+export const tasks = sqliteTable("tasks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  listId: integer("list_id").notNull().references(() => lists.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status", { enum: ["active", "completed"] }).notNull().default("active"),
+  priority: text("priority", { enum: ["none", "low", "medium", "high"] }).notNull().default("none"),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+  completedBy: integer("completed_by").references(() => users.id),
+  sortOrder: integer("sort_order").notNull().default(0),
+  dueDate: integer("due_date", { mode: "timestamp" }),
+  deletedAt: integer("deleted_at", { mode: "timestamp" }),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  listIdx: index("idx_tasks_list").on(table.listId),
+  statusIdx: index("idx_tasks_status").on(table.status),
+  sortIdx: index("idx_tasks_list_sort").on(table.listId, table.sortOrder),
+  deletedIdx: index("idx_tasks_deleted").on(table.deletedAt),
+}));
+
+export const subtasks = sqliteTable("subtasks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status", { enum: ["active", "completed"] }).notNull().default("active"),
+  completedAt: integer("completed_at", { mode: "timestamp" }),
+  completedBy: integer("completed_by").references(() => users.id),
+  sortOrder: integer("sort_order").notNull().default(0),
+  deletedAt: integer("deleted_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  taskIdx: index("idx_subtasks_task").on(table.taskId),
+  sortIdx: index("idx_subtasks_task_sort").on(table.taskId, table.sortOrder),
+}));
+
+export const checklistItems = sqliteTable("checklist_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  subtaskId: integer("subtask_id").notNull().references(() => subtasks.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  done: integer("done", { mode: "boolean" }).notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
+  deletedAt: integer("deleted_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  subtaskIdx: index("idx_checklist_items_subtask").on(table.subtaskId),
+}));
+
+// Task ↔ user assignees (many-to-many)
+export const taskAssignees = sqliteTable("task_assignees", {
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.taskId, table.userId] }),
+  userIdx: index("idx_task_assignees_user").on(table.userId),
+}));
+
+// Task ↔ user completers (who marked it done; supports multiple)
+export const taskCompleters = sqliteTable("task_completers", {
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  completedAt: integer("completed_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.taskId, table.userId] }),
+  userIdx: index("idx_task_completers_user").on(table.userId),
+}));
+
+// Task ↔ category (labels, reuses project categories)
+export const taskCategories = sqliteTable("task_categories", {
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id").notNull().references(() => categories.id, { onDelete: "cascade" }),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.taskId, table.categoryId] }),
+  categoryIdx: index("idx_task_categories_category").on(table.categoryId),
+}));
+
+export const taskActivity = sqliteTable("task_activity", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  taskId: integer("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+  subtaskId: integer("subtask_id").references(() => subtasks.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => users.id),
+  action: text("action").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  projectIdx: index("idx_task_activity_project").on(table.projectId),
+  taskIdx: index("idx_task_activity_task").on(table.taskId),
+  createdAtIdx: index("idx_task_activity_created_at").on(table.createdAt),
+}));
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
@@ -321,6 +399,14 @@ export const usersRelations = relations(users, ({ many }) => ({
   reportedIssues: many(issues),
   comments: many(comments),
   activities: many(activityLog),
+  apiTokens: many(apiTokens),
+}));
+
+export const apiTokensRelations = relations(apiTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [apiTokens.userId],
+    references: [users.id],
+  }),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -330,7 +416,7 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   }),
   members: many(projectMembers),
   issues: many(issues),
-  milestones: many(milestones),
+  lists: many(lists),
   categories: many(categories),
 }));
 
@@ -436,49 +522,6 @@ export const activityLogRelations = relations(activityLog, ({ one }) => ({
 
 export const emailTemplatesRelations = relations(emailTemplates, () => ({}));
 
-export const milestonesRelations = relations(milestones, ({ one, many }) => ({
-  project: one(projects, {
-    fields: [milestones.projectId],
-    references: [projects.id],
-  }),
-  creator: one(users, {
-    fields: [milestones.createdBy],
-    references: [users.id],
-  }),
-  checklistItems: many(milestoneChecklistItems),
-  notes: many(milestoneNotes),
-}));
-
-export const milestoneChecklistItemsRelations = relations(milestoneChecklistItems, ({ one, many }) => ({
-  milestone: one(milestones, {
-    fields: [milestoneChecklistItems.milestoneId],
-    references: [milestones.id],
-  }),
-  completions: many(milestoneChecklistCompletions),
-}));
-
-export const milestoneChecklistCompletionsRelations = relations(milestoneChecklistCompletions, ({ one }) => ({
-  checklistItem: one(milestoneChecklistItems, {
-    fields: [milestoneChecklistCompletions.checklistItemId],
-    references: [milestoneChecklistItems.id],
-  }),
-  user: one(users, {
-    fields: [milestoneChecklistCompletions.userId],
-    references: [users.id],
-  }),
-}));
-
-export const milestoneNotesRelations = relations(milestoneNotes, ({ one }) => ({
-  milestone: one(milestones, {
-    fields: [milestoneNotes.milestoneId],
-    references: [milestones.id],
-  }),
-  user: one(users, {
-    fields: [milestoneNotes.userId],
-    references: [users.id],
-  }),
-}));
-
 export const contextEntriesRelations = relations(contextEntries, ({ one, many }) => ({
   project: one(projects, {
     fields: [contextEntries.projectId],
@@ -538,6 +581,7 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
     references: [users.id],
   }),
   issues: many(issueCategories),
+  tasks: many(taskCategories),
 }));
 
 export const issueCategoriesRelations = relations(issueCategories, ({ one }) => ({
@@ -582,5 +626,111 @@ export const testCaseEmbeddingsRelations = relations(testCaseEmbeddings, ({ one 
   testCase: one(testCases, {
     fields: [testCaseEmbeddings.testCaseId],
     references: [testCases.id],
+  }),
+}));
+
+export const listsRelations = relations(lists, ({ one, many }) => ({
+  project: one(projects, {
+    fields: [lists.projectId],
+    references: [projects.id],
+  }),
+  creator: one(users, {
+    fields: [lists.createdBy],
+    references: [users.id],
+  }),
+  tasks: many(tasks),
+}));
+
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
+  list: one(lists, {
+    fields: [tasks.listId],
+    references: [lists.id],
+  }),
+  creator: one(users, {
+    fields: [tasks.createdBy],
+    references: [users.id],
+    relationName: "taskCreator",
+  }),
+  completedByUser: one(users, {
+    fields: [tasks.completedBy],
+    references: [users.id],
+    relationName: "taskCompleter",
+  }),
+  subtasks: many(subtasks),
+  activities: many(taskActivity),
+  assignees: many(taskAssignees),
+  completers: many(taskCompleters),
+  categories: many(taskCategories),
+}));
+
+export const taskAssigneesRelations = relations(taskAssignees, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskAssignees.taskId],
+    references: [tasks.id],
+  }),
+  user: one(users, {
+    fields: [taskAssignees.userId],
+    references: [users.id],
+  }),
+}));
+
+export const taskCompletersRelations = relations(taskCompleters, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskCompleters.taskId],
+    references: [tasks.id],
+  }),
+  user: one(users, {
+    fields: [taskCompleters.userId],
+    references: [users.id],
+  }),
+}));
+
+export const taskCategoriesRelations = relations(taskCategories, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskCategories.taskId],
+    references: [tasks.id],
+  }),
+  category: one(categories, {
+    fields: [taskCategories.categoryId],
+    references: [categories.id],
+  }),
+}));
+
+export const subtasksRelations = relations(subtasks, ({ one, many }) => ({
+  task: one(tasks, {
+    fields: [subtasks.taskId],
+    references: [tasks.id],
+  }),
+  completedByUser: one(users, {
+    fields: [subtasks.completedBy],
+    references: [users.id],
+    relationName: "subtaskCompleter",
+  }),
+  checklist: many(checklistItems),
+}));
+
+export const checklistItemsRelations = relations(checklistItems, ({ one }) => ({
+  subtask: one(subtasks, {
+    fields: [checklistItems.subtaskId],
+    references: [subtasks.id],
+  }),
+}));
+
+export const taskActivityRelations = relations(taskActivity, ({ one }) => ({
+  project: one(projects, {
+    fields: [taskActivity.projectId],
+    references: [projects.id],
+  }),
+  task: one(tasks, {
+    fields: [taskActivity.taskId],
+    references: [tasks.id],
+  }),
+  subtask: one(subtasks, {
+    fields: [taskActivity.subtaskId],
+    references: [subtasks.id],
+  }),
+  user: one(users, {
+    fields: [taskActivity.userId],
+    references: [users.id],
   }),
 }));

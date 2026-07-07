@@ -10,6 +10,7 @@ import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 import type { Pagination } from "@/types/issue";
 
 import { TestCasesWorkspace } from "@/components/test-cases/TestCasesWorkspace";
+import { ListsWorkspace } from "@/components/lists/ListsWorkspace";
 import CategoriesManager from "@/components/projects/CategoriesManager";
 import TeamProgress from "@/components/projects/TeamProgress";
 import MultiSelectChips from "@/components/ui/MultiSelectChips";
@@ -68,11 +69,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const { token, user } = useAuth();
   const initialTab = (() => {
     const t = searchParams.get("tab");
-    if (t === "context" || t === "milestones" || t === "test-cases") return "test-cases";
+    if (t === "tasks") return "tasks";
+    if (t === "context" || t === "test-cases") return "test-cases";
     if (t === "team") return "team";
     if (t === "settings") return "settings";
     return "issues";
-  })() as "issues" | "test-cases" | "team" | "settings";
+  })() as "issues" | "tasks" | "test-cases" | "team" | "settings";
   const initialStatus = searchParams.get("status") ?? "all";
   const [project, setProject] = useState<Project | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -88,7 +90,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
-  const [activeTab, setActiveTab] = useState<"issues" | "test-cases" | "team" | "settings">(initialTab);
+  const [activeTab, setActiveTab] = useState<"issues" | "tasks" | "test-cases" | "team" | "settings">(initialTab);
   const [issueStatusTab, setIssueStatusTab] = useState<string>(initialStatus);
   const [issuesPaginationState, setIssuesPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Closed: 1 });
   const [selectedProjectIssueIds, setSelectedProjectIssueIds] = useState<number[]>([]);
@@ -209,7 +211,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     const params = new URLSearchParams(Array.from(searchParams.entries()));
-    if (activeTab === "test-cases") params.set("tab", "test-cases");
+    if (activeTab === "tasks") params.set("tab", "tasks");
+    else if (activeTab === "test-cases") params.set("tab", "test-cases");
     else if (activeTab === "team") params.set("tab", "team");
     else if (activeTab === "settings") params.set("tab", "settings");
     else params.delete("tab");
@@ -711,6 +714,24 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               >
                 <span className="md:hidden">Issues</span>
                 <span className="hidden md:inline">Issues</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("tasks")}
+                className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
+                style={{
+                  background: activeTab === "tasks" ? "#ffffff" : "transparent",
+                  color: activeTab === "tasks" ? "#1c1c1e" : "#555a6a",
+                  fontFamily: "DM Sans, sans-serif",
+                  boxShadow: activeTab === "tasks" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== "tasks") e.currentTarget.style.background = "#e9e9e9";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = activeTab === "tasks" ? "#ffffff" : "transparent";
+                }}
+              >
+                Tasks
               </button>
               <button
                 onClick={() => setActiveTab("test-cases")}
@@ -1253,6 +1274,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             )}
           </>
         )}
+
+        {activeTab === "tasks" && <ListsWorkspace projectId={projectId} />}
 
         {activeTab === "test-cases" && <TestCasesWorkspace projectId={projectId} />}
 

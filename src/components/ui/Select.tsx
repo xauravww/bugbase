@@ -149,10 +149,10 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
                 "text-sm rounded-md bg-surface border border-border text-fg",
                 "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
                 "hover:border-border-strong",
-                "focus-visible:outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-ring",
+                "focus-visible:outline-none",
                 "disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-bg-subtle",
-                open && "border-accent ring-2 ring-accent-ring",
-                error && "border-danger focus-visible:border-danger focus-visible:ring-danger/30",
+                open && "border-accent",
+                error && "border-danger",
                 className
               )}
               {...rest}
@@ -190,7 +190,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
                   className={cn(
                     "w-full h-8 pl-7 pr-2 text-sm rounded-md",
                     "bg-bg-subtle border border-border text-fg placeholder:text-fg-placeholder",
-                    "focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent-ring"
+                    "focus:outline-none"
                   )}
                 />
               </div>
