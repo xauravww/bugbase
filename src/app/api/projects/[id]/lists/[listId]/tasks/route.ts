@@ -61,7 +61,8 @@ export async function POST(
     });
     const maxSort = existing.length > 0 ? Math.max(...existing.map(t => t.sortOrder)) + 1 : 0;
 
-    const isCompleted = status === "completed";
+    const validStatus = status === "completed" ? "completed" : "active";
+    const isCompleted = validStatus === "completed";
 
     const result = db.transaction((tx) => {
       const created = tx.insert(tasks).values({
@@ -69,7 +70,7 @@ export async function POST(
         title,
         description: description || null,
         priority: priority || "none",
-        status: status || "active",
+        status: validStatus,
         dueDate: dueDate ? new Date(dueDate) : null,
         completedAt: isCompleted ? new Date() : null,
         completedBy: isCompleted ? authUser.id : null,

@@ -70,10 +70,11 @@ export async function PATCH(
     if (body.restore === true) updates.deletedAt = null;
 
     let statusChanged = false;
-    if (body.status !== undefined && body.status !== existing.status) {
+    const validStatus = body.status === "completed" ? "completed" : body.status === "active" ? "active" : undefined;
+    if (validStatus !== undefined && validStatus !== existing.status) {
       statusChanged = true;
-      updates.status = body.status;
-      if (body.status === "completed") {
+      updates.status = validStatus;
+      if (validStatus === "completed") {
         updates.completedAt = new Date();
         updates.completedBy = authUser.id;
       } else {
@@ -110,7 +111,7 @@ export async function PATCH(
       }
 
       // On completion, auto-add the completer to the completers list
-      if (statusChanged && body.status === "completed") {
+      if (statusChanged && validStatus === "completed") {
         tx.insert(taskCompleters)
           .values({ taskId: taskIdNum, userId: authUser.id, completedAt: new Date() })
           .onConflictDoNothing()
@@ -118,8 +119,8 @@ export async function PATCH(
       }
 
       const action = body.restore === true ? "task_restored"
-        : body.status === "completed" ? "task_completed"
-        : body.status === "active" && existing.status === "completed" ? "task_reopened"
+        : validStatus === "completed" ? "task_completed"
+        : validStatus === "active" && existing.status === "completed" ? "task_reopened"
         : "task_updated";
 
       tx.insert(taskActivity).values({
@@ -128,7 +129,7 @@ export async function PATCH(
         userId: authUser.id,
         action,
         oldValue: statusChanged ? existing.status : undefined,
-        newValue: body.status || body.title || undefined,
+        newValue: validStatus || body.title || undefined,
       }).run();
     });
 
