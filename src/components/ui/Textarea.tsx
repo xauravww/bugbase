@@ -2,18 +2,25 @@
 
 import { forwardRef, useEffect, useRef, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/utils/cn";
+import { FieldHelpButton } from "./FieldHelp";
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
   hint?: string;
+  help?: {
+    whatItIs?: string;
+    example?: string;
+    template?: string;
+    tip?: string;
+  };
   /** Grow with content. */
   autoResize?: boolean;
   wrapperClassName?: string;
 }
 
 const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, wrapperClassName, label, error, hint, autoResize, id, value, defaultValue, onChange, ...props }, ref) => {
+  ({ className, wrapperClassName, label, error, hint, help, autoResize, id, value, defaultValue, onChange, ...props }, ref) => {
     const innerRef = useRef<HTMLTextAreaElement | null>(null);
 
     const resize = () => {
@@ -30,9 +37,17 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className={cn("w-full", wrapperClassName)}>
         {label && (
-          <label htmlFor={id} className="block text-sm font-medium text-fg mb-1.5">
-            {label}
-          </label>
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <label htmlFor={id} className="block text-sm font-medium text-fg min-w-0">
+              {label}
+            </label>
+            <FieldHelpButton
+              label={label}
+              kind="textarea"
+              placeholder={typeof props.placeholder === "string" ? props.placeholder : undefined}
+              content={help}
+            />
+          </div>
         )}
         <textarea
           ref={(el) => {

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui";
+import { FieldHelpButton } from "@/components/ui/FieldHelp";
 import { cn } from "@/lib/utils/cn";
 
 interface Props {
@@ -117,7 +118,16 @@ export function MarkdownEditor({ value, onChange, label, placeholder, minRows = 
 
   return (
     <div className="w-full">
-      {label && <label className="block text-sm font-medium text-fg mb-1.5">{label}</label>}
+      {label && (
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          <label className="block text-sm font-medium text-fg min-w-0">{label}</label>
+          <FieldHelpButton
+            label={label}
+            kind="richtext"
+            placeholder={placeholder}
+          />
+        </div>
+      )}
       <div className="border border-border rounded-lg overflow-hidden bg-surface">
         {/* toolbar */}
         <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-bg-hover flex-wrap">

@@ -84,6 +84,16 @@ export function FieldInput({
 }) {
   const v = value ?? "";
 
+  if (field.type === "tags") {
+    return (
+      <Input
+        label={field.label}
+        value={String(v)}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={field.placeholder ?? "Comma-separated tags"}
+      />
+    );
+  }
   if (field.type === "select") {
     return (
       <Select

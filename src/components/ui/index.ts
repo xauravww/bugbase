@@ -23,6 +23,9 @@ export type { InputProps } from "./Input";
 export { Textarea } from "./Textarea";
 export type { TextareaProps } from "./Textarea";
 
+export { FieldHelpButton } from "./FieldHelp";
+export type { FieldHelpContent, FieldHelpKind } from "./FieldHelp";
+
 export { Select } from "./Select";
 export type { SelectProps, SelectOption } from "./Select";
 

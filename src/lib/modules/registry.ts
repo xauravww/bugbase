@@ -28,6 +28,13 @@ const TABLES: Record<string, SQLiteTable> = {
   ideas: pm.ideas,
   milestones: pm.milestones,
   sprints: pm.sprints,
+  "user-stories": pm.userStories,
+  personas: pm.personas,
+  "user-journeys": pm.userJourneys,
+  "tech-stack": pm.techStack,
+  mockups: pm.mockups,
+  workflows: pm.workflows,
+  "business-rules": pm.businessRules,
 };
 
 export const MODULES: Record<string, ModuleDef> = Object.fromEntries(

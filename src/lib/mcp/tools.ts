@@ -351,12 +351,11 @@ export const TOOLS: ToolDef[] = [
     handler: (_a, ctx) => ctx.call("GET", "/api/settings/email-templates"),
   },
 
-  // ── PM workspace (requirements, features, dev-tasks, bugs, releases,
-  //    api-docs, arch-docs, meeting-notes, risks, ideas, milestones, sprints) ──
+  // ── PM workspace — generic CRUD over every registered workspace module. ──
   {
     name: "pm_list",
     description:
-      "List PM workspace records for a module. module = one of: requirements, features, dev-tasks, bugs, releases, api-docs, arch-docs, meeting-notes, risks, ideas, milestones, sprints. Supports projectId, search, sort, dir, page, limit, plus field filters (status, priority, severity).",
+      "List PM workspace records for any workspace module: requirements, features, dev-tasks, bugs, releases, api-docs, arch-docs, meeting-notes, risks, ideas, milestones, sprints, user-stories, personas, user-journeys, tech-stack, mockups, workflows, or business-rules. Supports projectId, search, sort, dir, page, limit, plus field filters.",
     inputSchema: {
       type: "object",
       properties: { module: str, projectId: num, search: str, status: str, priority: str, severity: str, sort: str, dir: str, page: num, limit: num },
@@ -391,6 +390,9 @@ export const TOOLS: ToolDef[] = [
         targetDate: str, startDate: str, endDate: str, goal: str, releaseDate: str,
         httpMethod: str, authentication: str, requestBody: str, responseBody: str,
         stepsToReproduce: str, expectedResult: str, actualResult: str,
+        role: str, benefit: str, goals: str, painPoints: str, behaviors: str,
+        stage: str, persona: str, touchpoints: str, opportunities: str, rationale: str,
+        screen: str, url: str, trigger: str, steps: str, condition: str, action: str,
       },
       required: ["module", "projectId"],
     },
@@ -412,6 +414,9 @@ export const TOOLS: ToolDef[] = [
         targetDate: str, startDate: str, endDate: str, goal: str, releaseDate: str,
         httpMethod: str, authentication: str, requestBody: str, responseBody: str,
         stepsToReproduce: str, expectedResult: str, actualResult: str,
+        role: str, benefit: str, goals: str, painPoints: str, behaviors: str,
+        stage: str, persona: str, touchpoints: str, opportunities: str, rationale: str,
+        screen: str, url: str, trigger: str, steps: str, condition: str, action: str,
       },
       required: ["module", "id"],
     },

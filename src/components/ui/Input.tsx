@@ -1,11 +1,20 @@
+"use client";
+
 import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
 import { type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { FieldHelpButton, type FieldHelpKind } from "./FieldHelp";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   hint?: string;
+  help?: {
+    whatItIs?: string;
+    example?: string;
+    template?: string;
+    tip?: string;
+  };
   leftIcon?: LucideIcon;
   rightIcon?: LucideIcon;
   /** Custom right-side slot (e.g. a Kbd chip). Wins over rightIcon when both set. */
@@ -21,10 +30,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       label,
       error,
       hint,
+      help,
       leftIcon: LeftIcon,
       rightIcon: RightIcon,
       rightSlot,
       id,
+      type,
       ...props
     },
     ref
@@ -34,12 +45,20 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className={cn("w-full", wrapperClassName)}>
         {label && (
-          <label
-            htmlFor={id}
-            className="block text-sm font-medium text-fg mb-1.5"
-          >
-            {label}
-          </label>
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <label
+              htmlFor={id}
+              className="block text-sm font-medium text-fg min-w-0"
+            >
+              {label}
+            </label>
+            <FieldHelpButton
+              label={label}
+              kind={(type as FieldHelpKind | undefined) ?? "text"}
+              placeholder={typeof props.placeholder === "string" ? props.placeholder : undefined}
+              content={help}
+            />
+          </div>
         )}
 
         <div className="relative">

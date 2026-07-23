@@ -17,6 +17,7 @@ import {
   Plus,
   Sun,
   Moon,
+  GanttChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/issues", label: "My Issues", icon: ListTodo },
+  { href: "/timeline", label: "Timeline", icon: GanttChart },
 ];
 
 const adminNavItems = [

@@ -7,12 +7,13 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight, Download, Clipboard, Trash2, Pencil, Sparkles, Wand2, RefreshCw } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityBadge, Avatar, Badge } from "@/components/ui";
+import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityBadge, Avatar, Badge, useToast } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES } from "@/constants";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import MultiSelectChips from "@/components/ui/MultiSelectChips";
 import { MarkdownEditor } from "@/components/pm/MarkdownEditor";
+import { cn } from "@/lib/utils/cn";
 
 interface Member {
   id: number;
@@ -69,6 +70,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   const resolvedParams = use(params);
   const router = useRouter();
   const { token, user } = useAuth();
+  const toast = useToast();
   const [issue, setIssue] = useState<IssueDetail | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -454,11 +456,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         router.push(`/projects/${issue.project.id}`);
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to delete issue");
+        toast.error(data.error || "Failed to delete issue");
       }
     } catch (error) {
       console.error("Failed to delete issue:", error);
-      alert("Failed to delete issue");
+      toast.error("Failed to delete issue");
     }
   };
 
@@ -475,11 +477,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         fetchIssue();
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to delete attachment");
+        toast.error(data.error || "Failed to delete attachment");
       }
     } catch (error) {
       console.error("Failed to delete attachment:", error);
-      alert("Failed to delete attachment");
+      toast.error("Failed to delete attachment");
     }
   };
 
@@ -571,11 +573,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         setEditForm(prev => ({ ...prev, [field]: data.refinedContent }));
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to refine content");
+        toast.error(data.error || "Failed to refine content");
       }
     } catch (error) {
       console.error("AI Refine Error:", error);
-      alert("Failed to refine content");
+      toast.error("Failed to refine content");
     } finally {
       setRefiningField(null);
     }
@@ -599,11 +601,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         setCommentText(data.refinedContent);
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to refine comment");
+        toast.error(data.error || "Failed to refine comment");
       }
     } catch (error) {
       console.error("AI Refine Error:", error);
-      alert("Failed to refine comment");
+      toast.error("Failed to refine comment");
     } finally {
       setRefiningField(null);
     }
@@ -636,11 +638,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
         setEditForm(prev => ({ ...prev, [field]: data.refinedContent }));
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to suggest content");
+        toast.error(data.error || "Failed to suggest content");
       }
     } catch (error) {
       console.error("AI Suggest Error:", error);
-      alert("Failed to suggest content");
+      toast.error("Failed to suggest content");
     } finally {
       setRefiningField(null);
     }
@@ -660,7 +662,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
   ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
-    <div className="min-h-screen flex flex-col pb-20" style={{ background: "#ffffff" }}>
+    <div className="min-h-screen flex flex-col pb-20 bg-bg">
       <Header title={`#${issue.id}`} />
 
       <div className="p-4 max-w-7xl mx-auto w-full">
@@ -691,12 +693,6 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                   setIsEditing(true);
                 }}
                 className="flex items-center gap-2"
-                style={{
-                  border: "1px solid #e9eaef",
-                  borderRadius: "8px",
-                  fontFamily: "DM Sans, sans-serif",
-                  padding: "8px 12px"
-                }}
               >
                 <Pencil className="w-4 h-4" />
                 Edit
@@ -707,16 +703,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 <Button
                   variant="secondary"
                   onClick={() => setIsEditing(false)}
-                  style={{
-                    border: "1px solid #e9eaef",
-                    borderRadius: "8px",
-                    fontFamily: "DM Sans, sans-serif",
-                    padding: "8px 12px"
-                  }}
                 >
                   Cancel
                 </Button>
                 <Button
+                  variant="primary"
                   onClick={async () => {
                     setIsSaving(true);
                     try {
@@ -739,7 +730,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                         fetchIssue();
                       } else {
                         const data = await res.json();
-                        alert(data.error || "Failed to save");
+                        toast.error(data.error || "Failed to save");
                       }
                     } catch (err) {
                       console.error("Failed to save:", err);
@@ -748,12 +739,6 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                     }
                   }}
                   disabled={isSaving}
-                  style={{
-                    background: "#5b76fe",
-                    borderRadius: "8px",
-                    fontFamily: "DM Sans, sans-serif",
-                    padding: "8px 12px"
-                  }}
                 >
                   {isSaving ? "Saving..." : "Save"}
                 </Button>
@@ -764,12 +749,6 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                 variant="secondary"
                 onClick={handleDeleteIssue}
                 className="flex items-center gap-2 text-[var(--color-danger)] hover:bg-red-50"
-                style={{
-                  border: "1px solid #e9eaef",
-                  borderRadius: "8px",
-                  fontFamily: "DM Sans, sans-serif",
-                  padding: "8px 12px"
-                }}
               >
                 <Trash2 className="w-4 h-4" />
                 Delete
@@ -779,26 +758,14 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
               variant="secondary"
               onClick={handleCopyToClipboard}
               className="flex items-center gap-2"
-              style={{
-                border: "1px solid #e9eaef",
-                borderRadius: "8px",
-                fontFamily: "DM Sans, sans-serif",
-                padding: "8px 12px"
-              }}
             >
-              {copied ? <Check className="w-4 h-4" style={{ color: "#00b473" }} /> : <Clipboard className="w-4 h-4" />}
+              {copied ? <Check className="w-4 h-4 text-success" /> : <Clipboard className="w-4 h-4" />}
               <span>{copied ? "Copied!" : "Copy"}</span>
             </Button>
             <Button
               variant="secondary"
               onClick={() => window.open(`/api/issues/${issue.id}/export${token ? `?token=${token}` : ''}`, "_blank")}
               className="flex items-center gap-2"
-              style={{
-                border: "1px solid #e9eaef",
-                borderRadius: "8px",
-                fontFamily: "DM Sans, sans-serif",
-                padding: "8px 12px"
-              }}
             >
               <Download className="w-4 h-4" />
               <span>Export</span>
@@ -826,27 +793,16 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                       type="button"
                       onClick={() => handleRefine("title")}
                       disabled={refiningField === "title"}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all touch-target z-10"
-                      style={{ 
-                        background: refiningField === "title" ? "#c3faf5" : "transparent",
-                        color: refiningField === "title" ? "#187574" : "#555a6a" 
-                      }}
+                      className={cn(
+                        "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all touch-target z-10",
+                        refiningField === "title"
+                          ? "bg-success-bg text-success"
+                          : "text-fg-muted hover:bg-bg-hover hover:text-fg"
+                      )}
                       title="AI Refine"
-                      onMouseEnter={(e) => {
-                        if (refiningField !== "title") {
-                          e.currentTarget.style.background = "#f5f5f5";
-                          e.currentTarget.style.color = "#1c1c1e";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (refiningField !== "title") {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "#555a6a";
-                        }
-                      }}
                     >
                       {refiningField === "title" ? (
-                        <RefreshCw className="w-5 h-5" style={{ animation: "spin 1s linear infinite" }} />
+                        <RefreshCw className="w-5 h-5 animate-spin" />
                       ) : (
                         <Sparkles className="w-5 h-5" />
                       )}
@@ -856,27 +812,16 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                       type="button"
                       onClick={() => handleSuggest("title")}
                       disabled={refiningField === "title"}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all touch-target z-10"
-                      style={{ 
-                        background: refiningField === "title" ? "#ffe6cd" : "transparent",
-                        color: refiningField === "title" ? "#d9730d" : "#555a6a" 
-                      }}
+                      className={cn(
+                        "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all touch-target z-10",
+                        refiningField === "title"
+                          ? "bg-warning-bg text-warning"
+                          : "text-fg-muted hover:bg-bg-hover hover:text-fg"
+                      )}
                       title="AI Suggest"
-                      onMouseEnter={(e) => {
-                        if (refiningField !== "title") {
-                          e.currentTarget.style.background = "#f5f5f5";
-                          e.currentTarget.style.color = "#1c1c1e";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (refiningField !== "title") {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.color = "#555a6a";
-                        }
-                      }}
                     >
                       {refiningField === "title" ? (
-                        <RefreshCw className="w-5 h-5" style={{ animation: "spin 1s linear infinite" }} />
+                        <RefreshCw className="w-5 h-5 animate-spin" />
                       ) : (
                         <Wand2 className="w-5 h-5" />
                       )}
@@ -906,7 +851,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                           className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                           title="AI Refine"
                         >
-                          <Sparkles className={`w-3 h-3`} style={{ animation: refiningField === "description" ? "spin 1s linear infinite" : "none" }} />
+                          <Sparkles className={cn("w-3 h-3", refiningField === "description" && "animate-spin")} />
                           {refiningField === "description" ? "Refining..." : "AI Refine"}
                         </button>
                       ) : (
@@ -917,7 +862,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                           className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                           title="AI Suggest"
                         >
-                          <Wand2 className={`w-3 h-3`} style={{ animation: refiningField === "description" ? "spin 1s linear infinite" : "none" }} />
+                          <Wand2 className={cn("w-3 h-3", refiningField === "description" && "animate-spin")} />
                           {refiningField === "description" ? "Suggesting..." : "AI Suggest"}
                         </button>
                       )}
@@ -956,7 +901,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                               className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                               title="AI Refine"
                             >
-                              <Sparkles className={`w-3 h-3`} style={{ animation: refiningField === "stepsToReproduce" ? "spin 1s linear infinite" : "none" }} />
+                              <Sparkles className={cn("w-3 h-3", refiningField === "stepsToReproduce" && "animate-spin")} />
                               {refiningField === "stepsToReproduce" ? "Refining..." : "AI Refine"}
                             </button>
                           ) : (
@@ -967,7 +912,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                               className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                               title="AI Suggest"
                             >
-                              <Wand2 className={`w-3 h-3`} style={{ animation: refiningField === "stepsToReproduce" ? "spin 1s linear infinite" : "none" }} />
+                              <Wand2 className={cn("w-3 h-3", refiningField === "stepsToReproduce" && "animate-spin")} />
                               {refiningField === "stepsToReproduce" ? "Suggesting..." : "AI Suggest"}
                             </button>
                           )}
@@ -1002,7 +947,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                               className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                               title="AI Refine"
                             >
-                              <Sparkles className={`w-3 h-3`} style={{ animation: refiningField === "expectedResult" ? "spin 1s linear infinite" : "none" }} />
+                              <Sparkles className={cn("w-3 h-3", refiningField === "expectedResult" && "animate-spin")} />
                               {refiningField === "expectedResult" ? "Refining..." : "AI Refine"}
                             </button>
                           ) : (
@@ -1048,7 +993,7 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                               className="flex items-center gap-1 text-xs text-[var(--color-accent)] hover:underline disabled:opacity-50"
                               title="AI Refine"
                             >
-                              <Sparkles className={`w-3 h-3`} style={{ animation: refiningField === "actualResult" ? "spin 1s linear infinite" : "none" }} />
+                              <Sparkles className={cn("w-3 h-3", refiningField === "actualResult" && "animate-spin")} />
                               {refiningField === "actualResult" ? "Refining..." : "AI Refine"}
                             </button>
                           ) : (

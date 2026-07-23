@@ -12,6 +12,7 @@ import {
 import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Dropdown, DropdownItem } from "./Dropdown";
+import { FieldHelpButton } from "./FieldHelp";
 
 export interface SelectOption {
   value: string;
@@ -29,6 +30,12 @@ export interface SelectProps
   label?: string;
   error?: string;
   hint?: string;
+  help?: {
+    whatItIs?: string;
+    example?: string;
+    template?: string;
+    tip?: string;
+  };
   options: SelectOption[];
   value?: string;
   defaultValue?: string;
@@ -53,6 +60,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
       label,
       error,
       hint,
+      help,
       options,
       value,
       defaultValue,
@@ -98,12 +106,21 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className={cn(fullWidth && "w-full", wrapperClassName)}>
         {label && (
-          <label
-            htmlFor={id}
-            className="block text-sm font-medium text-fg mb-1.5"
-          >
-            {label}
-          </label>
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <label
+              htmlFor={id}
+              className="block text-sm font-medium text-fg min-w-0"
+            >
+              {label}
+            </label>
+            <FieldHelpButton
+              label={label}
+              kind="select"
+              placeholder={typeof placeholder === "string" ? placeholder : undefined}
+              options={options.map((option) => option.label)}
+              content={help}
+            />
+          </div>
         )}
 
         {/* Hidden native select for form submission + ref forwarding. */}

@@ -323,6 +323,9 @@ export default function MyIssuesPage() {
       <Header title={isAdmin ? "All Issues" : "My Issues"} />
 
       <div className="p-3 md:p-8 max-w-[1400px] mx-auto">
+        <div className="mb-4 rounded-lg border border-accent/20 bg-accent/5 px-4 py-3 text-sm text-fg-muted">
+          Bugs and feature requests are now managed separately in each project’s <Link href="/projects" className="font-medium text-accent hover:underline">Workspace</Link>. We shifted to the new Bugs and Features page, so please create new bugs and feature requests there. Issues remains available for existing issue reports.
+        </div>
         <div className="overflow-x-auto pb-2 mb-4 md:mb-6 -mx-3 px-3 md:px-0">
           <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: "#f7f6f3", width: "fit-content", minWidth: "max-content" }}>
             {[

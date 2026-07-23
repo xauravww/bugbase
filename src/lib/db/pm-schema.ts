@@ -70,9 +70,11 @@ export const devTasks = sqliteTable("dev_tasks", {
   status: text("status", { enum: ["Todo", "In Progress", "Review", "Testing", "Done"] }).notNull().default("Todo"),
   priority: text("priority", { enum: ["Low", "Medium", "High", "Critical"] }).notNull().default("Medium"),
   assigneeId: integer("assignee_id"),
+  startDate: integer("start_date", { mode: "timestamp" }),
   dueDate: integer("due_date", { mode: "timestamp" }),
   estimatedTime: real("estimated_time"),
   actualTime: real("actual_time"),
+  tags: text("tags"),
   featureId: integer("feature_id"),
   requirementId: integer("requirement_id"),
   sprintId: integer("sprint_id"),
@@ -239,6 +241,134 @@ export const sprints = sqliteTable("sprints", {
 }, (t) => ({
   projectIdx: index("idx_sprints_project").on(t.projectId),
   statusIdx: index("idx_sprints_status").on(t.status),
+}));
+
+// User Stories — "As a <role> I want <goal> so that <benefit>".
+export const userStories = sqliteTable("user_stories", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  status: text("status", { enum: ["Draft", "Ready", "In Progress", "Done", "Rejected"] }).notNull().default("Draft"),
+  priority: text("priority", { enum: ["Low", "Medium", "High", "Critical"] }).notNull().default("Medium"),
+  role: text("role"),
+  goal: text("goal"),
+  benefit: text("benefit"),
+  acceptanceCriteria: text("acceptance_criteria"),
+  requirementId: integer("requirement_id"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (t) => ({
+  projectIdx: index("idx_user_stories_project").on(t.projectId),
+  statusIdx: index("idx_user_stories_status").on(t.status),
+}));
+
+// Personas — user archetypes.
+export const personas = sqliteTable("personas", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  role: text("role"),
+  status: text("status", { enum: ["Draft", "Active", "Archived"] }).notNull().default("Draft"),
+  goals: text("goals"),
+  painPoints: text("pain_points"),
+  behaviors: text("behaviors"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (t) => ({
+  projectIdx: index("idx_personas_project").on(t.projectId),
+  statusIdx: index("idx_personas_status").on(t.status),
+}));
+
+// User Journeys — journey maps across stages.
+export const userJourneys = sqliteTable("user_journeys", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  stage: text("stage", { enum: ["Awareness", "Consideration", "Decision", "Onboarding", "Retention"] }).notNull().default("Awareness"),
+  status: text("status", { enum: ["Draft", "In Review", "Approved"] }).notNull().default("Draft"),
+  persona: text("persona"),
+  description: text("description"),
+  touchpoints: text("touchpoints"),
+  painPoints: text("pain_points"),
+  opportunities: text("opportunities"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (t) => ({
+  projectIdx: index("idx_user_journeys_project").on(t.projectId),
+  statusIdx: index("idx_user_journeys_status").on(t.status),
+}));
+
+// Tech Stack — technologies adopted by the project.
+export const techStack = sqliteTable("tech_stack", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  category: text("category", { enum: ["Frontend", "Backend", "Database", "DevOps", "Testing", "Mobile", "Other"] }).notNull().default("Backend"),
+  status: text("status", { enum: ["Evaluating", "Adopted", "Deprecated"] }).notNull().default("Evaluating"),
+  version: text("version"),
+  description: text("description"),
+  rationale: text("rationale"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (t) => ({
+  projectIdx: index("idx_tech_stack_project").on(t.projectId),
+  statusIdx: index("idx_tech_stack_status").on(t.status),
+}));
+
+// Mockups — design references.
+export const mockups = sqliteTable("mockups", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  screen: text("screen"),
+  status: text("status", { enum: ["Draft", "In Review", "Approved", "Needs Revision"] }).notNull().default("Draft"),
+  url: text("url"),
+  description: text("description"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (t) => ({
+  projectIdx: index("idx_mockups_project").on(t.projectId),
+  statusIdx: index("idx_mockups_status").on(t.status),
+}));
+
+// Workflows — process definitions.
+export const workflows = sqliteTable("workflows", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  status: text("status", { enum: ["Draft", "Active", "Deprecated"] }).notNull().default("Draft"),
+  trigger: text("trigger"),
+  description: text("description"),
+  steps: text("steps"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (t) => ({
+  projectIdx: index("idx_workflows_project").on(t.projectId),
+  statusIdx: index("idx_workflows_status").on(t.status),
+}));
+
+// Business Rules — validation / process constraints.
+export const businessRules = sqliteTable("business_rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  category: text("category", { enum: ["Validation", "Authorization", "Calculation", "Process", "Constraint"] }).notNull().default("Validation"),
+  status: text("status", { enum: ["Draft", "Active", "Deprecated"] }).notNull().default("Draft"),
+  description: text("description"),
+  condition: text("condition"),
+  action: text("action"),
+  createdBy: integer("created_by").notNull().references(() => users.id),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (t) => ({
+  projectIdx: index("idx_business_rules_project").on(t.projectId),
+  statusIdx: index("idx_business_rules_status").on(t.status),
 }));
 
 // --- Many-to-many junctions ---

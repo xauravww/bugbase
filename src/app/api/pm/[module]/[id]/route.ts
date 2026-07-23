@@ -52,11 +52,11 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ modul
     if (m.fields.length && "updatedAt" in (m.table as object)) {
       (values as Record<string, unknown>).updatedAt = new Date();
     }
-    const [updated] = await db
+    const updated = (await (db
       .update(m.table as any)
       .set(values as any)
       .where(eq(col(m, "id"), parseInt(id)))
-      .returning();
+      .returning() as Promise<unknown[]>))[0];
 
     await logActivity(projectId, slug, parseInt(id), authUser.id, `updated ${m.singular.toLowerCase()}`);
     return NextResponse.json({ record: updated });

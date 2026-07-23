@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Save, Plus, ExternalLink } from "lucide-react";
+import { ArrowLeft, Trash2, Save, Plus, ExternalLink, Sparkles } from "lucide-react";
 import { Button, PageLoader, Select, Badge, useToast } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMeta, titleField, MODULE_META } from "@/lib/modules/meta";
@@ -27,6 +27,7 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
   const [form, setForm] = useState<Rec>({});
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [refiningField, setRefiningField] = useState<string | null>(null);
   const [backHref, setBackHref] = useState(`/pm/${slug}`);
   const canWrite = user?.role !== "Viewer";
 
@@ -97,6 +98,30 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
   }, [isNew, slug]);
 
   const setField = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
+
+  const refineField = async (fieldKey: string) => {
+    const content = String(form[fieldKey] ?? "").trim();
+    if (!content) {
+      toast.error(`Add ${meta?.fields.find((field) => field.key === fieldKey)?.label.toLowerCase() || "content"} before refining it`);
+      return;
+    }
+    setRefiningField(fieldKey);
+    try {
+      const res = await fetch("/api/ai/refine", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ content, field: fieldKey, context: { module: meta?.label, project: form.projectId } }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.refinedContent) throw new Error(data.error || "AI refinement failed");
+      setField(fieldKey, data.refinedContent);
+      toast.success("AI refinement ready to review");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "AI refinement failed");
+    } finally {
+      setRefiningField(null);
+    }
+  };
 
   const save = async () => {
     if (!meta) return;
@@ -175,16 +200,35 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
             placeholder="Select project"
             searchable
           />
-          {meta.fields.map((f) => (
-            <FieldInput
-              key={f.key}
-              field={f}
-              value={form[f.key]}
-              onChange={(v) => setField(f.key, v)}
-              users={users}
-              relations={relations}
-            />
-          ))}
+          {meta.fields.map((f) => {
+            const aiEligible = ["text", "textarea", "richtext", "tags"].includes(f.type);
+            return (
+              <div key={f.key} className="space-y-1.5">
+                <FieldInput
+                  field={f}
+                  value={form[f.key]}
+                  onChange={(v) => setField(f.key, v)}
+                  users={users}
+                  relations={relations}
+                />
+                {aiEligible && (
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      leftIcon={Sparkles}
+                      loading={refiningField === f.key}
+                      disabled={!form[f.key] || refiningField !== null}
+                      onClick={() => refineField(f.key)}
+                    >
+                      Refine with AI
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* sidebar: linked + related create */}

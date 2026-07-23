@@ -13,7 +13,8 @@ export type FieldType =
   | "number"
   | "select"
   | "date"
-  | "relation";
+  | "relation"
+  | "tags";
 
 export interface FieldDef {
   key: string;
@@ -81,9 +82,11 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "status", label: "Status", type: "select", options: ["Todo", "In Progress", "Review", "Testing", "Done"], default: "Todo", inList: true },
       { key: "priority", label: "Priority", type: "select", options: PRIORITY, default: "Medium", inList: true },
       { key: "assigneeId", label: "Assignee", type: "relation", relation: "users", inList: true },
+      { key: "startDate", label: "Start Date", type: "date", inList: true },
       { key: "dueDate", label: "Due Date", type: "date", inList: true },
       { key: "estimatedTime", label: "Estimated (h)", type: "number" },
       { key: "actualTime", label: "Actual (h)", type: "number" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
       { key: "featureId", label: "Linked Feature", type: "relation", relation: "features" },
       { key: "requirementId", label: "Linked Requirement", type: "relation", relation: "requirements" },
       { key: "sprintId", label: "Sprint", type: "relation", relation: "sprints" },
@@ -194,6 +197,92 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "startDate", label: "Start Date", type: "date", inList: true },
       { key: "endDate", label: "End Date", type: "date", inList: true },
       { key: "goal", label: "Goal", type: "textarea" },
+    ],
+  },
+  "user-stories": {
+    slug: "user-stories", label: "User Stories", singular: "User Story", icon: "ScrollText",
+    statusKey: "status", views: ["table", "kanban", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Draft", "Ready", "In Progress", "Done", "Rejected"], default: "Draft", inList: true },
+      { key: "priority", label: "Priority", type: "select", options: PRIORITY, default: "Medium", inList: true },
+      { key: "role", label: "As a…", type: "text", placeholder: "type of user" },
+      { key: "goal", label: "I want to…", type: "text", placeholder: "goal" },
+      { key: "benefit", label: "So that…", type: "text", placeholder: "benefit" },
+      { key: "acceptanceCriteria", label: "Acceptance Criteria", type: "textarea", placeholder: "Given / When / Then…" },
+      { key: "requirementId", label: "Linked Requirement", type: "relation", relation: "requirements" },
+    ],
+  },
+  personas: {
+    slug: "personas", label: "Personas", singular: "Persona", icon: "Users",
+    statusKey: "status", views: ["table", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "name", label: "Name", type: "text", required: true, isTitle: true, inList: true },
+      { key: "role", label: "Role / Job Title", type: "text", inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Draft", "Active", "Archived"], default: "Draft", inList: true },
+      { key: "goals", label: "Goals", type: "textarea" },
+      { key: "painPoints", label: "Pain Points", type: "textarea" },
+      { key: "behaviors", label: "Behaviors", type: "textarea" },
+    ],
+  },
+  "user-journeys": {
+    slug: "user-journeys", label: "User Journeys", singular: "User Journey", icon: "Route",
+    statusKey: "status", views: ["table", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
+      { key: "stage", label: "Stage", type: "select", options: ["Awareness", "Consideration", "Decision", "Onboarding", "Retention"], default: "Awareness", inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Draft", "In Review", "Approved"], default: "Draft", inList: true },
+      { key: "persona", label: "Persona", type: "text" },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "touchpoints", label: "Touchpoints", type: "textarea" },
+      { key: "painPoints", label: "Pain Points", type: "textarea" },
+      { key: "opportunities", label: "Opportunities", type: "textarea" },
+    ],
+  },
+  "tech-stack": {
+    slug: "tech-stack", label: "Tech Stack", singular: "Technology", icon: "Layers",
+    statusKey: "status", views: ["table", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "name", label: "Name", type: "text", required: true, isTitle: true, inList: true },
+      { key: "category", label: "Category", type: "select", options: ["Frontend", "Backend", "Database", "DevOps", "Testing", "Mobile", "Other"], default: "Backend", inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Evaluating", "Adopted", "Deprecated"], default: "Evaluating", inList: true },
+      { key: "version", label: "Version", type: "text", inList: true },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "rationale", label: "Rationale", type: "textarea" },
+    ],
+  },
+  mockups: {
+    slug: "mockups", label: "Mockups", singular: "Mockup", icon: "Frame",
+    statusKey: "status", views: ["table", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
+      { key: "screen", label: "Screen / Page", type: "text", inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Draft", "In Review", "Approved", "Needs Revision"], default: "Draft", inList: true },
+      { key: "url", label: "Design URL", type: "text", placeholder: "https://figma.com/…" },
+      { key: "description", label: "Description", type: "textarea" },
+    ],
+  },
+  workflows: {
+    slug: "workflows", label: "Workflows", singular: "Workflow", icon: "GitBranch",
+    statusKey: "status", views: ["table", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Draft", "Active", "Deprecated"], default: "Draft", inList: true },
+      { key: "trigger", label: "Trigger", type: "text", inList: true },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "steps", label: "Steps", type: "textarea" },
+    ],
+  },
+  "business-rules": {
+    slug: "business-rules", label: "Business Rules", singular: "Business Rule", icon: "Scale",
+    statusKey: "status", views: ["table", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
+      { key: "category", label: "Category", type: "select", options: ["Validation", "Authorization", "Calculation", "Process", "Constraint"], default: "Validation", inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Draft", "Active", "Deprecated"], default: "Draft", inList: true },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "condition", label: "Condition", type: "textarea" },
+      { key: "action", label: "Action", type: "textarea" },
     ],
   },
 };

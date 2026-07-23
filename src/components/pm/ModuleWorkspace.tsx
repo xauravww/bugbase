@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Pencil, LayoutGrid, Table as TableIcon, List as ListIcon, X } from "lucide-react";
+import { Plus, Trash2, Pencil, LayoutGrid, Table as TableIcon, List as ListIcon, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, IconButton, Select, Badge, EmptyState, PageLoader, useToast } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +33,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   const { projects, users, relations, authHeaders } = usePmOptions(meta);
 
   const [records, setRecords] = useState<Rec[]>([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewKind>("table");
   const [search, setSearch] = useState("");
@@ -73,19 +74,33 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     if (priorityFilter !== "all" && priorityKey) qs.set(priorityKey, priorityFilter);
     qs.set("sort", sort);
     qs.set("dir", dir);
-    qs.set("limit", "200");
+    qs.set("page", String(pagination.page));
+    qs.set("limit", String(pagination.limit));
     try {
       const res = await fetch(`/api/pm/${slug}?${qs}`, { headers: authHeaders() });
       const data = await res.json();
       setRecords(data.records || []);
+      const nextPagination = data.pagination || { page: 1, limit: 20, total: 0, totalPages: 0 };
+      setPagination((current) =>
+        current.page === nextPagination.page &&
+        current.limit === nextPagination.limit &&
+        current.total === nextPagination.total &&
+        current.totalPages === nextPagination.totalPages
+          ? current
+          : nextPagination
+      );
     } catch {
       toast.error("Failed to load");
     } finally {
       setLoading(false);
     }
-  }, [token, meta, slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, priorityKey, sort, dir, authHeaders, toast]);
+  }, [token, meta, slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, priorityKey, sort, dir, pagination.page, pagination.limit, authHeaders, toast]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  useEffect(() => {
+    setPagination((current) => current.page === 1 ? current : { ...current, page: 1 });
+  }, [slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, sort, dir]);
 
   // When embedded in a project, remember where to return so the record
   // detail's back button lands back on this project workspace + module chip.
@@ -148,6 +163,18 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
+      {embedded && (
+        <div className="relative min-w-[220px] flex-1 sm:flex-none">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
+          <input
+            aria-label={`Search ${meta.label.toLowerCase()}`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={`Search ${meta.label.toLowerCase()}…`}
+            className="w-full rounded-md border border-border bg-bg py-2 pl-9 pr-3 text-sm text-fg outline-none transition-colors placeholder:text-fg-muted focus:border-accent"
+          />
+        </div>
+      )}
       <div className="flex items-center gap-0.5 p-0.5 bg-bg-hover rounded-md">
         {meta.views.filter((v) => VIEW_ICON[v]).map((v) => {
           const Icon = VIEW_ICON[v]!;
@@ -199,13 +226,15 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
       />
 
       {(statusFilter !== "all" || priorityFilter !== "all" || (!fixedProjectId && projectId !== "all") || search) && (
-        <Button variant="ghost" size="sm" leftIcon={X} onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); if (!fixedProjectId) setProjectId("all"); setSearch(""); }}>Clear</Button>
+        <Button variant="ghost" size="sm" leftIcon={X} onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); if (!fixedProjectId) setProjectId("all"); setSearch(""); setPagination((p) => ({ ...p, page: 1 })); }}>Clear</Button>
       )}
 
-      {embedded && canWrite && (
-        <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate} className="ml-auto">New {meta.singular}</Button>
+      {!embedded && (
+        <>
+          <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate}>New {meta.singular}</Button>
+          <span className="ml-auto text-sm text-fg-muted">{pagination.total} {pagination.total === 1 ? meta.singular.toLowerCase() : meta.label.toLowerCase()}</span>
+        </>
       )}
-      {!embedded && <span className="ml-auto text-sm text-fg-muted">{records.length} {records.length === 1 ? meta.singular.toLowerCase() : meta.label.toLowerCase()}</span>}
     </div>
   );
 
@@ -215,7 +244,6 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     <EmptyState
       title={`No ${meta.label.toLowerCase()} yet`}
       description={canWrite ? `Create your first ${meta.singular.toLowerCase()} to get started.` : "Nothing here yet."}
-      action={canWrite ? <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate}>New {meta.singular}</Button> : undefined}
     />
   ) : view === "kanban" && meta.statusKey ? (
     <KanbanBoard groups={groups} meta={meta} tKey={tKey} priorityKey={priorityKey} projName={projName} cellValue={cellValue} onOpen={goDetail} />
@@ -279,8 +307,19 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     </div>
   );
 
+  const pager = pagination.totalPages > 1 ? (
+    <div className="flex flex-col gap-3 border-t border-border pt-3 text-sm text-fg-muted sm:flex-row sm:items-center sm:justify-between">
+      <span>Showing {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}</span>
+      <div className="flex items-center gap-2">
+        <Button variant="secondary" size="sm" leftIcon={ChevronLeft} disabled={pagination.page <= 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>Previous</Button>
+        <span className="tabular-nums">Page {pagination.page} of {pagination.totalPages}</span>
+        <Button variant="secondary" size="sm" rightIcon={ChevronRight} disabled={pagination.page >= pagination.totalPages} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}>Next</Button>
+      </div>
+    </div>
+  ) : null;
+
   if (embedded) {
-    return <div className="space-y-4">{toolbar}{body}</div>;
+    return <div className="space-y-4">{toolbar}{body}{pager}</div>;
   }
 
   return (
@@ -288,7 +327,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
       <Header title={meta.label} searchValue={search} onSearchChange={setSearch} searchPlaceholder={`Search ${meta.label.toLowerCase()}…`}>
         {canWrite && <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate}>New {meta.singular}</Button>}
       </Header>
-      <div className="p-4 md:p-6 space-y-4">{toolbar}{body}</div>
+      <div className="p-4 md:p-6 space-y-4">{toolbar}{body}{pager}</div>
     </>
   );
 }
