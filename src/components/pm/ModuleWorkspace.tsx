@@ -37,6 +37,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   const [records, setRecords] = useState<Rec[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
+  const hasLoadedRecords = useRef(false);
   const [deleteTarget, setDeleteTarget] = useState<Rec | null>(null);
 
   const useSp = <T,>(key: string, fallback: T): [T, (v: T) => void] => {
@@ -66,15 +67,18 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     return [value, update];
   };
 
-  const [view, setView] = useSp<ViewKind>("view", "table");
-  const [search, setSearch] = useSp("search", "");
-  const [projectId, setProjectId] = useSp("projectId", fixedProjectId ? String(fixedProjectId) : "all");
-  const [statusFilter, setStatusFilter] = useSp("status", "all");
-  const [priorityFilter, setPriorityFilter] = useSp("priority", "all");
-  const [tagFilter, setTagFilter] = useSp("tag", "all");
-  const [sort, setSort] = useSp("sort", meta?.defaultSort ?? "updatedAt");
-  const [dir, setDir] = useSp<"asc" | "desc">("dir", "desc");
-  const [page, setPage] = useSp("page", "1");
+  // Scope workspace state in the URL. The project page already uses generic
+  // keys such as `status` for its Issues tab, so sharing those keys caused the
+  // Requirements status filter to be overwritten during navigation.
+  const [view, setView] = useSp<ViewKind>("wsView", "table");
+  const [search, setSearch] = useSp("wsSearch", "");
+  const [projectId, setProjectId] = useSp("wsProjectId", fixedProjectId ? String(fixedProjectId) : "all");
+  const [statusFilter, setStatusFilter] = useSp("wsStatus", "all");
+  const [priorityFilter, setPriorityFilter] = useSp("wsPriority", "all");
+  const [tagFilter, setTagFilter] = useSp("wsTag", "all");
+  const [sort, setSort] = useSp("wsSort", meta?.defaultSort ?? "updatedAt");
+  const [dir, setDir] = useSp<"asc" | "desc">("wsDir", "desc");
+  const [page, setPage] = useSp("wsPage", "1");
 
   const [debounced, setDebounced] = useState(search);
 
@@ -117,7 +121,9 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
 
   const fetchRecords = useCallback(async () => {
     if (!token || !meta) return;
-    setLoading(true);
+    // Filters should refresh the rows in place. Showing the full loader on
+    // every filter change makes the workspace look like it has reloaded.
+    if (!hasLoadedRecords.current) setLoading(true);
     const qs = new URLSearchParams();
     const scoped = fixedProjectId ? String(fixedProjectId) : projectId;
     if (scoped !== "all") qs.set("projectId", scoped);
@@ -145,6 +151,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     } catch {
       toast.error("Failed to load");
     } finally {
+      hasLoadedRecords.current = true;
       setLoading(false);
     }
   }, [token, meta, slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, priorityKey, tagFilter, tagsFieldKey, sort, dir, page, authHeaders, toast]);
@@ -176,7 +183,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   const goDetail = (rec: Rec) => {
     const from = fromParam().replace(/^&/, "");
     const listParams = new URLSearchParams(globalThis.location?.search ?? "");
-    listParams.delete("view");
+    listParams.delete("wsView");
     const qp = listParams.toString();
     router.push(`/pm/${slug}/${rec.id}${from || qp ? `?${from}${qp ? `&${qp}` : ""}` : ""}`);
   };
