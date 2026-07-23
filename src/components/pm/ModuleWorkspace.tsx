@@ -41,17 +41,29 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
 
   const useSp = <T,>(key: string, fallback: T): [T, (v: T) => void] => {
     const raw = searchParams.get(key);
-    const value: T = raw !== null ? (raw as unknown as T) : fallback;
-    const setValue = useCallback((v: T) => {
+    const [value, setValue] = useState<T>(raw !== null ? (raw as unknown as T) : fallback);
+
+    // Sync from searchParams when browser back/forward changes them
+    useEffect(() => {
+      const next = searchParams.get(key);
+      setValue((prev) => {
+        const nv = next !== null ? (next as unknown as T) : fallback;
+        return nv !== prev ? nv : prev;
+      });
+    }, [searchParams, key, fallback]);
+
+    const update = useCallback((v: T) => {
+      setValue(v);
       const sp = new URLSearchParams(globalThis.location?.search ?? "");
       const s = String(v);
       if (s === String(fallback)) sp.delete(key);
       else sp.set(key, s);
       const q = sp.toString();
       const url = q ? `${pathname}?${q}` : pathname;
-      router.replace(url, { scroll: false });
-    }, [pathname, key, fallback, router]);
-    return [value, setValue];
+      globalThis.history?.replaceState(null, "", url);
+    }, [pathname, key, fallback]);
+
+    return [value, update];
   };
 
   const [view, setView] = useSp<ViewKind>("view", "table");
