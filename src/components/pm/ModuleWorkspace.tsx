@@ -49,8 +49,8 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
       else sp.set(key, s);
       const q = sp.toString();
       const url = q ? `${pathname}?${q}` : pathname;
-      globalThis.history?.replaceState(null, "", url);
-    }, [pathname, key, fallback]);
+      router.replace(url, { scroll: false });
+    }, [pathname, key, fallback, router]);
     return [value, setValue];
   };
 
