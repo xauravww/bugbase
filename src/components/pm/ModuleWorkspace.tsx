@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Pencil, LayoutGrid, Table as TableIcon, List as ListIcon, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Pencil, LayoutGrid, Table as TableIcon, List as ListIcon, X, Search, ChevronLeft, ChevronRight, Hash } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, IconButton, Select, Badge, EmptyState, PageLoader, useToast, ConfirmDialog } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,6 +41,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   const [projectId, setProjectId] = useState<string>(fixedProjectId ? String(fixedProjectId) : "all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
   const [sort, setSort] = useState<string>(meta?.defaultSort ?? "updatedAt");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   const [deleteTarget, setDeleteTarget] = useState<Rec | null>(null);
@@ -58,6 +59,24 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     () => (priorityKey ? meta?.fields.find((f) => f.key === priorityKey)?.options ?? [] : []),
     [meta, priorityKey]
   );
+  const tagsFieldKey = useMemo(
+    () => meta?.fields.find((f) => f.type === "tags")?.key,
+    [meta]
+  );
+  const tagOptions = useMemo(() => {
+    if (!tagsFieldKey) return [];
+    const all = new Set<string>();
+    for (const r of records) {
+      const raw = r[tagsFieldKey];
+      if (typeof raw === "string" && raw.trim()) {
+        for (const t of raw.split(",")) {
+          const trimmed = t.trim();
+          if (trimmed) all.add(trimmed);
+        }
+      }
+    }
+    return Array.from(all).sort();
+  }, [records, tagsFieldKey]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 300);
@@ -73,6 +92,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     if (debounced) qs.set("search", debounced);
     if (statusFilter !== "all" && meta.statusKey) qs.set(meta.statusKey, statusFilter);
     if (priorityFilter !== "all" && priorityKey) qs.set(priorityKey, priorityFilter);
+    if (tagFilter !== "all" && tagsFieldKey) qs.set(tagsFieldKey, tagFilter);
     qs.set("sort", sort);
     qs.set("dir", dir);
     qs.set("page", String(pagination.page));
@@ -95,13 +115,13 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [token, meta, slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, priorityKey, sort, dir, pagination.page, pagination.limit, authHeaders, toast]);
+  }, [token, meta, slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, priorityKey, tagFilter, tagsFieldKey, sort, dir, pagination.page, pagination.limit, authHeaders, toast]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
   useEffect(() => {
     setPagination((current) => current.page === 1 ? current : { ...current, page: 1 });
-  }, [slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, sort, dir]);
+  }, [slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, tagFilter, sort, dir]);
 
   // When embedded in a project, remember where to return so the record
   // detail's back button lands back on this project workspace + module chip.
@@ -157,6 +177,18 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
       return v ? (
         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style={{ color: c.color, background: c.bg }}>{String(v)}</span>
       ) : "—";
+    }
+    if (f.type === "tags" && typeof v === "string" && v.trim()) {
+      const tags = v.split(",").map((t) => t.trim()).filter(Boolean);
+      return (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          {tags.map((t) => (
+            <span key={t} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-subtle text-fg-muted whitespace-nowrap">
+              <Hash className="w-2.5 h-2.5" />{t}
+            </span>
+          ))}
+        </span>
+      );
     }
     return v == null || v === "" ? "—" : String(v);
   };
@@ -220,6 +252,14 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
         />
       )}
 
+      {tagsFieldKey && tagOptions.length > 0 && (
+        <Select
+          aria-label="Tag" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
+          options={[{ value: "all", label: "All tags" }, ...tagOptions.map((t) => ({ value: t, label: t }))]}
+          wrapperClassName="min-w-[140px]"
+        />
+      )}
+
       <Select
         aria-label="Sort" value={`${sort}:${dir}`}
         onChange={(e) => { const [s, d] = e.target.value.split(":"); setSort(s); setDir(d as "asc" | "desc"); }}
@@ -232,8 +272,8 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
         wrapperClassName="min-w-[150px]"
       />
 
-      {(statusFilter !== "all" || priorityFilter !== "all" || (!fixedProjectId && projectId !== "all") || search) && (
-        <Button variant="ghost" size="sm" leftIcon={X} onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); if (!fixedProjectId) setProjectId("all"); setSearch(""); setPagination((p) => ({ ...p, page: 1 })); }}>Clear</Button>
+      {(statusFilter !== "all" || priorityFilter !== "all" || tagFilter !== "all" || (!fixedProjectId && projectId !== "all") || search) && (
+        <Button variant="ghost" size="sm" leftIcon={X} onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setTagFilter("all"); if (!fixedProjectId) setProjectId("all"); setSearch(""); setPagination((p) => ({ ...p, page: 1 })); }}>Clear</Button>
       )}
 
       {!embedded && (

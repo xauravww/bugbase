@@ -70,14 +70,20 @@ export async function listRecords(
   }
 
   // Field filters — only for known columns; support comma = IN.
+  const fieldMap = new Map(m.fields.map((f) => [f.key, f]));
   const fieldKeys = new Set(m.fields.map((f) => f.key));
   for (const [k, v] of Object.entries(params.filters)) {
     if (!fieldKeys.has(k) || !v) continue;
-    const parts = v.split(",").map((s) => s.trim()).filter(Boolean);
-    if (parts.length > 1) {
-      conds.push(inArray(col(m, k), parts));
+    const fd = fieldMap.get(k);
+    if (fd?.type === "tags") {
+      conds.push(like(col(m, k), `%${v}%`));
     } else {
-      conds.push(eq(col(m, k), parts[0]));
+      const parts = v.split(",").map((s) => s.trim()).filter(Boolean);
+      if (parts.length > 1) {
+        conds.push(inArray(col(m, k), parts));
+      } else {
+        conds.push(eq(col(m, k), parts[0]));
+      }
     }
   }
 

@@ -355,10 +355,10 @@ export const TOOLS: ToolDef[] = [
   {
     name: "pm_list",
     description:
-      "List PM workspace records for any workspace module: requirements, features, dev-tasks, bugs, releases, api-docs, arch-docs, meeting-notes, risks, ideas, milestones, sprints, user-stories, personas, user-journeys, tech-stack, mockups, workflows, or business-rules. Supports projectId, search, sort, dir, page, limit, plus field filters.",
+      "List PM workspace records for any workspace module: requirements, features, dev-tasks, bugs, releases, api-docs, arch-docs, meeting-notes, risks, ideas, milestones, sprints, user-stories, personas, user-journeys, tech-stack, mockups, workflows, or business-rules. Supports projectId, search, sort, dir, page, limit, plus field filters (status, priority, severity, tags, etc.).",
     inputSchema: {
       type: "object",
-      properties: { module: str, projectId: num, search: str, status: str, priority: str, severity: str, sort: str, dir: str, page: num, limit: num },
+      properties: { module: str, projectId: num, search: str, status: str, priority: str, severity: str, tags: str, sort: str, dir: str, page: num, limit: num },
       required: ["module"],
     },
     handler: ({ module, ...args }, ctx) => ctx.call("GET", `/api/pm/${module}${qs(args)}`),
@@ -383,7 +383,7 @@ export const TOOLS: ToolDef[] = [
         module: str, projectId: num, title: str, name: str, version: str, endpoint: str,
         description: str, status: str, priority: str, severity: str, type: str, environment: str,
         acceptanceCriteria: str, storyPoints: num, epic: str, dueDate: str, estimatedTime: num,
-        actualTime: num, requirementId: num, featureId: num, assigneeId: num, sprintId: num,
+        actualTime: num, tags: str, requirementId: num, featureId: num, assigneeId: num, sprintId: num,
         taskId: num, parentId: num, releaseNotes: str, content: str, category: str,
         summary: str, decisions: str, actionItems: str, participants: str, meetingDate: str,
         mitigationPlan: str, impact: str, probability: str, effort: num, progress: num,
@@ -407,7 +407,7 @@ export const TOOLS: ToolDef[] = [
         module: str, id: num, title: str, name: str, version: str, endpoint: str,
         description: str, status: str, priority: str, severity: str, type: str, environment: str,
         acceptanceCriteria: str, storyPoints: num, epic: str, dueDate: str, estimatedTime: num,
-        actualTime: num, requirementId: num, featureId: num, assigneeId: num, sprintId: num,
+        actualTime: num, tags: str, requirementId: num, featureId: num, assigneeId: num, sprintId: num,
         taskId: num, parentId: num, releaseNotes: str, content: str, category: str,
         summary: str, decisions: str, actionItems: str, participants: str, meetingDate: str,
         mitigationPlan: str, impact: str, probability: str, effort: num, progress: num,
