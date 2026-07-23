@@ -8,11 +8,11 @@
       ],
       "type": "stdio"
     },
-     "bugbase": {
-     "type":"http",
+    "bugbase": {
+      "type": "http",
       "url": "http://31.97.229.2:3050/api/mcp",
       "headers": {
-        "Authorization": "Bearer mcp_d13414c8cb9da5559b85def2ccd4181859b068c6474cd2358dc7e0aaeb8c8360"
+        "Authorization": "Bearer mcp_5fbd4757f7a59d1785d92befe53a022a6021488da503a4f2c8c6d28bcec6d83f"
       }
     }
   }
