@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES } from "@/constants";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import MultiSelectChips from "@/components/ui/MultiSelectChips";
+import { MarkdownEditor } from "@/components/pm/MarkdownEditor";
 
 interface Member {
   id: number;
@@ -921,13 +922,12 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                         </button>
                       )}
                     </div>
-                    <textarea
-                      value={editForm.description}
-                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
-                      rows={5}
-                      placeholder="Issue description... (Markdown supported)"
-                    />
+                    <MarkdownEditor
+                        value={editForm.description}
+                        onChange={(v) => setEditForm({ ...editForm, description: v })}
+                        placeholder="Issue description..."
+                        minRows={5}
+                      />
                   </div>
                 ) : (
                   <div className="bg-[var(--color-surface)] rounded-lg p-4 text-[var(--color-text-primary)] prose prose-sm max-w-none">
@@ -972,12 +972,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                             </button>
                           )}
                         </div>
-                        <textarea
+                        <MarkdownEditor
                           value={editForm.stepsToReproduce}
-                          onChange={(e) => setEditForm({ ...editForm, stepsToReproduce: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
-                          rows={4}
+                          onChange={(v) => setEditForm({ ...editForm, stepsToReproduce: v })}
                           placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
+                          minRows={4}
                         />
                       </div>
                     ) : (
@@ -1019,12 +1018,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                             </button>
                           )}
                         </div>
-                        <textarea
+                        <MarkdownEditor
                           value={editForm.expectedResult}
-                          onChange={(e) => setEditForm({ ...editForm, expectedResult: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
-                          rows={3}
+                          onChange={(v) => setEditForm({ ...editForm, expectedResult: v })}
                           placeholder="What should happen..."
+                          minRows={3}
                         />
                       </div>
                     ) : (
@@ -1066,12 +1064,11 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
                             </button>
                           )}
                         </div>
-                        <textarea
+                        <MarkdownEditor
                           value={editForm.actualResult}
-                          onChange={(e) => setEditForm({ ...editForm, actualResult: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] resize-none"
-                          rows={3}
+                          onChange={(v) => setEditForm({ ...editForm, actualResult: v })}
                           placeholder="What actually happens..."
+                          minRows={3}
                         />
                       </div>
                     ) : (

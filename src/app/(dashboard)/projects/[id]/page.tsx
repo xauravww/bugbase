@@ -9,8 +9,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 import type { Pagination } from "@/types/issue";
 
+import { MarkdownEditor } from "@/components/pm/MarkdownEditor";
 import { TestCasesWorkspace } from "@/components/test-cases/TestCasesWorkspace";
 import { ListsWorkspace } from "@/components/lists/ListsWorkspace";
+import { ProjectWorkspacePanel } from "@/components/pm/ProjectWorkspacePanel";
 import CategoriesManager from "@/components/projects/CategoriesManager";
 import TeamProgress from "@/components/projects/TeamProgress";
 import MultiSelectChips from "@/components/ui/MultiSelectChips";
@@ -70,11 +72,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const initialTab = (() => {
     const t = searchParams.get("tab");
     if (t === "tasks") return "tasks";
+    if (t === "workspace") return "workspace";
     if (t === "context" || t === "test-cases") return "test-cases";
     if (t === "team") return "team";
     if (t === "settings") return "settings";
     return "issues";
-  })() as "issues" | "tasks" | "test-cases" | "team" | "settings";
+  })() as "issues" | "tasks" | "workspace" | "test-cases" | "team" | "settings";
   const initialStatus = searchParams.get("status") ?? "all";
   const [project, setProject] = useState<Project | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -90,7 +93,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
-  const [activeTab, setActiveTab] = useState<"issues" | "tasks" | "test-cases" | "team" | "settings">(initialTab);
+  const [activeTab, setActiveTab] = useState<"issues" | "tasks" | "workspace" | "test-cases" | "team" | "settings">(initialTab);
   const [issueStatusTab, setIssueStatusTab] = useState<string>(initialStatus);
   const [issuesPaginationState, setIssuesPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Closed: 1 });
   const [selectedProjectIssueIds, setSelectedProjectIssueIds] = useState<number[]>([]);
@@ -212,6 +215,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   useEffect(() => {
     const params = new URLSearchParams(Array.from(searchParams.entries()));
     if (activeTab === "tasks") params.set("tab", "tasks");
+    else if (activeTab === "workspace") params.set("tab", "workspace");
     else if (activeTab === "test-cases") params.set("tab", "test-cases");
     else if (activeTab === "team") params.set("tab", "team");
     else if (activeTab === "settings") params.set("tab", "settings");
@@ -626,7 +630,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             {/* Breadcrumb - Stack on mobile */}
             <div className="flex items-center justify-between md:justify-start md:flex-1">
               <div className="flex items-center gap-2">
-                <Link href="/projects" className="flex items-center gap-1 p-1.5 md:p-2 rounded-lg hover:bg-gray-50 transition-colors" style={{ color: "#555a6a" }}>
+                <Link href={searchParams.get("wsmod") ? `/projects/${projectId}?tab=workspace` : "/projects"} className="flex items-center gap-1 p-1.5 md:p-2 rounded-lg hover:bg-gray-50 transition-colors" style={{ color: "#555a6a" }}>
                   <ChevronLeft className="w-4 h-4 md:w-5 h-5" />
                 </Link>
                 <div className="flex items-center gap-1.5 md:gap-2">
@@ -734,23 +738,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 Tasks
               </button>
               <button
-                onClick={() => setActiveTab("test-cases")}
+                onClick={() => setActiveTab("workspace")}
                 className="flex-1 md:flex-none px-4 md:px-5 py-2.5 text-sm font-medium rounded-lg transition-all"
                 style={{
-                  background: activeTab === "test-cases" ? "#ffffff" : "transparent",
-                  color: activeTab === "test-cases" ? "#1c1c1e" : "#555a6a",
+                  background: activeTab === "workspace" ? "#ffffff" : "transparent",
+                  color: activeTab === "workspace" ? "#1c1c1e" : "#555a6a",
                   fontFamily: "DM Sans, sans-serif",
-                  boxShadow: activeTab === "test-cases" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                  boxShadow: activeTab === "workspace" ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
                 }}
                 onMouseEnter={(e) => {
-                  if (activeTab !== "test-cases") e.currentTarget.style.background = "#e9e9e9";
+                  if (activeTab !== "workspace") e.currentTarget.style.background = "#e9e9e9";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = activeTab === "test-cases" ? "#ffffff" : "transparent";
+                  e.currentTarget.style.background = activeTab === "workspace" ? "#ffffff" : "transparent";
                 }}
               >
-                <span className="md:hidden">Test Cases</span>
-                <span className="hidden md:inline">Test Cases</span>
+                Workspace
               </button>
               <button
                 onClick={() => setActiveTab("team")}
@@ -792,9 +795,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             
             {/* Count badge */}
             <span className="ml-auto text-sm whitespace-nowrap" style={{ color: "#a5a8b5", fontFamily: "DM Sans, sans-serif" }}>
-              {activeTab === "issues"
-                ? `${issuesPagination.total} ${issuesPagination.total === 1 ? "issue" : "issues"}`
-                : "Test Cases"}
+              {activeTab === "issues" && `${issuesPagination.total} ${issuesPagination.total === 1 ? "issue" : "issues"}`}
             </span>
           </div>
         </div>
@@ -1277,6 +1278,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         {activeTab === "tasks" && <ListsWorkspace projectId={projectId} />}
 
+        {activeTab === "workspace" && <ProjectWorkspacePanel projectId={projectId} />}
+
         {activeTab === "test-cases" && <TestCasesWorkspace projectId={projectId} />}
 
         {activeTab === "team" && <TeamProgress projectId={projectId} />}
@@ -1377,13 +1380,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 {refiningField === "description" ? (createForm.description ? "Refining..." : "Suggesting...") : (createForm.description ? "AI Refine" : "AI Suggest")}
               </button>
             </div>
-            <textarea
-              className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
-              style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
-              placeholder="Describe the issue... (Markdown supported)"
-              rows={4}
+            <MarkdownEditor
               value={createForm.description}
-              onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+              onChange={(v) => setCreateForm({ ...createForm, description: v })}
+              placeholder="Describe the issue..."
+              minRows={4}
             />
           </div>
 
@@ -1406,13 +1407,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     {refiningField === "stepsToReproduce" ? (createForm.stepsToReproduce ? "Refining..." : "Suggesting...") : (createForm.stepsToReproduce ? "AI Refine" : "AI Suggest")}
                   </button>
                 </div>
-                <textarea
-                  className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
-                  style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
-                  placeholder="1. Go to...&#10;2. Click on...&#10;3. See error... (Markdown supported)"
-                  rows={4}
+                <MarkdownEditor
                   value={createForm.stepsToReproduce}
-                  onChange={(e) => setCreateForm({ ...createForm, stepsToReproduce: e.target.value })}
+                  onChange={(v) => setCreateForm({ ...createForm, stepsToReproduce: v })}
+                  placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
+                  minRows={4}
                 />
               </div>
 
@@ -1433,13 +1432,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     {refiningField === "expectedResult" ? (createForm.expectedResult ? "Refining..." : "Suggesting...") : (createForm.expectedResult ? "AI Refine" : "AI Suggest")}
                   </button>
                 </div>
-                <textarea
-                  className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
-                  style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
-                  placeholder="What should happen... (Markdown supported)"
-                  rows={2}
+                <MarkdownEditor
                   value={createForm.expectedResult}
-                  onChange={(e) => setCreateForm({ ...createForm, expectedResult: e.target.value })}
+                  onChange={(v) => setCreateForm({ ...createForm, expectedResult: v })}
+                  placeholder="What should happen..."
+                  minRows={2}
                 />
               </div>
 
@@ -1460,13 +1457,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     {refiningField === "actualResult" ? (createForm.actualResult ? "Refining..." : "Suggesting...") : (createForm.actualResult ? "AI Refine" : "AI Suggest")}
                   </button>
                 </div>
-                <textarea
-                  className="w-full px-3 py-2 text-sm rounded-md border focus:outline-none resize-none"
-                  style={{ background: "#ffffff", borderColor: "#e9eaef", fontFamily: "DM Sans, sans-serif" }}
-                  placeholder="What actually happens... (Markdown supported)"
-                  rows={2}
+                <MarkdownEditor
                   value={createForm.actualResult}
-                  onChange={(e) => setCreateForm({ ...createForm, actualResult: e.target.value })}
+                  onChange={(v) => setCreateForm({ ...createForm, actualResult: v })}
+                  placeholder="What actually happens..."
+                  minRows={2}
                 />
               </div>
             </>

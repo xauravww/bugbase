@@ -42,7 +42,11 @@ async function handleRpc(req: JsonRpcRequest, origin: string, jwt: string) {
       return result(id, {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "bugbase", version: "2.0.0" },
+        serverInfo: {
+          name: "bugbase",
+          version: "2.0.0",
+          description: "BugBase MCP server — designed primarily for QA teams to create and manage test cases, record test results, and file bugs. Also supports full CRUD for issues, tasks, checklists, comments, categories, and lists across projects. All operations respect the authenticated user's role and project-membership permissions.",
+        },
       });
 
     case "notifications/initialized":

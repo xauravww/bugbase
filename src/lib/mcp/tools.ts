@@ -350,6 +350,89 @@ export const TOOLS: ToolDef[] = [
     inputSchema: { type: "object", properties: {} },
     handler: (_a, ctx) => ctx.call("GET", "/api/settings/email-templates"),
   },
+
+  // ── PM workspace (requirements, features, dev-tasks, bugs, releases,
+  //    api-docs, arch-docs, meeting-notes, risks, ideas, milestones, sprints) ──
+  {
+    name: "pm_list",
+    description:
+      "List PM workspace records for a module. module = one of: requirements, features, dev-tasks, bugs, releases, api-docs, arch-docs, meeting-notes, risks, ideas, milestones, sprints. Supports projectId, search, sort, dir, page, limit, plus field filters (status, priority, severity).",
+    inputSchema: {
+      type: "object",
+      properties: { module: str, projectId: num, search: str, status: str, priority: str, severity: str, sort: str, dir: str, page: num, limit: num },
+      required: ["module"],
+    },
+    handler: ({ module, ...args }, ctx) => ctx.call("GET", `/api/pm/${module}${qs(args)}`),
+  },
+  {
+    name: "pm_get",
+    description: "Get a single PM record by module + id.",
+    inputSchema: {
+      type: "object",
+      properties: { module: str, id: num },
+      required: ["module", "id"],
+    },
+    handler: ({ module, id }, ctx) => ctx.call("GET", `/api/pm/${module}/${id}`),
+  },
+  {
+    name: "pm_create",
+    description:
+      "Create a PM record. Pass module, projectId (required), and the module's fields (title/name/version/endpoint, status, priority, description, etc). Relation fields (requirementId, featureId, assigneeId, sprintId, taskId, parentId) take numeric ids.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        module: str, projectId: num, title: str, name: str, version: str, endpoint: str,
+        description: str, status: str, priority: str, severity: str, type: str, environment: str,
+        acceptanceCriteria: str, storyPoints: num, epic: str, dueDate: str, estimatedTime: num,
+        actualTime: num, requirementId: num, featureId: num, assigneeId: num, sprintId: num,
+        taskId: num, parentId: num, releaseNotes: str, content: str, category: str,
+        summary: str, decisions: str, actionItems: str, participants: str, meetingDate: str,
+        mitigationPlan: str, impact: str, probability: str, effort: num, progress: num,
+        targetDate: str, startDate: str, endDate: str, goal: str, releaseDate: str,
+        httpMethod: str, authentication: str, requestBody: str, responseBody: str,
+        stepsToReproduce: str, expectedResult: str, actualResult: str,
+      },
+      required: ["module", "projectId"],
+    },
+    handler: ({ module, ...body }, ctx) => ctx.call("POST", `/api/pm/${module}`, body),
+  },
+  {
+    name: "pm_update",
+    description: "Update a PM record. Pass module, id, and any fields to change.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        module: str, id: num, title: str, name: str, version: str, endpoint: str,
+        description: str, status: str, priority: str, severity: str, type: str, environment: str,
+        acceptanceCriteria: str, storyPoints: num, epic: str, dueDate: str, estimatedTime: num,
+        actualTime: num, requirementId: num, featureId: num, assigneeId: num, sprintId: num,
+        taskId: num, parentId: num, releaseNotes: str, content: str, category: str,
+        summary: str, decisions: str, actionItems: str, participants: str, meetingDate: str,
+        mitigationPlan: str, impact: str, probability: str, effort: num, progress: num,
+        targetDate: str, startDate: str, endDate: str, goal: str, releaseDate: str,
+        httpMethod: str, authentication: str, requestBody: str, responseBody: str,
+        stepsToReproduce: str, expectedResult: str, actualResult: str,
+      },
+      required: ["module", "id"],
+    },
+    handler: ({ module, id, ...body }, ctx) => ctx.call("PATCH", `/api/pm/${module}/${id}`, body),
+  },
+  {
+    name: "pm_delete",
+    description: "Delete a PM record by module + id.",
+    inputSchema: {
+      type: "object",
+      properties: { module: str, id: num },
+      required: ["module", "id"],
+    },
+    handler: ({ module, id }, ctx) => ctx.call("DELETE", `/api/pm/${module}/${id}`),
+  },
+  {
+    name: "pm_dashboard",
+    description: "Multi-project PM dashboard: per-project health, completion %, open bugs, upcoming releases, tasks due today, risks, milestones, sprints, recent activity.",
+    inputSchema: { type: "object", properties: {} },
+    handler: (_a, ctx) => ctx.call("GET", "/api/pm/dashboard"),
+  },
 ];
 
 export const TOOLS_BY_NAME: Record<string, ToolDef> = Object.fromEntries(TOOLS.map((t) => [t.name, t]));

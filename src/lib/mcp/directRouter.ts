@@ -36,6 +36,12 @@ import { GET as getTaskActivity } from "@/app/api/projects/[id]/task-activity/ro
 import { GET as getActivityLogs } from "@/app/api/settings/activity-logs/route";
 import { GET as getEmailTemplates } from "@/app/api/settings/email-templates/route";
 
+// PM workspace (generic module CRUD + dashboard + users)
+import { GET as pmList, POST as pmCreate } from "@/app/api/pm/[module]/route";
+import { GET as pmGet, PATCH as pmUpdate, DELETE as pmDelete } from "@/app/api/pm/[module]/[id]/route";
+import { GET as pmDashboard } from "@/app/api/pm/dashboard/route";
+import { GET as pmUsers } from "@/app/api/pm/users/route";
+
 // ── Route table ──
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,6 +96,12 @@ const ROUTES: Route[] = [
   // settings
   { pattern: /^\/api\/settings\/activity-logs$/, paramNames: [], methods: { GET: getActivityLogs } },
   { pattern: /^\/api\/settings\/email-templates$/, paramNames: [], methods: { GET: getEmailTemplates } },
+
+  // PM workspace — specific paths BEFORE the generic /[module] catch-all
+  { pattern: /^\/api\/pm\/dashboard$/, paramNames: [], methods: { GET: pmDashboard } },
+  { pattern: /^\/api\/pm\/users$/, paramNames: [], methods: { GET: pmUsers } },
+  { pattern: /^\/api\/pm\/([\w-]+)\/(\d+)$/, paramNames: ["module", "id"], methods: { GET: pmGet, PATCH: pmUpdate, DELETE: pmDelete } },
+  { pattern: /^\/api\/pm\/([\w-]+)$/, paramNames: ["module"], methods: { GET: pmList, POST: pmCreate } },
 ];
 
 // ── Dispatch ──
