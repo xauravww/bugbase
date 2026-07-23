@@ -213,6 +213,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "goal", label: "I want to…", type: "text", placeholder: "goal" },
       { key: "benefit", label: "So that…", type: "text", placeholder: "benefit" },
       { key: "acceptanceCriteria", label: "Acceptance Criteria", type: "textarea", placeholder: "Given / When / Then…" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
       { key: "requirementId", label: "Linked Requirement", type: "relation", relation: "requirements" },
     ],
   },
@@ -274,6 +275,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "trigger", label: "Trigger", type: "text", inList: true },
       { key: "description", label: "Description", type: "textarea" },
       { key: "steps", label: "Steps", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   "business-rules": {
@@ -286,6 +288,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "description", label: "Description", type: "textarea" },
       { key: "condition", label: "Condition", type: "textarea" },
       { key: "action", label: "Action", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
 };
