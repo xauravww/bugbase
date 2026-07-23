@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Pencil, LayoutGrid, Table as TableIcon, List as ListIcon, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Button, IconButton, Select, Badge, EmptyState, PageLoader, useToast } from "@/components/ui";
+import { Button, IconButton, Select, Badge, EmptyState, PageLoader, useToast, ConfirmDialog } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMeta, titleField, listFields, type FieldDef, type ModuleMeta, type ViewKind } from "@/lib/modules/meta";
 import { enumColor } from "@/lib/modules/colors";
@@ -43,6 +43,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [sort, setSort] = useState<string>(meta?.defaultSort ?? "updatedAt");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const [deleteTarget, setDeleteTarget] = useState<Rec | null>(null);
 
   const canWrite = user?.role !== "Viewer";
   const priorityKey = useMemo(
@@ -123,7 +124,13 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
 
   const remove = async (rec: Rec, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Delete this ${meta?.singular.toLowerCase()}?`)) return;
+    setDeleteTarget(rec);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const rec = deleteTarget;
+    setDeleteTarget(null);
     try {
       const res = await fetch(`/api/pm/${slug}/${rec.id}`, { method: "DELETE", headers: authHeaders() });
       if (!res.ok) throw new Error();
@@ -318,8 +325,18 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     </div>
   ) : null;
 
+  const deleteConfirm = (
+    <ConfirmDialog
+      isOpen={!!deleteTarget}
+      onClose={() => setDeleteTarget(null)}
+      onConfirm={confirmDelete}
+      title={`Delete ${meta?.singular ?? "Record"}`}
+      message={`Delete this ${meta?.singular.toLowerCase()}?`}
+    />
+  );
+
   if (embedded) {
-    return <div className="space-y-4">{toolbar}{body}{pager}</div>;
+    return <div className="space-y-4">{toolbar}{body}{pager}{deleteConfirm}</div>;
   }
 
   return (
@@ -328,6 +345,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
         {canWrite && <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate}>New {meta.singular}</Button>}
       </Header>
       <div className="p-4 md:p-6 space-y-4">{toolbar}{body}{pager}</div>
+      {deleteConfirm}
     </>
   );
 }

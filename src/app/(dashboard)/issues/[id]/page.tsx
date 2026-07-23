@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChevronLeft, Send, Clock, Upload, X, Check, UserPlus, Image, Search, ChevronRight, Download, Clipboard, Trash2, Pencil, Sparkles, Wand2, RefreshCw } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityBadge, Avatar, Badge, useToast } from "@/components/ui";
+import { Button, Select, PageLoader, StatusBadge, TypeBadge, PriorityBadge, Avatar, Badge, useToast, ConfirmDialog } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES } from "@/constants";
 import { useClickOutside } from "@/hooks/useClickOutside";
@@ -445,8 +445,12 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleDeleteIssue = async () => {
     if (!issue) return;
-    const confirmed = window.confirm(`Are you sure you want to delete issue #${issue.id} "${issue.title}"? This action cannot be undone.`);
-    if (!confirmed) return;
+    setShowDeleteIssueConfirm(true);
+  };
+
+  const confirmDeleteIssue = async () => {
+    if (!issue) return;
+    setShowDeleteIssueConfirm(false);
     try {
       const res = await fetch(`/api/issues/${issue.id}`, {
         method: "DELETE",
@@ -466,10 +470,14 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleDeleteAttachment = async (attachmentId: number) => {
     if (!issue) return;
-    const confirmed = window.confirm("Delete this attachment?");
-    if (!confirmed) return;
+    setDeleteAttachmentId(attachmentId);
+  };
+
+  const confirmDeleteAttachment = async () => {
+    if (!issue || deleteAttachmentId === null) return;
+    setDeleteAttachmentId(null);
     try {
-      const res = await fetch(`/api/issues/${issue.id}/attachments?attachmentId=${attachmentId}`, {
+      const res = await fetch(`/api/issues/${issue.id}/attachments?attachmentId=${deleteAttachmentId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -485,6 +493,8 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const [showDeleteIssueConfirm, setShowDeleteIssueConfirm] = useState(false);
+  const [deleteAttachmentId, setDeleteAttachmentId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
   const handleCopyToClipboard = () => {
@@ -1515,6 +1525,23 @@ export default function IssueDetailPage({ params }: { params: Promise<{ id: stri
             />
           )
         }
+
+        <ConfirmDialog
+          isOpen={showDeleteIssueConfirm}
+          onClose={() => setShowDeleteIssueConfirm(false)}
+          onConfirm={confirmDeleteIssue}
+          title="Delete Issue"
+          message={issue ? `Are you sure you want to delete issue #${issue.id} "${issue.title}"? This action cannot be undone.` : ""}
+        />
+
+        <ConfirmDialog
+          isOpen={deleteAttachmentId !== null}
+          onClose={() => setDeleteAttachmentId(null)}
+          onConfirm={confirmDeleteAttachment}
+          title="Delete Attachment"
+          message="Delete this attachment?"
+          confirmLabel="Delete"
+        />
       </div >
     </div >
   );

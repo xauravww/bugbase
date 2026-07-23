@@ -77,6 +77,8 @@ export { Kbd } from "./Kbd";
 export { Modal } from "./Modal";
 export type { ModalSize } from "./Modal";
 
+export { ConfirmDialog } from "./ConfirmDialog";
+
 export { Dropdown, DropdownItem, DropdownSeparator, DropdownLabel } from "./Dropdown";
 
 export { Tooltip } from "./Tooltip";

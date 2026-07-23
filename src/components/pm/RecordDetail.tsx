@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Save, Plus, ExternalLink, Sparkles } from "lucide-react";
-import { Button, PageLoader, Select, Badge, useToast } from "@/components/ui";
+import { Button, PageLoader, Select, Badge, useToast, ConfirmDialog } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMeta, titleField, MODULE_META } from "@/lib/modules/meta";
 import { usePmOptions, FieldInput, relLabel, type Rec } from "./shared";
@@ -29,6 +29,7 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
   const [saving, setSaving] = useState(false);
   const [refiningField, setRefiningField] = useState<string | null>(null);
   const [backHref, setBackHref] = useState(`/pm/${slug}`);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const canWrite = user?.role !== "Viewer";
 
   // Preserve the origin ("from" query) so the back button returns to the
@@ -152,7 +153,11 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
   };
 
   const remove = async () => {
-    if (!confirm(`Delete this ${meta?.singular.toLowerCase()}?`)) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    setShowDeleteConfirm(false);
     try {
       const res = await fetch(`/api/pm/${slug}/${id}`, { method: "DELETE", headers: authHeaders() });
       if (!res.ok) throw new Error();
@@ -277,6 +282,14 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
           )}
         </aside>
       </div>
+
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        title={`Delete ${meta?.singular ?? "Record"}`}
+        message={`Delete this ${meta?.singular.toLowerCase()}?`}
+      />
     </div>
   );
 }

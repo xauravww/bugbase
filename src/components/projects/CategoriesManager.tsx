@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, X, Check, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { contrastingText } from "@/lib/categories";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export interface Category {
   id: number;
@@ -119,8 +120,16 @@ export default function CategoriesManager({ projectId, canEdit, onChange }: Prop
     }
   };
 
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+
   const handleDelete = async (id: number) => {
-    if (!confirm("Delete this category? It will be removed from all issues.")) return;
+    setDeleteTargetId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (deleteTargetId === null) return;
+    const id = deleteTargetId;
+    setDeleteTargetId(null);
     setDeletingId(id);
     setError("");
     try {
@@ -303,6 +312,14 @@ export default function CategoriesManager({ projectId, canEdit, onChange }: Prop
           })}
         </ul>
       )}
+
+      <ConfirmDialog
+        isOpen={deleteTargetId !== null}
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={confirmDelete}
+        title="Delete Category"
+        message="Delete this category? It will be removed from all issues."
+      />
     </div>
   );
 }

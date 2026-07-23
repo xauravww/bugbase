@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, ConfirmDialog, useToast } from "@/components/ui";
 import { Sparkles, FileText, CheckCircle, XCircle, AlertCircle, Plus, Copy, X, Trash2, Edit2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -27,6 +27,9 @@ export function TestCasesWorkspace({ projectId }: { projectId: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const { token } = useAuth();
+  const toast = useToast();
+
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "result"; tcId: number; resId: number } | { type: "testcase"; tcId: number } | null>(null);
   
   const [form, setForm] = useState({
     title: "",
@@ -202,7 +205,13 @@ ${featureDesc}
   };
 
   const handleDeleteResult = async (tcId: number, resId: number) => {
-    if (!confirm("Are you sure you want to delete this result?")) return;
+    setDeleteTarget({ type: "result", tcId, resId });
+  };
+
+  const confirmDeleteResult = async () => {
+    if (!deleteTarget || deleteTarget.type !== "result") return;
+    const { tcId, resId } = deleteTarget;
+    setDeleteTarget(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/test-cases/${tcId}/results/${resId}`, {
         method: "DELETE",
@@ -211,15 +220,21 @@ ${featureDesc}
       if (res.ok) {
         fetchTestCases();
       } else {
-        alert("Failed to delete result.");
+        toast.error("Failed to delete result.");
       }
     } catch (e) {
-      alert("Error deleting result.");
+      toast.error("Error deleting result.");
     }
   };
 
   const handleDelete = async (tcId: number) => {
-    if (!confirm("Are you sure you want to delete this test case?")) return;
+    setDeleteTarget({ type: "testcase", tcId });
+  };
+
+  const confirmDeleteTestCase = async () => {
+    if (!deleteTarget || deleteTarget.type !== "testcase") return;
+    const { tcId } = deleteTarget;
+    setDeleteTarget(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/test-cases/${tcId}`, {
         method: "DELETE",
@@ -228,10 +243,10 @@ ${featureDesc}
       if (res.ok) {
         fetchTestCases();
       } else {
-        alert("Failed to delete test case.");
+        toast.error("Failed to delete test case.");
       }
     } catch (e) {
-      alert("Error deleting test case.");
+      toast.error("Error deleting test case.");
     }
   };
 
@@ -861,6 +876,22 @@ ${featureDesc}
             <Button variant="secondary" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
           </div>
         )}
+
+        <ConfirmDialog
+          isOpen={deleteTarget?.type === "result"}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={confirmDeleteResult}
+          title="Delete Result"
+          message="Are you sure you want to delete this result?"
+        />
+
+        <ConfirmDialog
+          isOpen={deleteTarget?.type === "testcase"}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={confirmDeleteTestCase}
+          title="Delete Test Case"
+          message="Are you sure you want to delete this test case?"
+        />
       </div>
     </div>
   );
