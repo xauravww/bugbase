@@ -144,10 +144,14 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   }, [slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, tagFilter, sort, dir]);
 
   // When embedded in a project, remember where to return so the record
-  // detail's back button lands back on this project workspace + module chip.
+  // detail's back button lands back on this project workspace + module chip,
+  // preserving any active filter/search/pagination state in the URL.
   const fromParam = useCallback(() => {
     if (!embedded || !fixedProjectId) return "";
-    return `&from=${encodeURIComponent(`/projects/${fixedProjectId}?tab=workspace&wsmod=${slug}`)}`;
+    const current = new URLSearchParams(globalThis.location?.search ?? "");
+    current.set("tab", "workspace");
+    current.set("wsmod", slug);
+    return `&from=${encodeURIComponent(`/projects/${fixedProjectId}?${current.toString()}`)}`;
   }, [embedded, fixedProjectId, slug]);
 
   const createUrl = useCallback(() => {

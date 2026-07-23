@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Save, Plus, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowLeft, Trash2, Save, Plus, ExternalLink, Sparkles, Pencil, X } from "lucide-react";
 import { Button, PageLoader, Select, Badge, useToast, ConfirmDialog } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
-import { getMeta, titleField, MODULE_META } from "@/lib/modules/meta";
+import { getMeta, titleField, MODULE_META, type FieldDef } from "@/lib/modules/meta";
 import { usePmOptions, FieldInput, relLabel, type Rec } from "./shared";
 import { enumColor } from "@/lib/modules/colors";
 
@@ -30,6 +30,7 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
   const [refiningField, setRefiningField] = useState<string | null>(null);
   const [backHref, setBackHref] = useState(`/pm/${slug}`);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editing, setEditing] = useState(isNew);
   const canWrite = user?.role !== "Viewer";
 
   // Preserve the origin ("from" query) so the back button returns to the
@@ -51,6 +52,29 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
   const withFrom = (url: string) => {
     const from = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("from") : null;
     return from ? `${url}${url.includes("?") ? "&" : "?"}from=${encodeURIComponent(from)}` : url;
+  };
+
+  const renderReadonlyValue = (f: FieldDef, val: unknown, users: { id: number; name: string }[], relations: Record<string, Rec[]>) => {
+    if (f.type === "select") {
+      const c = enumColor(val as string);
+      return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style={{ color: c.color, background: c.bg }}>{String(val)}</span>;
+    }
+    if (f.type === "tags" && typeof val === "string" && val.trim()) {
+      return (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          {val.split(",").map((t) => t.trim()).filter(Boolean).map((t) => (
+            <span key={t} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-subtle text-fg-muted whitespace-nowrap">{t}</span>
+          ))}
+        </span>
+      );
+    }
+    if (f.type === "date") return new Date(val as string).toLocaleDateString();
+    if (f.relation && f.relation !== "users") {
+      const label = relLabel(f, val, users, relations);
+      return <Link href={`/pm/${f.relation}/${val}`} className="text-accent hover:underline">{label}</Link>;
+    }
+    if (f.type === "number") return Number(val).toLocaleString();
+    return <span className="whitespace-pre-wrap">{String(val)}</span>;
   };
 
   // modules that link back to this one (for one-click related create)
@@ -196,51 +220,76 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
         </span>
         {sc && <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ color: sc.color, background: sc.bg }}>{statusVal}</span>}
         <div className="ml-auto flex items-center gap-2">
+          {!isNew && canWrite && !editing && <Button variant="ghost" size="sm" leftIcon={Pencil} onClick={() => setEditing(true)}>Edit</Button>}
           {!isNew && canWrite && <Button variant="ghost" size="sm" leftIcon={Trash2} onClick={remove}>Delete</Button>}
-          {canWrite && <Button variant="primary" size="sm" leftIcon={Save} onClick={save} loading={saving}>{isNew ? "Create" : "Save"}</Button>}
+          {editing && canWrite && <Button variant="primary" size="sm" leftIcon={Save} onClick={save} loading={saving}>{isNew ? "Create" : "Save"}</Button>}
+          {editing && !isNew && <Button variant="ghost" size="sm" leftIcon={X} onClick={() => { load(); setEditing(false); }}>Cancel</Button>}
         </div>
       </div>
 
       <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 max-w-6xl mx-auto">
         {/* main form */}
         <div className="space-y-4 order-2 lg:order-1">
-          <Select
-            label="Project"
-            value={form.projectId ? String(form.projectId) : ""}
-            onChange={(e) => setField("projectId", e.target.value)}
-            options={projects.map((p) => ({ value: String(p.id), label: `${p.key} · ${p.name}` }))}
-            placeholder="Select project"
-            searchable
-          />
-          {meta.fields.map((f) => {
-            const aiEligible = ["text", "textarea", "richtext", "tags"].includes(f.type);
-            return (
-              <div key={f.key} className="space-y-1.5">
-                <FieldInput
-                  field={f}
-                  value={form[f.key]}
-                  onChange={(v) => setField(f.key, v)}
-                  users={users}
-                  relations={relations}
-                />
-                {aiEligible && (
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      leftIcon={Sparkles}
-                      loading={refiningField === f.key}
-                      disabled={!form[f.key] || refiningField !== null}
-                      onClick={() => refineField(f.key)}
-                    >
-                      Refine with AI
-                    </Button>
+          {editing ? (
+            <>
+              <Select
+                label="Project"
+                value={form.projectId ? String(form.projectId) : ""}
+                onChange={(e) => setField("projectId", e.target.value)}
+                options={projects.map((p) => ({ value: String(p.id), label: `${p.key} · ${p.name}` }))}
+                placeholder="Select project"
+                searchable
+              />
+              {meta.fields.map((f) => {
+                const aiEligible = ["text", "textarea", "richtext", "tags"].includes(f.type);
+                return (
+                  <div key={f.key} className="space-y-1.5">
+                    <FieldInput
+                      field={f}
+                      value={form[f.key]}
+                      onChange={(v) => setField(f.key, v)}
+                      users={users}
+                      relations={relations}
+                    />
+                    {aiEligible && (
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          leftIcon={Sparkles}
+                          loading={refiningField === f.key}
+                          disabled={!form[f.key] || refiningField !== null}
+                          onClick={() => refineField(f.key)}
+                        >
+                          Refine with AI
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                )}
+                );
+              })}
+            </>
+          ) : (
+            <div className="space-y-5">
+              <div>
+                <span className="text-xs font-semibold text-fg-subtle uppercase tracking-wider">Project</span>
+                <div className="mt-1">
+                  <Badge variant="neutral" size="sm">{projKey || "—"}</Badge>
+                </div>
               </div>
-            );
-          })}
+              {meta.fields.map((f) => {
+                const val = form[f.key];
+                if (val == null || val === "") return null;
+                return (
+                  <div key={f.key}>
+                    <span className="text-xs font-semibold text-fg-subtle uppercase tracking-wider">{f.label}</span>
+                    <div className="mt-1 text-sm text-fg">{renderReadonlyValue(f, val, users, relations)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* sidebar: linked + related create */}
