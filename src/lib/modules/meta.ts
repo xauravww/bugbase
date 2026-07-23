@@ -53,7 +53,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     fields: [
       { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
       { key: "type", label: "Type", type: "select", options: ["Feature", "Bug", "Enhancement", "Research"], default: "Feature", inList: true },
-      { key: "status", label: "Status", type: "select", options: ["Draft", "Approved", "In Progress", "Done", "Rejected"], default: "Draft", inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Draft", "Active", "Approved", "In Progress", "Done", "Rejected"], default: "Active", inList: true },
       { key: "priority", label: "Priority", type: "select", options: PRIORITY, default: "Medium", inList: true },
       { key: "description", label: "Description", type: "textarea" },
       { key: "acceptanceCriteria", label: "Acceptance Criteria", type: "textarea", placeholder: "Given / When / Then…" },
@@ -66,7 +66,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     statusKey: "status", views: ["table", "kanban", "list"], defaultSort: "updatedAt",
     fields: [
       { key: "name", label: "Name", type: "text", required: true, isTitle: true, inList: true },
-      { key: "status", label: "Status", type: "select", options: ["Proposed", "In Progress", "Done", "Cancelled"], default: "Proposed", inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Proposed", "Active", "In Progress", "Done", "Cancelled"], default: "Active", inList: true },
       { key: "priority", label: "Priority", type: "select", options: PRIORITY, default: "Medium", inList: true },
       { key: "storyPoints", label: "Story Points", type: "number", inList: true },
       { key: "epic", label: "Epic", type: "text" },
@@ -215,7 +215,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     statusKey: "status", views: ["table", "kanban", "list"], defaultSort: "updatedAt",
     fields: [
       { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
-      { key: "status", label: "Status", type: "select", options: ["Draft", "Ready", "In Progress", "Done", "Rejected"], default: "Draft", inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Draft", "Active", "Ready", "In Progress", "Done", "Rejected"], default: "Active", inList: true },
       { key: "priority", label: "Priority", type: "select", options: PRIORITY, default: "Medium", inList: true },
       { key: "role", label: "As a…", type: "text", placeholder: "type of user" },
       { key: "goal", label: "I want to…", type: "text", placeholder: "goal" },

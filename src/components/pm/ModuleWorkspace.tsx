@@ -174,8 +174,9 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     if (f.type === "date") return v ? new Date(v as string).toLocaleDateString() : "—";
     if (f.key === meta.statusKey || f.key === priorityKey) {
       const c = enumColor(v as string);
+      const display = v && f.options ? f.options.find(o => o.toLowerCase() === String(v).toLowerCase()) ?? String(v) : String(v);
       return v ? (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style={{ color: c.color, background: c.bg }}>{String(v)}</span>
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium" style={{ color: c.color, background: c.bg }}>{display}</span>
       ) : "—";
     }
     if (f.type === "tags" && typeof v === "string" && v.trim()) {

@@ -135,6 +135,11 @@ export function coerceValues(m: ModuleDef, body: Record<string, unknown>) {
       const n = Number(v);
       v = Number.isNaN(n) ? null : n;
     }
+    if (v !== null && f.type === "select" && f.options && f.options.length > 0) {
+      const strVal = String(v);
+      const matched = f.options.find(o => o.toLowerCase() === strVal.toLowerCase());
+      if (matched) v = matched;
+    }
     out[f.key] = v;
   }
   return out;
