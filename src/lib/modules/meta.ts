@@ -120,6 +120,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "status", label: "Status", type: "select", options: ["Planned", "In Progress", "Released", "Rolled Back"], default: "Planned", inList: true },
       { key: "releaseDate", label: "Release Date", type: "date", inList: true },
       { key: "releaseNotes", label: "Release Notes", type: "richtext" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   "api-docs": {
@@ -130,6 +131,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "httpMethod", label: "Method", type: "select", options: ["GET", "POST", "PUT", "PATCH", "DELETE"], default: "GET", inList: true },
       { key: "authentication", label: "Auth", type: "select", options: ["None", "Bearer", "API Key", "OAuth"], default: "None", inList: true },
       { key: "status", label: "Status", type: "select", options: ["Draft", "Stable", "Deprecated"], default: "Draft", inList: true },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
       { key: "requestBody", label: "Request Body", type: "textarea", mono: true },
       { key: "responseBody", label: "Response Body", type: "textarea", mono: true },
     ],
@@ -141,6 +143,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
       { key: "category", label: "Category", type: "select", options: ["Architecture", "Design", "Decision", "Runbook", "Diagram"], default: "Architecture", inList: true },
       { key: "content", label: "Content", type: "richtext" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   "meeting-notes": {
@@ -153,6 +156,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "summary", label: "Summary", type: "textarea" },
       { key: "decisions", label: "Decisions", type: "textarea" },
       { key: "actionItems", label: "Action Items", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   risks: {
@@ -165,6 +169,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "status", label: "Status", type: "select", options: ["Open", "Mitigating", "Closed", "Accepted"], default: "Open", inList: true },
       { key: "description", label: "Description", type: "textarea" },
       { key: "mitigationPlan", label: "Mitigation Plan", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   ideas: {
@@ -177,6 +182,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "priority", label: "Priority", type: "select", options: PRIORITY, default: "Medium", inList: true },
       { key: "status", label: "Status", type: "select", options: ["New", "Under Review", "Approved", "Rejected", "Converted"], default: "New", inList: true },
       { key: "description", label: "Description", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   milestones: {
@@ -188,6 +194,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "targetDate", label: "Target Date", type: "date", inList: true },
       { key: "status", label: "Status", type: "select", options: ["Upcoming", "In Progress", "Done", "Missed"], default: "Upcoming", inList: true },
       { key: "progress", label: "Progress (%)", type: "number", default: 0, inList: true },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   sprints: {
@@ -200,6 +207,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "startDate", label: "Start Date", type: "date", inList: true },
       { key: "endDate", label: "End Date", type: "date", inList: true },
       { key: "goal", label: "Goal", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   "user-stories": {
@@ -227,6 +235,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "goals", label: "Goals", type: "textarea" },
       { key: "painPoints", label: "Pain Points", type: "textarea" },
       { key: "behaviors", label: "Behaviors", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   "user-journeys": {
@@ -241,6 +250,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "touchpoints", label: "Touchpoints", type: "textarea" },
       { key: "painPoints", label: "Pain Points", type: "textarea" },
       { key: "opportunities", label: "Opportunities", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   "tech-stack": {
@@ -253,6 +263,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "version", label: "Version", type: "text", inList: true },
       { key: "description", label: "Description", type: "textarea" },
       { key: "rationale", label: "Rationale", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   mockups: {
@@ -264,6 +275,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "status", label: "Status", type: "select", options: ["Draft", "In Review", "Approved", "Needs Revision"], default: "Draft", inList: true },
       { key: "url", label: "Design URL", type: "text", placeholder: "https://figma.com/…" },
       { key: "description", label: "Description", type: "textarea" },
+      { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
   workflows: {
