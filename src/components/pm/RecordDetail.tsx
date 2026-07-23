@@ -34,11 +34,18 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
 
   // Preserve the origin ("from" query) so the back button returns to the
   // project workspace + module chip we came from, not the standalone list.
+  // Also preserve any list filter params for standalone mode.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const from = new URLSearchParams(window.location.search).get("from");
+    const sp = new URLSearchParams(window.location.search);
+    const from = sp.get("from");
     if (from) setBackHref(from);
-  }, []);
+    else {
+      sp.delete("view");
+      const rest = sp.toString();
+      if (rest) setBackHref(`/pm/${slug}?${rest}`);
+    }
+  }, [slug]);
 
   const backLabel = backHref.includes("tab=workspace") ? "Back" : meta?.label;
   const withFrom = (url: string) => {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Plus, Trash2, Pencil, LayoutGrid, Table as TableIcon, List as ListIcon, X, Search, ChevronLeft, ChevronRight, Hash } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, IconButton, Select, Badge, EmptyState, PageLoader, useToast, ConfirmDialog } from "@/components/ui";
@@ -30,21 +30,41 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   const { token, user } = useAuth();
   const toast = useToast();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { projects, users, relations, authHeaders } = usePmOptions(meta);
 
   const [records, setRecords] = useState<Rec[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<ViewKind>("table");
-  const [search, setSearch] = useState("");
-  const [debounced, setDebounced] = useState("");
-  const [projectId, setProjectId] = useState<string>(fixedProjectId ? String(fixedProjectId) : "all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [priorityFilter, setPriorityFilter] = useState<string>("all");
-  const [tagFilter, setTagFilter] = useState<string>("all");
-  const [sort, setSort] = useState<string>(meta?.defaultSort ?? "updatedAt");
-  const [dir, setDir] = useState<"asc" | "desc">("desc");
   const [deleteTarget, setDeleteTarget] = useState<Rec | null>(null);
+
+  const useSp = <T,>(key: string, fallback: T): [T, (v: T) => void] => {
+    const raw = searchParams.get(key);
+    const value: T = raw !== null ? (raw as unknown as T) : fallback;
+    const setValue = useCallback((v: T) => {
+      const sp = new URLSearchParams(globalThis.location?.search ?? "");
+      const s = String(v);
+      if (s === String(fallback)) sp.delete(key);
+      else sp.set(key, s);
+      const q = sp.toString();
+      const url = q ? `${pathname}?${q}` : pathname;
+      globalThis.history?.replaceState(null, "", url);
+    }, [pathname, key, fallback]);
+    return [value, setValue];
+  };
+
+  const [view, setView] = useSp<ViewKind>("view", "table");
+  const [search, setSearch] = useSp("search", "");
+  const [projectId, setProjectId] = useSp("projectId", fixedProjectId ? String(fixedProjectId) : "all");
+  const [statusFilter, setStatusFilter] = useSp("status", "all");
+  const [priorityFilter, setPriorityFilter] = useSp("priority", "all");
+  const [tagFilter, setTagFilter] = useSp("tag", "all");
+  const [sort, setSort] = useSp("sort", meta?.defaultSort ?? "updatedAt");
+  const [dir, setDir] = useSp<"asc" | "desc">("dir", "desc");
+  const [page, setPage] = useSp("page", "1");
+
+  const [debounced, setDebounced] = useState(search);
 
   const canWrite = user?.role !== "Viewer";
   const priorityKey = useMemo(
@@ -95,8 +115,8 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     if (tagFilter !== "all" && tagsFieldKey) qs.set(tagsFieldKey, tagFilter);
     qs.set("sort", sort);
     qs.set("dir", dir);
-    qs.set("page", String(pagination.page));
-    qs.set("limit", String(pagination.limit));
+    qs.set("page", page);
+    qs.set("limit", String(20));
     try {
       const res = await fetch(`/api/pm/${slug}?${qs}`, { headers: authHeaders() });
       const data = await res.json();
@@ -115,12 +135,12 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [token, meta, slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, priorityKey, tagFilter, tagsFieldKey, sort, dir, pagination.page, pagination.limit, authHeaders, toast]);
+  }, [token, meta, slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, priorityKey, tagFilter, tagsFieldKey, sort, dir, page, authHeaders, toast]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
   useEffect(() => {
-    setPagination((current) => current.page === 1 ? current : { ...current, page: 1 });
+    if (page !== "1") setPage("1");
   }, [slug, fixedProjectId, projectId, debounced, statusFilter, priorityFilter, tagFilter, sort, dir]);
 
   // When embedded in a project, remember where to return so the record
@@ -139,7 +159,10 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   const goCreate = () => router.push(createUrl());
   const goDetail = (rec: Rec) => {
     const from = fromParam().replace(/^&/, "");
-    router.push(`/pm/${slug}/${rec.id}${from ? `?${from}` : ""}`);
+    const listParams = new URLSearchParams(globalThis.location?.search ?? "");
+    listParams.delete("view");
+    const qp = listParams.toString();
+    router.push(`/pm/${slug}/${rec.id}${from || qp ? `?${from}${qp ? `&${qp}` : ""}` : ""}`);
   };
 
   const remove = async (rec: Rec, e: React.MouseEvent) => {
@@ -274,7 +297,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
       />
 
       {(statusFilter !== "all" || priorityFilter !== "all" || tagFilter !== "all" || (!fixedProjectId && projectId !== "all") || search) && (
-        <Button variant="ghost" size="sm" leftIcon={X} onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setTagFilter("all"); if (!fixedProjectId) setProjectId("all"); setSearch(""); setPagination((p) => ({ ...p, page: 1 })); }}>Clear</Button>
+        <Button variant="ghost" size="sm" leftIcon={X} onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setTagFilter("all"); if (!fixedProjectId) setProjectId("all"); setSearch(""); setPage("1"); }}>Clear</Button>
       )}
 
       {!embedded && (
@@ -359,9 +382,9 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     <div className="flex flex-col gap-3 border-t border-border pt-3 text-sm text-fg-muted sm:flex-row sm:items-center sm:justify-between">
       <span>Showing {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}</span>
       <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm" leftIcon={ChevronLeft} disabled={pagination.page <= 1} onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}>Previous</Button>
+        <Button variant="secondary" size="sm" leftIcon={ChevronLeft} disabled={pagination.page <= 1} onClick={() => setPage(String(pagination.page - 1))}>Previous</Button>
         <span className="tabular-nums">Page {pagination.page} of {pagination.totalPages}</span>
-        <Button variant="secondary" size="sm" rightIcon={ChevronRight} disabled={pagination.page >= pagination.totalPages} onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}>Next</Button>
+        <Button variant="secondary" size="sm" rightIcon={ChevronRight} disabled={pagination.page >= pagination.totalPages} onClick={() => setPage(String(pagination.page + 1))}>Next</Button>
       </div>
     </div>
   ) : null;
