@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Table as TableIcon, List as ListIcon, LayoutGrid, Calendar, GanttChart, AlignLeft,
-  ChevronLeft, ChevronRight, X, Plus,
+  ChevronLeft, ChevronRight, X, Plus, Trash2,
 } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Button, Badge, PageLoader, EmptyState, Select, Modal } from "@/components/ui";
+import { Button, Badge, PageLoader, EmptyState, Select, Modal, ConfirmDialog, useToast } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { enumColor } from "@/lib/modules/colors";
 import { cn } from "@/lib/utils/cn";
@@ -177,7 +177,15 @@ export default function TimelinePage() {
       ? createProjectId
       : (projects[0] ? String(projects[0].id) : "");
 
-  const goDetail = (item: TItem) => router.push(`/pm/${item.module}/${item.id}`);
+  const toast = useToast();
+  const [deleteTarget, setDeleteTarget] = useState<TItem | null>(null);
+
+  const goDetail = (item: TItem) => {
+    const from = typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : "/timeline";
+    router.push(`/pm/${item.module}/${item.id}?from=${encodeURIComponent(from)}`);
+  };
   const goCreateTask = useCallback(() => {
     if (!createTargetProjectId) return;
     const from = typeof window !== "undefined"
@@ -186,6 +194,23 @@ export default function TimelinePage() {
     router.push(`/pm/dev-tasks/new?projectId=${createTargetProjectId}&from=${encodeURIComponent(from)}`);
     setShowCreateTask(false);
   }, [router, createTargetProjectId]);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || !token) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    try {
+      const res = await fetch(`/api/pm/${target.module}/${target.id}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Deleted successfully");
+      setItems((prev) => prev.filter((i) => !(i.module === target.module && i.id === target.id)));
+    } catch {
+      toast.error("Delete failed");
+    }
+  };
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -204,8 +229,14 @@ export default function TimelinePage() {
         options={[{ value: "all", label: "All projects" }, ...projects.map(p => ({ value: String(p.id), label: `${p.key} · ${p.name}` }))]}
         wrapperClassName="min-w-[150px]" searchable />
       <Select aria-label="Module" value={moduleFilter} onChange={e => setModuleFilter(e.target.value as Module | "all")}
-        options={[{ value: "all", label: "All modules" }, ...MODULES.map(m => ({ value: m, label: MODULE_LABELS[m] + "s" }))]}
-        wrapperClassName="min-w-[130px]" />
+        options={[
+          { value: "all", label: "Show all tasks & modules" },
+          { value: "dev-tasks", label: "Timeline Tasks" },
+          { value: "milestones", label: "Milestones" },
+          { value: "releases", label: "Releases" },
+          { value: "sprints", label: "Sprints" },
+        ]}
+        wrapperClassName="min-w-[170px]" />
       <Select aria-label="Status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
         options={[{ value: "all", label: "All status" }, ...allStatuses.map(s => ({ value: s, label: s }))]}
         wrapperClassName="min-w-[130px]" />
@@ -242,14 +273,22 @@ export default function TimelinePage() {
         {toolbar}
         {filtered.length === 0
           ? <EmptyState title="No timeline items" description="Adjust filters or add timeline tasks with dates." />
-          : view === "table" ? <TableView items={filtered} onOpen={goDetail} />
-          : view === "list" ? <ListView items={filtered} onOpen={goDetail} />
+          : view === "table" ? <TableView items={filtered} onOpen={goDetail} onDelete={(i) => setDeleteTarget(i)} />
+          : view === "list" ? <ListView items={filtered} onOpen={goDetail} onDelete={(i) => setDeleteTarget(i)} />
           : view === "kanban" ? <KanbanView items={filtered} onOpen={goDetail} />
           : view === "calendar" ? <CalendarView items={filtered} month={calMonth} onPrev={() => setCalMonth(d => { const n = new Date(d); n.setMonth(n.getMonth()-1); return n; })} onNext={() => setCalMonth(d => { const n = new Date(d); n.setMonth(n.getMonth()+1); return n; })} onOpen={goDetail} />
           : view === "timeline" ? <TimelineView items={filtered} start={tlStart} onPrev={() => setTlStart(d => addDays(d, -14))} onNext={() => setTlStart(d => addDays(d, 14))} onOpen={goDetail} />
           : <GanttView items={filtered} start={tlStart} onPrev={() => setTlStart(d => addDays(d, -14))} onNext={() => setTlStart(d => addDays(d, 14))} onOpen={goDetail} />
         }
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Delete Timeline Item"
+        message={`Are you sure you want to delete "${deleteTarget?.title}"?`}
+      />
 
       <Modal
         isOpen={showCreateTask}
@@ -297,7 +336,7 @@ function TagChips({ tags }: { tags?: string }) {
   return <>{list.map(t => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full bg-bg-hover text-fg-muted">{t}</span>)}</>;
 }
 
-function TableView({ items, onOpen }: { items: TItem[]; onOpen: (i: TItem) => void }) {
+function TableView({ items, onOpen, onDelete }: { items: TItem[]; onOpen: (i: TItem) => void; onDelete: (i: TItem) => void }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
@@ -310,6 +349,7 @@ function TableView({ items, onOpen }: { items: TItem[]; onOpen: (i: TItem) => vo
           <th className="px-4 py-2.5 font-medium text-fg-muted">Start</th>
           <th className="px-4 py-2.5 font-medium text-fg-muted">End</th>
           <th className="px-4 py-2.5 font-medium text-fg-muted">Tags</th>
+          <th className="px-4 py-2.5 font-medium text-fg-muted text-right">Actions</th>
         </tr></thead>
         <tbody>
           {items.map(item => (
@@ -322,6 +362,16 @@ function TableView({ items, onOpen }: { items: TItem[]; onOpen: (i: TItem) => vo
               <td className="px-4 py-2.5 text-fg-muted whitespace-nowrap">{fmtDate(item.startDate)}</td>
               <td className="px-4 py-2.5 text-fg-muted whitespace-nowrap">{fmtDate(item.endDate)}</td>
               <td className="px-4 py-2.5"><div className="flex gap-1 flex-wrap"><TagChips tags={item.tags} /></div></td>
+              <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => onDelete(item)}
+                  className="p-1 rounded text-fg-muted hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer"
+                  title="Delete item"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -330,11 +380,11 @@ function TableView({ items, onOpen }: { items: TItem[]; onOpen: (i: TItem) => vo
   );
 }
 
-function ListView({ items, onOpen }: { items: TItem[]; onOpen: (i: TItem) => void }) {
+function ListView({ items, onOpen, onDelete }: { items: TItem[]; onOpen: (i: TItem) => void; onDelete: (i: TItem) => void }) {
   return (
     <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
       {items.map(item => (
-        <div key={`${item.module}-${item.id}`} onClick={() => onOpen(item)} className="flex items-center gap-3 px-4 py-3 hover:bg-bg-hover cursor-pointer">
+        <div key={`${item.module}-${item.id}`} onClick={() => onOpen(item)} className="flex items-center gap-3 px-4 py-3 hover:bg-bg-hover cursor-pointer group">
           <ModuleDot mod={item.module} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -348,6 +398,14 @@ function ListView({ items, onOpen }: { items: TItem[]; onOpen: (i: TItem) => voi
               <TagChips tags={item.tags} />
             </div>
           </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onDelete(item); }}
+            className="p-1.5 rounded text-fg-muted hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+            title="Delete item"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ))}
     </div>
@@ -460,14 +518,16 @@ function TimelineView({ items, start, onPrev, onNext, onOpen }: { items: TItem[]
         <span className="font-medium text-fg">{start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – {end.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
         <button onClick={onNext} className="p-1.5 rounded hover:bg-bg-hover cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
       </div>
-      <div className="overflow-x-auto">
-        <div style={{ minWidth: DAYS_VISIBLE * 36 + 200 }}>
-          <div className="flex border-b border-border mb-1">
-            <div className="w-48 flex-shrink-0" />
+      <div className="overflow-x-auto rounded-lg border border-border bg-bg">
+        <div style={{ minWidth: DAYS_VISIBLE * 40 + 220 }}>
+          <div className="flex border-b border-border bg-surface sticky top-0 z-20">
+            <div className="w-56 flex-shrink-0 sticky left-0 z-30 bg-surface px-3 py-2 text-xs font-semibold text-fg-muted border-r border-border">
+              Title / Assignee
+            </div>
             {days.map((d, i) => {
               const isToday = d.toDateString() === new Date().toDateString();
               return (
-                <div key={i} className={cn("w-9 flex-shrink-0 text-center text-[10px] py-1", isToday ? "text-accent font-bold" : "text-fg-muted")}>
+                <div key={i} className={cn("w-10 flex-shrink-0 text-center text-[10px] py-2 border-r border-border/30", isToday ? "text-accent font-bold bg-accent/5" : "text-fg-muted")}>
                   {d.getDate() === 1 || i === 0 ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : d.getDate()}
                 </div>
               );
@@ -480,19 +540,28 @@ function TimelineView({ items, start, onPrev, onNext, onOpen }: { items: TItem[]
             const right = Math.min(DAYS_VISIBLE - 1, diffDays(start, e));
             const width = Math.max(1, right - left + 1);
             return (
-              <div key={`${item.module}-${item.id}`} className="flex items-center mb-1 group">
-                <div className="w-48 flex-shrink-0 flex items-center gap-1.5 pr-2 cursor-pointer" onClick={() => onOpen(item)}>
+              <div key={`${item.module}-${item.id}`} className="flex items-center border-b border-border/40 hover:bg-bg-hover/50 group">
+                <div className="w-56 flex-shrink-0 sticky left-0 z-10 bg-bg group-hover:bg-surface flex items-center gap-2 px-3 py-2.5 border-r border-border cursor-pointer min-w-0" onClick={() => onOpen(item)}>
                   <ModuleDot mod={item.module} />
-                  <span className="text-xs text-fg truncate group-hover:text-accent">{item.title}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-fg truncate group-hover:text-accent">{item.title}</div>
+                    <div className="text-[10px] text-fg-subtle truncate">{item.status} {item.assigneeName ? `· ${item.assigneeName}` : ""}</div>
+                  </div>
                 </div>
-                <div className="flex-1 relative h-7">
-                  <div className="absolute inset-y-1 rounded cursor-pointer" style={{ left: left * 36, width: width * 36 - 2, background: MODULE_COLORS[item.module] + "99" }}
-                    onClick={() => onOpen(item)} title={item.title} />
+                <div className="flex-1 relative h-9">
+                  <div
+                    className="absolute inset-y-1.5 rounded-md cursor-pointer flex items-center px-2 shadow-xs transition-opacity hover:opacity-90 overflow-hidden"
+                    style={{ left: left * 40 + 4, width: width * 40 - 8, background: MODULE_COLORS[item.module] }}
+                    onClick={() => onOpen(item)}
+                    title={item.title}
+                  >
+                    <span className="text-[11px] font-medium text-white truncate">{item.title}</span>
+                  </div>
                 </div>
               </div>
             );
           })}
-          {visible.length === 0 && <div className="text-sm text-fg-muted py-8 text-center">No items with dates in this range.</div>}
+          {visible.length === 0 && <div className="text-sm text-fg-muted py-12 text-center">No items with dates in this range.</div>}
         </div>
       </div>
     </div>
@@ -518,14 +587,14 @@ function GanttView({ items, start, onPrev, onNext, onOpen }: { items: TItem[]; s
         <span className="font-medium text-fg">{start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – {end.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
         <button onClick={onNext} className="p-1.5 rounded hover:bg-bg-hover cursor-pointer"><ChevronRight className="w-4 h-4" /></button>
       </div>
-      <div className="overflow-x-auto">
-        <div style={{ minWidth: DAYS_VISIBLE * 36 + 260 }}>
-          <div className="flex border-b border-border mb-1">
-            <div className="w-56 flex-shrink-0 text-xs text-fg-muted py-1 px-2">Task / Assignee</div>
+      <div className="overflow-x-auto rounded-lg border border-border bg-bg">
+        <div style={{ minWidth: DAYS_VISIBLE * 40 + 240 }}>
+          <div className="flex border-b border-border bg-surface sticky top-0 z-20">
+            <div className="w-60 flex-shrink-0 sticky left-0 z-30 bg-surface px-3 py-2 text-xs font-semibold text-fg-muted border-r border-border">Task / Assignee</div>
             {days.map((d, i) => {
               const isToday = d.toDateString() === new Date().toDateString();
               return (
-                <div key={i} className={cn("w-9 flex-shrink-0 text-center text-[10px] py-1", isToday ? "text-accent font-bold" : "text-fg-muted")}>
+                <div key={i} className={cn("w-10 flex-shrink-0 text-center text-[10px] py-2 border-r border-border/30", isToday ? "text-accent font-bold bg-accent/5" : "text-fg-muted")}>
                   {d.getDate() === 1 || i === 0 ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : d.getDate()}
                 </div>
               );
@@ -533,7 +602,7 @@ function GanttView({ items, start, onPrev, onNext, onOpen }: { items: TItem[]; s
           </div>
           <div className="relative">
             {todayOffset >= 0 && todayOffset < DAYS_VISIBLE && (
-              <div className="absolute top-0 bottom-0 w-px bg-accent/50 z-10 pointer-events-none" style={{ left: 256 + todayOffset * 36 }} />
+              <div className="absolute top-0 bottom-0 w-0.5 bg-accent z-10 pointer-events-none" style={{ left: 240 + todayOffset * 40 + 20 }} />
             )}
             {visible.map(item => {
               const s = startOf(toDate(item.startDate) ?? toDate(item.endDate)!);
@@ -546,27 +615,40 @@ function GanttView({ items, start, onPrev, onNext, onOpen }: { items: TItem[]; s
               const pct = Math.min(100, Math.round((elapsed / totalDays) * 100));
               const c = enumColor(item.status);
               return (
-                <div key={`${item.module}-${item.id}`} className="flex items-center mb-1.5 group">
-                  <div className="w-56 flex-shrink-0 pr-2 cursor-pointer" onClick={() => onOpen(item)}>
-                    <div className="text-xs text-fg truncate group-hover:text-accent">{item.title}</div>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <span className="text-[10px] px-1 py-0.5 rounded" style={{ color: c.color, background: c.bg }}>{item.status}</span>
+                <div key={`${item.module}-${item.id}`} className="flex items-center border-b border-border/40 hover:bg-bg-hover/50 group">
+                  <div className="w-60 flex-shrink-0 sticky left-0 z-10 bg-bg group-hover:bg-surface px-3 py-2 border-r border-border cursor-pointer min-w-0" onClick={() => onOpen(item)}>
+                    <div className="text-xs font-medium text-fg truncate group-hover:text-accent">{item.title}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ color: c.color, background: c.bg }}>{item.status}</span>
                       {item.assigneeName && <span className="text-[10px] text-fg-muted truncate">{item.assigneeName}</span>}
                     </div>
                   </div>
-                  <div className="flex-1 relative h-8">
-                    <div className="absolute inset-y-1.5 rounded overflow-hidden cursor-pointer"
-                      style={{ left: left * 36, width: width * 36 - 2, background: MODULE_COLORS[item.module] + "44", border: `1px solid ${MODULE_COLORS[item.module]}66` }}
-                      onClick={() => onOpen(item)} title={item.title}>
-                      <div className="h-full rounded" style={{ width: `${pct}%`, background: MODULE_COLORS[item.module] + "99" }} />
-                      <span className="absolute inset-0 flex items-center px-1.5 text-[10px] font-medium truncate" style={{ color: MODULE_COLORS[item.module] }}>{item.title}</span>
+                  <div className="flex-1 relative h-9">
+                    <div
+                      className="absolute inset-y-1.5 rounded-md overflow-hidden cursor-pointer shadow-xs border flex items-center px-2"
+                      style={{
+                        left: left * 40 + 4,
+                        width: width * 40 - 8,
+                        background: MODULE_COLORS[item.module],
+                        borderColor: MODULE_COLORS[item.module],
+                      }}
+                      onClick={() => onOpen(item)}
+                      title={item.title}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 bg-black/25 dark:bg-white/25 pointer-events-none"
+                        style={{ width: `${pct}%` }}
+                      />
+                      <span className="relative z-10 text-[11px] font-semibold text-white drop-shadow-xs truncate">
+                        {item.title}
+                      </span>
                     </div>
                   </div>
                 </div>
               );
             })}
           </div>
-          {visible.length === 0 && <div className="text-sm text-fg-muted py-8 text-center">No items with dates in this range.</div>}
+          {visible.length === 0 && <div className="text-sm text-fg-muted py-12 text-center">No items with dates in this range.</div>}
         </div>
       </div>
     </div>

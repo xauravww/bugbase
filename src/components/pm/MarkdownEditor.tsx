@@ -19,6 +19,7 @@ interface Props {
   placeholder?: string;
   minRows?: number;
   mono?: boolean;
+  readOnly?: boolean;
 }
 
 /**
@@ -28,11 +29,11 @@ interface Props {
  * they render in preview and anywhere react-markdown is used. Suitable for
  * long-form fields (requirements, release notes, docs).
  */
-export function MarkdownEditor({ value, onChange, label, placeholder, minRows = 10, mono }: Props) {
+export function MarkdownEditor({ value, onChange, label, placeholder, minRows = 10, mono, readOnly = false }: Props) {
   const { token } = useAuth();
   const toast = useToast();
   const ref = useRef<HTMLTextAreaElement>(null);
-  const [mode, setMode] = useState<"write" | "preview">("write");
+  const [mode, setMode] = useState<"write" | "preview">(readOnly ? "preview" : "write");
   const [uploading, setUploading] = useState(false);
 
   const surround = useCallback((before: string, after = before, placeholderText = "text") => {
@@ -128,9 +129,10 @@ export function MarkdownEditor({ value, onChange, label, placeholder, minRows = 
           />
         </div>
       )}
-      <div className="border border-border rounded-lg overflow-hidden bg-surface">
+      <div className={cn("rounded-lg overflow-hidden bg-surface", !readOnly && "border border-border")}>
         {/* toolbar */}
-        <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-bg-hover flex-wrap">
+        {!readOnly && (
+          <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-border bg-bg-hover flex-wrap">
           {TOOLS.map((t, i) => (
             <button
               key={i} type="button" title={t.title} onClick={t.act}
@@ -155,6 +157,7 @@ export function MarkdownEditor({ value, onChange, label, placeholder, minRows = 
             </button>
           </div>
         </div>
+        )}
 
         {mode === "write" ? (
           <textarea

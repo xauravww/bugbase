@@ -23,8 +23,6 @@ const ICONS: Record<string, typeof Bug> = {
 // Tasks live in the project's own "Tasks" tab. Bugs and Features are first-class
 // workspace modules, so keep them available here rather than duplicating them in Issues.
 const PANEL_MODULES = META_LIST.filter((m) => m.slug !== "dev-tasks");
-// Test Cases is a first-class project feature (not a registry module) — pin it.
-const TEST_CASES = "test-cases";
 
 /**
  * Embedded PM workspace for one project. Chip nav switches the active module;
@@ -46,17 +44,14 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
     router.replace(`/projects/${projectId}?${params.toString()}`, { scroll: false });
   }, [router, searchParams, projectId]);
 
-  const activeMeta = active !== TEST_CASES ? getMeta(active) : null;
+  const activeMeta = getMeta(active);
 
   const goCreate = useCallback(() => {
     const q = `projectId=${projectId}&from=${encodeURIComponent(`/projects/${projectId}?tab=workspace&wsmod=${active}`)}`;
     router.push(`/pm/${active}/new?${q}`);
   }, [router, projectId, active]);
 
-  const chips = [
-    ...PANEL_MODULES.map((m) => ({ slug: m.slug, label: m.label, icon: ICONS[m.icon] ?? FileText })),
-    { slug: TEST_CASES, label: "Test Cases", icon: FlaskConical },
-  ];
+  const chips = PANEL_MODULES.map((m) => ({ slug: m.slug, label: m.label, icon: ICONS[m.icon] ?? FileText }));
 
   return (
     <div className="space-y-4">
@@ -89,11 +84,7 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
         )}
       </div>
 
-      {active === TEST_CASES ? (
-        <TestCasesWorkspace projectId={String(projectId)} />
-      ) : (
-        <ModuleWorkspace key={active} slug={active} fixedProjectId={projectId} embedded />
-      )}
+      <ModuleWorkspace key={active} slug={active} fixedProjectId={projectId} embedded />
     </div>
   );
 }

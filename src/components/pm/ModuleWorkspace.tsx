@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Plus, Trash2, Pencil, LayoutGrid, Table as TableIcon, List as ListIcon, X, Search, ChevronLeft, ChevronRight, Hash } from "lucide-react";
+import { Plus, Trash2, Pencil, LayoutGrid, Table as TableIcon, List as ListIcon, X, Search, ChevronLeft, ChevronRight, Hash, CalendarClock } from "lucide-react";
 import { Header } from "@/components/layout";
 import { Button, IconButton, Select, Badge, EmptyState, PageLoader, useToast, ConfirmDialog } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
@@ -314,11 +314,11 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
         />
       )}
 
-      {tagsFieldKey && tagOptions.length > 0 && (
+      {tagsFieldKey && (
         <Select
           aria-label="Tag" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
           options={[{ value: "all", label: "All tags" }, ...tagOptions.map((t) => ({ value: t, label: t }))]}
-          wrapperClassName="w-full sm:w-auto sm:min-w-[140px]"
+          wrapperClassName="w-full sm:w-auto sm:min-w-[140px]" searchable
         />
       )}
 
@@ -340,12 +340,47 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
 
       {!embedded && (
         <>
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={CalendarClock}
+            onClick={() => router.push(projectId !== "all" ? `/timeline?projectId=${projectId}` : "/timeline")}
+          >
+            Go to Timeline
+          </Button>
           <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate}>New {meta.singular}</Button>
           <span className="ml-auto text-sm text-fg-muted">{pagination.total} {pagination.total === 1 ? meta.singular.toLowerCase() : meta.label.toLowerCase()}</span>
         </>
       )}
     </div>
   );
+
+  const handleStatusChange = async (rec: Rec, newStatus: string) => {
+    if (!meta.statusKey || !canWrite) return;
+    const oldStatus = rec[meta.statusKey];
+    // Optimistic UI update
+    setRecords((prev) =>
+      prev.map((r) => (r.id === rec.id ? { ...r, [meta.statusKey!]: newStatus } : r))
+    );
+    try {
+      const res = await fetch(`/api/pm/${slug}/${rec.id}`, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify({ [meta.statusKey]: newStatus }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update status");
+      }
+      toast.success(`Updated status to ${newStatus}`);
+    } catch (err) {
+      toast.error((err as Error).message || "Failed to update status");
+      // Revert optimistic update
+      setRecords((prev) =>
+        prev.map((r) => (r.id === rec.id ? { ...r, [meta.statusKey!]: oldStatus } : r))
+      );
+    }
+  };
 
   const body = loading ? (
     <PageLoader />
@@ -355,7 +390,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
       description={canWrite ? `Create your first ${meta.singular.toLowerCase()} to get started.` : "Nothing here yet."}
     />
   ) : view === "kanban" && meta.statusKey ? (
-    <KanbanBoard groups={groups} meta={meta} tKey={tKey} priorityKey={priorityKey} projName={projName} cellValue={cellValue} onOpen={goDetail} />
+    <KanbanBoard groups={groups} meta={meta} tKey={tKey} priorityKey={priorityKey} projName={projName} cellValue={cellValue} onOpen={goDetail} onStatusChange={handleStatusChange} />
   ) : view === "list" ? (
     <ModuleList
       records={records}
@@ -394,8 +429,8 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
                 <td key={c.key} className="px-4 py-2.5 whitespace-nowrap text-fg-muted">{cellValue(rec, c)}</td>
               ))}
               {canWrite && (
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1">
                     <IconButton icon={Pencil} label="Edit" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); goDetail(rec); }} />
                     <IconButton icon={Trash2} label="Delete" variant="ghost" size="sm" onClick={(e) => remove(rec, e)} />
                   </div>
@@ -497,7 +532,7 @@ function CardActions({ record, canWrite, onOpen, onRemove }: {
 }) {
   if (!canWrite) return null;
   return (
-    <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+    <div className="flex shrink-0 items-center gap-1 opacity-100">
       <IconButton icon={Pencil} label="Edit" variant="ghost" size="sm" onClick={(event) => { event.stopPropagation(); onOpen(record); }} />
       <IconButton icon={Trash2} label="Delete" variant="ghost" size="sm" onClick={(event) => onRemove(record, event)} />
     </div>
@@ -517,8 +552,8 @@ function DocumentationList({ records, meta, titleKey, canWrite, onOpen, onRemove
         const statusStyle = enumColor(status);
         const excerpt = recordExcerpt(rec[bodyKey]);
         return (
-          <div key={String(rec.id)} role="button" tabIndex={0} onClick={() => onOpen(rec)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(rec); }} className="group relative min-h-36 cursor-pointer rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-bg-hover">
-            <div className="mb-3 flex flex-wrap items-center gap-2 pr-16">
+          <div key={String(rec.id)} role="button" tabIndex={0} onClick={() => onOpen(rec)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(rec); }} className="group relative cursor-pointer rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-bg-hover">
+            <div className="mb-2 flex flex-wrap items-center gap-2 pr-16">
               {isApi && <MethodBadge method={String(rec.httpMethod ?? "GET")} />}
               <span className={cn("font-medium text-fg", isApi && "font-mono text-sm")}>{String(rec[titleKey])}</span>
               {status && <span className="rounded px-2 py-0.5 text-xs font-medium" style={{ color: statusStyle.color, background: statusStyle.bg }}>{status}</span>}
@@ -554,7 +589,7 @@ function DiscoveryList({ records, meta, titleKey, canWrite, onOpen, onRemove }: 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {records.map((rec) => (
-        <div key={String(rec.id)} role="button" tabIndex={0} onClick={() => onOpen(rec)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(rec); }} className="group relative min-h-44 cursor-pointer rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-bg-hover">
+        <div key={String(rec.id)} role="button" tabIndex={0} onClick={() => onOpen(rec)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(rec); }} className="group relative cursor-pointer rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-bg-hover">
           <div className="pr-14 text-base font-medium text-fg">{String(rec[titleKey])}</div>
           <div className="mt-3 space-y-2 text-sm text-fg-muted">
             {keys.map((key) => rec[key] ? <div key={key} className="flex gap-2"><span className="shrink-0 text-xs font-medium uppercase tracking-wide text-fg-subtle">{fieldLabel(meta, key)}</span><span className="truncate">{String(rec[key])}</span></div> : null)}
@@ -578,7 +613,7 @@ function DecisionList({ records, meta, titleKey, canWrite, onOpen, onRemove }: {
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
       {records.map((rec) => (
-        <div key={String(rec.id)} role="button" tabIndex={0} onClick={() => onOpen(rec)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(rec); }} className="group relative min-h-40 cursor-pointer rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-bg-hover">
+        <div key={String(rec.id)} role="button" tabIndex={0} onClick={() => onOpen(rec)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(rec); }} className="group relative cursor-pointer rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-bg-hover">
           <div className="pr-14 text-base font-medium text-fg">{String(rec[titleKey])}</div>
           <div className="mt-3 flex flex-wrap gap-2">
             {keys.map((key) => rec[key] ? <span key={key} className="rounded bg-bg-subtle px-2 py-1 text-xs text-fg-muted"><span className="font-medium text-fg">{fieldLabel(meta, key)}</span> · {String(rec[key])}</span> : null)}
@@ -606,7 +641,7 @@ function recordExcerpt(value: unknown) {
 }
 
 function KanbanBoard({
-  groups, meta, tKey, priorityKey, projName, cellValue, onOpen,
+  groups, meta, tKey, priorityKey, projName, cellValue, onOpen, onStatusChange,
 }: {
   groups: { key: string; items: Rec[] }[];
   meta: ModuleMeta;
@@ -615,13 +650,69 @@ function KanbanBoard({
   projName: (id: unknown) => string;
   cellValue: (rec: Rec, f: FieldDef) => React.ReactNode;
   onOpen: (rec: Rec) => void;
+  onStatusChange: (rec: Rec, newStatus: string) => void;
 }) {
+  const [draggedRecId, setDraggedRecId] = useState<number | string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+
+  const onDragStart = (e: React.DragEvent, rec: Rec) => {
+    e.dataTransfer.setData("text/plain", JSON.stringify({ id: rec.id, status: meta.statusKey ? rec[meta.statusKey] : null }));
+    e.dataTransfer.effectAllowed = "move";
+    setDraggedRecId(rec.id as number | string);
+  };
+
+  const onDragEnd = () => {
+    setDraggedRecId(null);
+    setDragOverCol(null);
+  };
+
+  const onDragOver = (e: React.DragEvent, colKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverCol !== colKey) {
+      setDragOverCol(colKey);
+    }
+  };
+
+  const onDragLeave = (e: React.DragEvent, colKey: string) => {
+    e.preventDefault();
+    if (dragOverCol === colKey) {
+      setDragOverCol(null);
+    }
+  };
+
+  const onDrop = (e: React.DragEvent, newStatus: string) => {
+    e.preventDefault();
+    setDragOverCol(null);
+    setDraggedRecId(null);
+    try {
+      const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+      if (!data || !data.id) return;
+      const targetGroup = groups.flatMap((g) => g.items).find((r) => String(r.id) === String(data.id));
+      if (targetGroup && meta.statusKey && targetGroup[meta.statusKey] !== newStatus) {
+        onStatusChange(targetGroup, newStatus);
+      }
+    } catch {
+      // Ignore parse error
+    }
+  };
+
   return (
     <div className="flex gap-3 overflow-x-auto pb-2">
       {groups.map((g) => {
         const c = enumColor(g.key);
+        const isOver = dragOverCol === g.key;
         return (
-          <div key={g.key} className="flex-shrink-0 w-72 bg-bg-hover rounded-lg p-2">
+          <div
+            key={g.key}
+            onDragOver={(e) => onDragOver(e, g.key)}
+            onDragLeave={(e) => onDragLeave(e, g.key)}
+            onDrop={(e) => onDrop(e, g.key)}
+            className={cn(
+              "flex-shrink-0 w-72 bg-bg-hover rounded-lg p-2 transition-colors duration-150 border-2 border-transparent",
+              isOver && "border-accent bg-accent/5"
+            )}
+          >
             <div className="flex items-center justify-between px-2 py-1.5 mb-1">
               <span className="inline-flex items-center gap-1.5 text-sm font-medium">
                 <span className="w-2 h-2 rounded-full" style={{ background: c.color }} />
@@ -629,19 +720,29 @@ function KanbanBoard({
               </span>
               <span className="text-xs text-fg-muted">{g.items.length}</span>
             </div>
-            <div className="space-y-2">
-              {g.items.map((rec) => (
-                <button
-                  key={String(rec.id)} onClick={() => onOpen(rec)}
-                  className="w-full text-left bg-bg rounded-md border border-border p-3 hover:border-accent transition-colors cursor-pointer"
-                >
-                  <div className="font-medium text-sm text-fg mb-1.5 line-clamp-2">{String(rec[tKey])}</div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge variant="neutral" size="sm">{projName(rec.projectId)}</Badge>
-                    {priorityKey && rec[priorityKey] ? cellValue(rec, meta.fields.find((f) => f.key === priorityKey)!) : null}
+            <div className="space-y-2 min-h-[120px]">
+              {g.items.map((rec) => {
+                const isDragging = String(draggedRecId) === String(rec.id);
+                return (
+                  <div
+                    key={String(rec.id)}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, rec)}
+                    onDragEnd={onDragEnd}
+                    onClick={() => onOpen(rec)}
+                    className={cn(
+                      "w-full text-left bg-bg rounded-md border border-border p-3 hover:border-accent transition-all cursor-grab active:cursor-grabbing",
+                      isDragging && "opacity-40 scale-95 border-dashed border-accent"
+                    )}
+                  >
+                    <div className="font-medium text-sm text-fg mb-1.5 line-clamp-2">{String(rec[tKey])}</div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="neutral" size="sm">{projName(rec.projectId)}</Badge>
+                      {priorityKey && rec[priorityKey] ? cellValue(rec, meta.fields.find((f) => f.key === priorityKey)!) : null}
+                    </div>
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         );
