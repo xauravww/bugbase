@@ -17,6 +17,20 @@ const VIEW_ICON: Partial<Record<ViewKind, typeof TableIcon>> = {
   list: ListIcon,
 };
 
+type WorkspaceKind = "delivery" | "documentation" | "discovery" | "decision";
+
+const LIST_FIRST_MODULES = new Set([
+  "api-docs", "arch-docs", "meeting-notes", "personas", "user-journeys",
+  "tech-stack", "mockups", "risks", "ideas", "workflows", "business-rules",
+]);
+
+function workspaceKind(slug: string): WorkspaceKind {
+  if (["api-docs", "arch-docs", "meeting-notes"].includes(slug)) return "documentation";
+  if (["personas", "user-journeys", "tech-stack", "mockups"].includes(slug)) return "discovery";
+  if (["risks", "ideas", "workflows", "business-rules"].includes(slug)) return "decision";
+  return "delivery";
+}
+
 interface Props {
   slug: string;
   /** When embedded in a project page: scope to one project + hide chrome. */
@@ -70,7 +84,8 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   // Scope workspace state in the URL. The project page already uses generic
   // keys such as `status` for its Issues tab, so sharing those keys caused the
   // Requirements status filter to be overwritten during navigation.
-  const [view, setView] = useSp<ViewKind>("wsView", "table");
+  const defaultView: ViewKind = LIST_FIRST_MODULES.has(slug) ? "list" : "table";
+  const [view, setView] = useSp<ViewKind>("wsView", defaultView);
   const [search, setSearch] = useSp("wsSearch", "");
   const [projectId, setProjectId] = useSp("wsProjectId", fixedProjectId ? String(fixedProjectId) : "all");
   const [statusFilter, setStatusFilter] = useSp("wsStatus", "all");
@@ -248,9 +263,9 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
     : [];
 
   const toolbar = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
       {embedded && (
-        <div className="relative min-w-[220px] flex-1 sm:flex-none">
+        <div className="relative w-full sm:min-w-[220px] sm:flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
           <input
             aria-label={`Search ${meta.label.toLowerCase()}`}
@@ -261,7 +276,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
           />
         </div>
       )}
-      <div className="flex items-center gap-0.5 p-0.5 bg-bg-hover rounded-md">
+      <div className="flex w-fit items-center gap-0.5 rounded-md bg-bg-hover p-0.5">
         {meta.views.filter((v) => VIEW_ICON[v]).map((v) => {
           const Icon = VIEW_ICON[v]!;
           return (
@@ -279,7 +294,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
         <Select
           aria-label="Project" value={projectId} onChange={(e) => setProjectId(e.target.value)}
           options={[{ value: "all", label: "All projects" }, ...projects.map((p) => ({ value: String(p.id), label: `${p.key} · ${p.name}` }))]}
-          wrapperClassName="min-w-[160px]" searchable
+          wrapperClassName="w-full sm:w-auto sm:min-w-[160px]" searchable
         />
       )}
 
@@ -287,7 +302,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
         <Select
           aria-label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
           options={[{ value: "all", label: "All status" }, ...statusOptions.map((s) => ({ value: s, label: s }))]}
-          wrapperClassName="min-w-[140px]"
+          wrapperClassName="w-full sm:w-auto sm:min-w-[140px]"
         />
       )}
 
@@ -295,7 +310,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
         <Select
           aria-label="Priority" value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}
           options={[{ value: "all", label: "All priority" }, ...priorityOptions.map((s) => ({ value: s, label: s }))]}
-          wrapperClassName="min-w-[140px]"
+          wrapperClassName="w-full sm:w-auto sm:min-w-[140px]"
         />
       )}
 
@@ -303,7 +318,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
         <Select
           aria-label="Tag" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}
           options={[{ value: "all", label: "All tags" }, ...tagOptions.map((t) => ({ value: t, label: t }))]}
-          wrapperClassName="min-w-[140px]"
+          wrapperClassName="w-full sm:w-auto sm:min-w-[140px]"
         />
       )}
 
@@ -316,7 +331,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
           { value: "createdAt:asc", label: "Oldest" },
           { value: `${tKey}:asc`, label: "Title A–Z" },
         ]}
-        wrapperClassName="min-w-[150px]"
+        wrapperClassName="w-full sm:w-auto sm:min-w-[150px]"
       />
 
       {(statusFilter !== "all" || priorityFilter !== "all" || tagFilter !== "all" || (!fixedProjectId && projectId !== "all") || search) && (
@@ -342,27 +357,19 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   ) : view === "kanban" && meta.statusKey ? (
     <KanbanBoard groups={groups} meta={meta} tKey={tKey} priorityKey={priorityKey} projName={projName} cellValue={cellValue} onOpen={goDetail} />
   ) : view === "list" ? (
-    <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
-      {records.map((rec) => (
-        <div key={String(rec.id)} onClick={() => goDetail(rec)} className="flex items-center gap-3 px-4 py-3 hover:bg-bg-hover group cursor-pointer">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className={cn("font-medium text-fg truncate", titleFd?.mono && "font-mono text-sm")}>{String(rec[tKey])}</span>
-              {!fixedProjectId && <Badge variant="neutral" size="sm">{projName(rec.projectId)}</Badge>}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-fg-muted">
-              {cols.filter((c) => c.key !== tKey).map((c) => <span key={c.key}>{cellValue(rec, c)}</span>)}
-            </div>
-          </div>
-          {canWrite && (
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-              <IconButton icon={Pencil} label="Edit" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); goDetail(rec); }} />
-              <IconButton icon={Trash2} label="Delete" variant="ghost" size="sm" onClick={(e) => remove(rec, e)} />
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
+    <ModuleList
+      records={records}
+      meta={meta}
+      kind={workspaceKind(slug)}
+      titleKey={tKey}
+      titleField={titleFd}
+      listColumns={cols}
+      canWrite={canWrite}
+      projectName={projName}
+      cellValue={cellValue}
+      onOpen={goDetail}
+      onRemove={remove}
+    />
   ) : (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-sm">
@@ -435,6 +442,167 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
       {deleteConfirm}
     </>
   );
+}
+
+function ModuleList({
+  records, meta, kind, titleKey, titleField, listColumns, canWrite, projectName, cellValue, onOpen, onRemove,
+}: {
+  records: Rec[];
+  meta: ModuleMeta;
+  kind: WorkspaceKind;
+  titleKey: string;
+  titleField?: FieldDef;
+  listColumns: FieldDef[];
+  canWrite: boolean;
+  projectName: (id: unknown) => string;
+  cellValue: (rec: Rec, field: FieldDef) => React.ReactNode;
+  onOpen: (rec: Rec) => void;
+  onRemove: (rec: Rec, event: React.MouseEvent) => void;
+}) {
+  if (kind === "documentation") {
+    return <DocumentationList records={records} meta={meta} titleKey={titleKey} canWrite={canWrite} onOpen={onOpen} onRemove={onRemove} />;
+  }
+  if (kind === "discovery") {
+    return <DiscoveryList records={records} meta={meta} titleKey={titleKey} canWrite={canWrite} onOpen={onOpen} onRemove={onRemove} />;
+  }
+  if (kind === "decision") {
+    return <DecisionList records={records} meta={meta} titleKey={titleKey} canWrite={canWrite} onOpen={onOpen} onRemove={onRemove} />;
+  }
+
+  return (
+    <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+      {records.map((rec) => (
+        <div key={String(rec.id)} onClick={() => onOpen(rec)} className="group flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-bg-hover">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className={cn("truncate font-medium text-fg", titleField?.mono && "font-mono text-sm")}>{String(rec[titleKey])}</span>
+              <Badge variant="neutral" size="sm">{projectName(rec.projectId)}</Badge>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-fg-muted">
+              {listColumns.filter((c) => c.key !== titleKey).map((c) => <span key={c.key}>{cellValue(rec, c)}</span>)}
+            </div>
+          </div>
+          <CardActions record={rec} canWrite={canWrite} onOpen={onOpen} onRemove={onRemove} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CardActions({ record, canWrite, onOpen, onRemove }: {
+  record: Rec;
+  canWrite: boolean;
+  onOpen: (rec: Rec) => void;
+  onRemove: (rec: Rec, event: React.MouseEvent) => void;
+}) {
+  if (!canWrite) return null;
+  return (
+    <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+      <IconButton icon={Pencil} label="Edit" variant="ghost" size="sm" onClick={(event) => { event.stopPropagation(); onOpen(record); }} />
+      <IconButton icon={Trash2} label="Delete" variant="ghost" size="sm" onClick={(event) => onRemove(record, event)} />
+    </div>
+  );
+}
+
+function DocumentationList({ records, meta, titleKey, canWrite, onOpen, onRemove }: {
+  records: Rec[]; meta: ModuleMeta; titleKey: string; canWrite: boolean;
+  onOpen: (rec: Rec) => void; onRemove: (rec: Rec, event: React.MouseEvent) => void;
+}) {
+  const isApi = meta.slug === "api-docs";
+  const bodyKey = isApi ? "responseBody" : meta.slug === "meeting-notes" ? "summary" : "content";
+  return (
+    <div className={cn("grid gap-3", isApi ? "grid-cols-1" : "grid-cols-1 xl:grid-cols-2")}>
+      {records.map((rec) => {
+        const status = meta.statusKey ? String(rec[meta.statusKey] ?? "") : "";
+        const statusStyle = enumColor(status);
+        const excerpt = recordExcerpt(rec[bodyKey]);
+        return (
+          <div key={String(rec.id)} role="button" tabIndex={0} onClick={() => onOpen(rec)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(rec); }} className="group relative min-h-36 cursor-pointer rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-bg-hover">
+            <div className="mb-3 flex flex-wrap items-center gap-2 pr-16">
+              {isApi && <MethodBadge method={String(rec.httpMethod ?? "GET")} />}
+              <span className={cn("font-medium text-fg", isApi && "font-mono text-sm")}>{String(rec[titleKey])}</span>
+              {status && <span className="rounded px-2 py-0.5 text-xs font-medium" style={{ color: statusStyle.color, background: statusStyle.bg }}>{status}</span>}
+            </div>
+            {isApi ? (
+              <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-fg-muted">
+                <span><span className="font-medium text-fg">Auth</span> · {String(rec.authentication ?? "None")}</span>
+                <span>{rec.requestBody ? "Request schema" : "No request body"}</span>
+                <span>{rec.responseBody ? "Response schema" : "No response schema"}</span>
+              </div>
+            ) : (
+              <>
+                <div className="text-xs font-medium text-fg-muted">{meta.slug === "meeting-notes" ? String(rec.meetingDate ?? "Undated") : String(rec.category ?? "Document")}</div>
+                {excerpt && <p className="mt-2 line-clamp-3 text-sm leading-6 text-fg-muted">{excerpt}</p>}
+              </>
+            )}
+            <div className="absolute right-2 top-2"><CardActions record={rec} canWrite={canWrite} onOpen={onOpen} onRemove={onRemove} /></div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DiscoveryList({ records, meta, titleKey, canWrite, onOpen, onRemove }: {
+  records: Rec[]; meta: ModuleMeta; titleKey: string; canWrite: boolean;
+  onOpen: (rec: Rec) => void; onRemove: (rec: Rec, event: React.MouseEvent) => void;
+}) {
+  const detailKeys: Record<string, string[]> = {
+    personas: ["role", "goals"], "user-journeys": ["stage", "persona"], "tech-stack": ["category", "version"], mockups: ["screen", "url"],
+  };
+  const keys = detailKeys[meta.slug] ?? [];
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {records.map((rec) => (
+        <div key={String(rec.id)} role="button" tabIndex={0} onClick={() => onOpen(rec)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(rec); }} className="group relative min-h-44 cursor-pointer rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-bg-hover">
+          <div className="pr-14 text-base font-medium text-fg">{String(rec[titleKey])}</div>
+          <div className="mt-3 space-y-2 text-sm text-fg-muted">
+            {keys.map((key) => rec[key] ? <div key={key} className="flex gap-2"><span className="shrink-0 text-xs font-medium uppercase tracking-wide text-fg-subtle">{fieldLabel(meta, key)}</span><span className="truncate">{String(rec[key])}</span></div> : null)}
+          </div>
+          {recordExcerpt(rec.description ?? rec.painPoints ?? rec.rationale) && <p className="mt-3 line-clamp-2 text-sm leading-5 text-fg-muted">{recordExcerpt(rec.description ?? rec.painPoints ?? rec.rationale)}</p>}
+          <div className="absolute right-2 top-2"><CardActions record={rec} canWrite={canWrite} onOpen={onOpen} onRemove={onRemove} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DecisionList({ records, meta, titleKey, canWrite, onOpen, onRemove }: {
+  records: Rec[]; meta: ModuleMeta; titleKey: string; canWrite: boolean;
+  onOpen: (rec: Rec) => void; onRemove: (rec: Rec, event: React.MouseEvent) => void;
+}) {
+  const metrics: Record<string, string[]> = {
+    risks: ["impact", "probability", "status"], ideas: ["impact", "effort", "priority"], workflows: ["trigger", "status"], "business-rules": ["category", "status"],
+  };
+  const keys = metrics[meta.slug] ?? [];
+  return (
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      {records.map((rec) => (
+        <div key={String(rec.id)} role="button" tabIndex={0} onClick={() => onOpen(rec)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(rec); }} className="group relative min-h-40 cursor-pointer rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-bg-hover">
+          <div className="pr-14 text-base font-medium text-fg">{String(rec[titleKey])}</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {keys.map((key) => rec[key] ? <span key={key} className="rounded bg-bg-subtle px-2 py-1 text-xs text-fg-muted"><span className="font-medium text-fg">{fieldLabel(meta, key)}</span> · {String(rec[key])}</span> : null)}
+          </div>
+          {recordExcerpt(rec.description ?? rec.mitigationPlan ?? rec.condition ?? rec.steps) && <p className="mt-3 line-clamp-2 text-sm leading-5 text-fg-muted">{recordExcerpt(rec.description ?? rec.mitigationPlan ?? rec.condition ?? rec.steps)}</p>}
+          <div className="absolute right-2 top-2"><CardActions record={rec} canWrite={canWrite} onOpen={onOpen} onRemove={onRemove} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MethodBadge({ method }: { method: string }) {
+  const colors: Record<string, string> = { GET: "bg-blue-50 text-blue-700", POST: "bg-emerald-50 text-emerald-700", PUT: "bg-amber-50 text-amber-700", PATCH: "bg-violet-50 text-violet-700", DELETE: "bg-red-50 text-red-700" };
+  return <span className={cn("rounded px-2 py-0.5 font-mono text-xs font-semibold", colors[method] ?? "bg-bg-subtle text-fg-muted")}>{method}</span>;
+}
+
+function fieldLabel(meta: ModuleMeta, key: string) {
+  return meta.fields.find((field) => field.key === key)?.label ?? key;
+}
+
+function recordExcerpt(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.replace(/[#*_`>-]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function KanbanBoard({

@@ -774,7 +774,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* Filters & View Toggle - Stack on mobile */}
-            <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-4 md:mb-6">
+            <div className="mb-4 flex flex-col gap-3 md:mb-6 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
               <Select
                 options={[
                   { value: "all", label: "All Types" },
@@ -782,7 +782,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 ]}
                 value={filterType}
                 onChange={(e) => { setFilterType(e.target.value); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
-                className="w-36"
+                wrapperClassName="w-full sm:w-36"
               />
               <Select
                 options={[
@@ -791,11 +791,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 ]}
                 value={filterPriority}
                 onChange={(e) => { setFilterPriority(e.target.value); setIssuesPaginationState(prev => Object.fromEntries(Object.keys(prev).map(k => [k, 1]))); }}
-                className="w-40"
+                wrapperClassName="w-full sm:w-40"
               />
 
               {projectCategories.length > 0 && (
-                <div className="flex items-center gap-2 min-w-[260px]">
+                <div className="flex w-full min-w-0 items-center gap-2 sm:min-w-[260px] sm:flex-1">
                   <div className="flex-1">
                     <MultiSelectChips
                       options={projectCategories.map((c) => ({ id: c.id, label: c.name, color: c.color }))}
@@ -832,7 +832,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 </div>
               )}
 
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
                 <div className="flex p-1 rounded-xl bg-bg-hover">
                   <button
                     onClick={() => setViewMode("list")}
@@ -867,7 +867,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
             {/* Bulk status update bar */}
             {selectedProjectIssueIds.length > 0 && (
-              <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-accent-subtle border border-accent/30">
+              <div className="mb-4 flex flex-col gap-3 rounded-lg border border-accent/30 bg-accent-subtle p-3 sm:flex-row sm:items-center">
                 <span className="text-sm font-medium text-fg">{selectedProjectIssueIds.length} selected</span>
                 <Select
                   options={[
@@ -876,12 +876,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   ]}
                   value={bulkProjectStatus}
                   onChange={(e) => setBulkProjectStatus(e.target.value)}
-                  className="w-44"
+                  wrapperClassName="w-full sm:w-44"
                 />
                 <Button variant="primary" onClick={handleBulkProjectStatusUpdate} disabled={!bulkProjectStatus} className="text-sm">
                   Update
                 </Button>
-                <button onClick={() => setSelectedProjectIssueIds([])} className="text-sm ml-auto text-fg-muted hover:text-fg cursor-pointer">
+                <button onClick={() => setSelectedProjectIssueIds([])} className="ml-auto text-sm text-fg-muted hover:text-fg cursor-pointer">
                   Clear
                 </button>
               </div>

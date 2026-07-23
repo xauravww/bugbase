@@ -60,8 +60,8 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0 overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:gap-2">
+        <div className="min-w-0 overflow-x-auto -mx-3 px-3 sm:flex-1 md:mx-0 md:px-0">
           <div className="flex items-center gap-1 p-1 rounded-xl bg-bg-hover" style={{ width: "fit-content", minWidth: "max-content" }}>
             {chips.map((c) => {
               const Icon = c.icon;
@@ -83,7 +83,7 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
           </div>
         </div>
         {canWrite && activeMeta && (
-          <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate} className="shrink-0">
+          <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate} className="w-full justify-center sm:mt-1 sm:w-auto sm:shrink-0">
             New {activeMeta.singular}
           </Button>
         )}

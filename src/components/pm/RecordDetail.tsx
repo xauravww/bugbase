@@ -210,16 +210,16 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
   return (
     <div className="min-h-full">
       {/* top bar */}
-      <div className="sticky top-0 z-10 bg-bg/95 backdrop-blur border-b border-border px-4 md:px-6 h-14 flex items-center gap-3">
-        <button onClick={() => router.push(backHref)} className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg cursor-pointer">
+      <div className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center gap-2 border-b border-border bg-bg/95 px-3 py-2 backdrop-blur md:flex-nowrap md:px-6 md:py-0">
+        <button onClick={() => router.push(backHref)} className="inline-flex shrink-0 items-center gap-1.5 text-sm text-fg-muted hover:text-fg cursor-pointer">
           <ArrowLeft className="w-4 h-4" /> {backLabel}
         </button>
-        <span className="text-fg-subtle">/</span>
-        <span className="text-sm font-medium text-fg truncate">
+        <span className="hidden text-fg-subtle sm:inline">/</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
           {isNew ? `New ${meta.singular}` : String(form[tKey] || `#${id}`)}
         </span>
-        {sc && <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ color: sc.color, background: sc.bg }}>{statusVal}</span>}
-        <div className="ml-auto flex items-center gap-2">
+        {sc && <span className="shrink-0 rounded px-2 py-0.5 text-xs font-medium" style={{ color: sc.color, background: sc.bg }}>{statusVal}</span>}
+        <div className="flex w-full items-center justify-end gap-2 sm:ml-auto sm:w-auto">
           {!isNew && canWrite && !editing && <Button variant="ghost" size="sm" leftIcon={Pencil} onClick={() => setEditing(true)}>Edit</Button>}
           {!isNew && canWrite && <Button variant="ghost" size="sm" leftIcon={Trash2} onClick={remove}>Delete</Button>}
           {editing && canWrite && <Button variant="primary" size="sm" leftIcon={Save} onClick={save} loading={saving}>{isNew ? "Create" : "Save"}</Button>}
@@ -227,9 +227,9 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
         </div>
       </div>
 
-      <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 max-w-6xl mx-auto">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 p-3 md:p-6 lg:grid-cols-[1fr_300px]">
         {/* main form */}
-        <div className="space-y-4 order-2 lg:order-1">
+        <div className="order-1 space-y-4">
           {editing ? (
             <>
               <Select
@@ -293,7 +293,7 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
         </div>
 
         {/* sidebar: linked + related create */}
-        <aside className="space-y-5 order-1 lg:order-2">
+        <aside className="order-2 space-y-5">
           {projKey && (
             <div>
               <h3 className="text-xs font-semibold text-fg-subtle uppercase tracking-wider mb-2">Project</h3>
@@ -310,7 +310,7 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
               <h3 className="text-xs font-semibold text-fg-subtle uppercase tracking-wider mb-2">Links</h3>
               <div className="space-y-1.5">
                 {meta.fields.filter((f) => f.relation && f.relation !== "users" && form[f.key]).map((f) => (
-                  <Link key={f.key} href={`/pm/${f.relation}/${form[f.key]}`} className="flex items-center justify-between text-sm text-fg hover:text-accent group">
+                  <Link key={f.key} href={`/pm/${f.relation}/${form[f.key]}`} className="group flex flex-col gap-1 text-sm text-fg hover:text-accent sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-fg-muted">{f.label}</span>
                     <span className="inline-flex items-center gap-1 truncate max-w-[160px]">{relLabel(f, form[f.key], users, relations)} <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100" /></span>
                   </Link>
