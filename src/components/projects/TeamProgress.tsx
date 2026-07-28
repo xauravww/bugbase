@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { DatePicker } from "@/components/ui/DatePicker";
 
 type Member = {
   user: { id: number; name: string; email?: string; role?: string };
@@ -368,23 +369,21 @@ export default function TeamProgress({ projectId }: { projectId: string }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={from}
-              max={to}
-              onChange={(e) => { setPreset("custom"); setFrom(e.target.value); }}
-              className="px-2 py-1.5 text-xs rounded-md border"
-              style={{ borderColor: "#e9eaef" }}
-            />
+            <div className="w-36">
+              <DatePicker
+                value={from}
+                max={to}
+                onChange={(val) => { setPreset("custom"); setFrom(val); }}
+              />
+            </div>
             <span className="text-xs" style={{ color: "#a5a8b5" }}>→</span>
-            <input
-              type="date"
-              value={to}
-              min={from}
-              onChange={(e) => { setPreset("custom"); setTo(e.target.value); }}
-              className="px-2 py-1.5 text-xs rounded-md border"
-              style={{ borderColor: "#e9eaef" }}
-            />
+            <div className="w-36">
+              <DatePicker
+                value={to}
+                min={from}
+                onChange={(val) => { setPreset("custom"); setTo(val); }}
+              />
+            </div>
           </div>
 
           <MemberSelect members={data?.members || []} value={userId} onChange={setUserId} />

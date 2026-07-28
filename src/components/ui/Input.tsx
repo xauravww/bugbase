@@ -2,6 +2,7 @@
 
 import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
 import { type LucideIcon } from "lucide-react";
+import { DatePicker } from "./DatePicker";
 import { cn } from "@/lib/utils/cn";
 import { FieldHelpButton, type FieldHelpContent, type FieldHelpKind } from "./FieldHelp";
 
@@ -36,6 +37,36 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
+    if (type === "date") {
+      return (
+        <DatePicker
+          ref={ref}
+          id={id}
+          name={props.name}
+          label={label}
+          error={error}
+          hint={hint}
+          help={help}
+          value={props.value as string | number | null}
+          onChange={(val) => {
+            if (props.onChange) {
+              const event = {
+                target: { value: val, id, name: props.name },
+                currentTarget: { value: val, id, name: props.name },
+              } as React.ChangeEvent<HTMLInputElement>;
+              props.onChange(event);
+            }
+          }}
+          disabled={props.disabled}
+          className={className}
+          wrapperClassName={wrapperClassName}
+          placeholder={typeof props.placeholder === "string" ? props.placeholder : undefined}
+          min={typeof props.min === "string" ? props.min : undefined}
+          max={typeof props.max === "string" ? props.max : undefined}
+        />
+      );
+    }
+
     const showRightSlot = rightSlot ?? (RightIcon ? <RightIcon className="w-4 h-4 text-fg-muted" aria-hidden /> : null);
 
     return (

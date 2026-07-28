@@ -6,7 +6,7 @@ import {
   Pencil, Trash2, Wand2, Plus, X,
 } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Button, Card, PageLoader, Select, Textarea } from "@/components/ui";
+import { Button, Card, DatePicker, PageLoader, Select, Textarea } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils/cn";
 
@@ -308,17 +308,13 @@ export default function WorkUpdatePage() {
                 <Select label="Project" value={genProject}
                   onChange={e => { setGenProject(e.target.value); setGenOutput(""); }}
                   options={projOptions} placeholder="Select project" searchable />
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-fg">From</label>
-                  <input type="date" value={genStart}
-                    onChange={e => { setGenStart(e.target.value); setGenOutput(""); }}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-surface text-fg focus:outline-none focus:ring-1 focus:ring-accent" />
+                <div>
+                  <DatePicker label="From" value={genStart}
+                    onChange={val => { setGenStart(val); setGenOutput(""); }} />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-fg">To <span className="text-fg-subtle font-normal">(optional)</span></label>
-                  <input type="date" value={genEnd} min={genStart}
-                    onChange={e => { setGenEnd(e.target.value); setGenOutput(""); }}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-surface text-fg focus:outline-none focus:ring-1 focus:ring-accent" />
+                <div>
+                  <DatePicker label="To (optional)" value={genEnd} min={genStart}
+                    onChange={val => { setGenEnd(val); setGenOutput(""); }} />
                 </div>
               </div>
 
@@ -412,10 +408,8 @@ export default function WorkUpdatePage() {
             <Card variant="default" className="p-5 space-y-3">
               <h2 className="text-sm font-semibold text-fg">Add work entry</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-fg-muted">Date</label>
-                  <input type="date" value={logDate} onChange={e => setLogDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-md border border-border bg-surface text-fg focus:outline-none focus:ring-1 focus:ring-accent" />
+                <div>
+                  <DatePicker label="Date" value={logDate} onChange={val => setLogDate(val)} />
                 </div>
                 <Select label="Project (optional)" value={logProject}
                   onChange={e => setLogProject(e.target.value)}
@@ -434,15 +428,11 @@ export default function WorkUpdatePage() {
 
             {/* Filters */}
             <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1">
-                <label className="block text-xs font-medium text-fg-muted">From</label>
-                <input type="date" value={filterStart} onChange={e => setFilterStart(e.target.value)}
-                  className="px-3 py-1.5 text-sm rounded-md border border-border bg-surface text-fg focus:outline-none focus:ring-1 focus:ring-accent" />
+              <div className="w-36">
+                <DatePicker label="From" value={filterStart} onChange={val => setFilterStart(val)} />
               </div>
-              <div className="space-y-1">
-                <label className="block text-xs font-medium text-fg-muted">To</label>
-                <input type="date" value={filterEnd} min={filterStart} onChange={e => setFilterEnd(e.target.value)}
-                  className="px-3 py-1.5 text-sm rounded-md border border-border bg-surface text-fg focus:outline-none focus:ring-1 focus:ring-accent" />
+              <div className="w-36">
+                <DatePicker label="To" value={filterEnd} min={filterStart} onChange={val => setFilterEnd(val)} />
               </div>
               <div className="space-y-1 min-w-[160px]">
                 <label className="block text-xs font-medium text-fg-muted">Project</label>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Button, Input, Modal, Checkbox, MultiSelectChips, AvatarGroup, useToast } from "@/components/ui";
+import { Button, Input, DatePicker, Modal, Checkbox, MultiSelectChips, AvatarGroup, useToast } from "@/components/ui";
 import { Plus, Trash2, Edit2, ChevronDown, ChevronRight, CheckCircle2, Circle, ListTodo, History, RotateCcw, Undo2, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { contrastingText } from "@/lib/categories";
@@ -741,7 +741,7 @@ export function ListsWorkspace({ projectId }: { projectId: string }) {
             </div>
             <div className="flex-1">
               <label className="block text-sm font-medium mb-1" style={{ color: "#1c1c1e", fontFamily: "DM Sans, sans-serif" }}>Due Date</label>
-              <input type="date" className="w-full px-3 py-2 text-sm rounded-md border" style={{ borderColor: "#e9eaef" }} value={taskForm.dueDate} onChange={e => setTaskForm(prev => ({ ...prev, dueDate: e.target.value }))} />
+              <DatePicker value={taskForm.dueDate} onChange={val => setTaskForm(prev => ({ ...prev, dueDate: val }))} />
             </div>
           </div>
           <MultiSelectChips

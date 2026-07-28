@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Plus, FolderKanban, Users, Bug, Archive, Search, ChevronLeft, ChevronRight, Calendar, Pencil, X } from "lucide-react";
 import { Header } from "@/components/layout";
-import { Button, Modal, Input, PageLoader, Badge, Avatar, Select, FabButton } from "@/components/ui";
+import { Button, Modal, Input, DatePicker, PageLoader, Badge, Avatar, Select, FabButton } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClickOutside } from "@/hooks/useClickOutside";
 
@@ -469,14 +469,12 @@ export default function ProjectsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Start Date</label>
-              <input type="date" id="startDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
-                value={createForm.startDate} onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })} />
+              <DatePicker label="Start Date" id="startDate"
+                value={createForm.startDate} onChange={(val) => setCreateForm({ ...createForm, startDate: val })} />
             </div>
             <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">End Date</label>
-              <input type="date" id="endDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
-                value={createForm.endDate} onChange={(e) => setCreateForm({ ...createForm, endDate: e.target.value })} />
+              <DatePicker label="End Date" id="endDate" min={createForm.startDate}
+                value={createForm.endDate} onChange={(val) => setCreateForm({ ...createForm, endDate: val })} />
             </div>
           </div>
 
@@ -505,14 +503,12 @@ export default function ProjectsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="editStartDate" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">Start Date</label>
-              <input type="date" id="editStartDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
-                value={editForm.startDate} onChange={(e) => setEditForm({ ...editForm, startDate: e.target.value })} />
+              <DatePicker label="Start Date" id="editStartDate"
+                value={editForm.startDate} onChange={(val) => setEditForm({ ...editForm, startDate: val })} />
             </div>
             <div>
-              <label htmlFor="editEndDate" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">End Date</label>
-              <input type="date" id="editEndDate" className="w-full px-3 py-2 text-sm bg-white border border-[var(--color-border)] rounded-md focus:outline-none focus:border-[var(--color-accent)] touch-target"
-                value={editForm.endDate} onChange={(e) => setEditForm({ ...editForm, endDate: e.target.value })} />
+              <DatePicker label="End Date" id="editEndDate" min={editForm.startDate}
+                value={editForm.endDate} onChange={(val) => setEditForm({ ...editForm, endDate: val })} />
             </div>
           </div>
 
