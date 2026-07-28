@@ -1071,6 +1071,62 @@ function McpSettings() {
           Reload MCP servers in your client, then use any tool. No login step — the token identifies you.
         </p>
       </section>
+
+      {/* 3. Rules & Instructions */}
+      <section>
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+          3. Rules & Usage Instructions
+        </h3>
+        <p className="text-sm text-[var(--color-text-secondary)] mb-3">
+          Follow these rules when interacting with Bugbase via MCP tools to ensure data accuracy, clear details, and proper categorization:
+        </p>
+
+        <div className="space-y-3 text-xs text-[var(--color-text-secondary)]">
+          <div className="p-3.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] space-y-1.5">
+            <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+              <span>🤖 AI Category & Content Validation</span>
+            </div>
+            <p>
+              All creation and update operations (<code>pm_create</code>, <code>pm_update</code>, <code>create_issue</code>, <code>create_test_case</code>, <code>create_task</code>) automatically execute the <strong>Check with AI</strong> test method before saving.
+            </p>
+            <ul className="list-disc pl-4 space-y-1 pt-1">
+              <li>Content must match the target module category (e.g. Bug reports belong in <code>bugs</code>/<code>issues</code>, product specifications in <code>requirements</code>, architecture in <code>arch-docs</code>).</li>
+              <li>Out-of-category items (where <code>belongsHere === false</code>) are blocked to prevent misfiling data. Pass <code>force=true</code> to override.</li>
+              <li>You can explicitly test draft content before saving by calling the <code>check_with_ai</code> tool with <code>{`{ module, fields }`}</code>.</li>
+            </ul>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] space-y-1.5">
+            <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+              <span>🎯 Project Scoping & Permissions</span>
+            </div>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>Always provide <code>projectId</code> for project-scoped tools (e.g. <code>list_issues</code>, <code>list_test_cases</code>, <code>pm_create</code>, <code>list_lists</code>).</li>
+              <li>Operations run strictly under your authenticated identity and respect project role permissions (Admin, Member, Viewer).</li>
+            </ul>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] space-y-1.5">
+            <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+              <span>📊 Tool Selection & Data Retrieval</span>
+            </div>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>Use <code>list_issues</code> with <code>projectId</code> to retrieve project issues. Do not use <code>dashboard</code> for listing project issues, as it only returns global numerical counts.</li>
+              <li>Use <code>pm_list</code> to filter and fetch workspace records for any of the 19 PM modules (requirements, features, dev-tasks, bugs, releases, api-docs, etc.).</li>
+              <li>Use <code>list_lists</code> with <code>shallow=true</code> for fast list headers and counts without full nested task trees.</li>
+            </ul>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] space-y-1.5">
+            <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+              <span>📝 Detail Quality Standards</span>
+            </div>
+            <ul className="list-disc pl-4 space-y-1">
+              <li>Provide clear, descriptive titles and complete required fields (e.g. acceptance criteria, steps to reproduce, expected results) so AI checks and team workflows remain effective.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
