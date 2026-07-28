@@ -392,6 +392,25 @@ export const taskActivity = sqliteTable("task_activity", {
   createdAtIdx: index("idx_task_activity_created_at").on(table.createdAt),
 }));
 
+// Daily work logs — free-form natural-language record of what a user did on a
+// given day, optionally tied to a project. Complements activity_log (which only
+// captures structured tracker events) so non-technical / off-tracker work is
+// still visible in updates and on the calendar.
+export const workLogs = sqliteTable("work_logs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  logDate: integer("log_date", { mode: "timestamp" }).notNull(),
+  content: text("content").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+}, (table) => ({
+  userIdx: index("idx_work_logs_user").on(table.userId),
+  projectIdx: index("idx_work_logs_project").on(table.projectId),
+  dateIdx: index("idx_work_logs_date").on(table.logDate),
+  userDateIdx: index("idx_work_logs_user_date").on(table.userId, table.logDate),
+}));
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   projects: many(projects),
@@ -400,6 +419,18 @@ export const usersRelations = relations(users, ({ many }) => ({
   comments: many(comments),
   activities: many(activityLog),
   apiTokens: many(apiTokens),
+  workLogs: many(workLogs),
+}));
+
+export const workLogsRelations = relations(workLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [workLogs.userId],
+    references: [users.id],
+  }),
+  project: one(projects, {
+    fields: [workLogs.projectId],
+    references: [projects.id],
+  }),
 }));
 
 export const apiTokensRelations = relations(apiTokens, ({ one }) => ({
