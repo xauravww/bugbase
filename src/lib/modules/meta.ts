@@ -303,6 +303,40 @@ export const MODULE_META: Record<string, ModuleMeta> = {
       { key: "tags", label: "Tags", type: "tags", inList: true, placeholder: "Comma-separated" },
     ],
   },
+  issues: {
+    slug: "issues", label: "Issues", singular: "Issue", icon: "Bug",
+    statusKey: "status", views: ["table", "kanban", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
+      { key: "type", label: "Type", type: "select", options: ["Bug", "Feature", "Task", "Improvement"], default: "Bug", inList: true },
+      { key: "status", label: "Status", type: "select", options: ["Open", "In Progress", "Closed", "Resolved"], default: "Open", inList: true },
+      { key: "priority", label: "Priority", type: "select", options: PRIORITY, default: "Medium", inList: true },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "stepsToReproduce", label: "Steps to Reproduce", type: "textarea" },
+      { key: "expectedResult", label: "Expected Result", type: "textarea" },
+      { key: "actualResult", label: "Actual Result", type: "textarea" },
+    ],
+  },
+  "test-cases": {
+    slug: "test-cases", label: "Test Cases", singular: "Test Case", icon: "CheckSquare",
+    statusKey: "status", views: ["table", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "steps", label: "Steps", type: "textarea" },
+      { key: "expectedResult", label: "Expected Result", type: "textarea" },
+    ],
+  },
+  tasks: {
+    slug: "tasks", label: "Tasks", singular: "Task", icon: "CheckSquare",
+    statusKey: "status", views: ["table", "list"], defaultSort: "updatedAt",
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true, inList: true },
+      { key: "status", label: "Status", type: "select", options: ["active", "completed"], default: "active", inList: true },
+      { key: "priority", label: "Priority", type: "select", options: ["none", "low", "medium", "high"], default: "none", inList: true },
+      { key: "description", label: "Description", type: "textarea" },
+    ],
+  },
 };
 
 export const META_LIST = Object.values(MODULE_META);

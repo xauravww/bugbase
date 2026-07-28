@@ -8,6 +8,8 @@
 // The registry is transport-agnostic: a tool handler receives a `call(method,
 // path, body)` fn and its validated args, and returns a JSON-serialisable value.
 
+import { reviewRecord } from "@/lib/ai/review-record";
+
 export interface ToolContext {
   // Perform an authenticated REST call against the bugbase API.
   call: (method: string, path: string, body?: unknown) => Promise<unknown>;
@@ -38,6 +40,22 @@ const num = { type: "number" };
 const str = { type: "string" };
 const bool = { type: "boolean" };
 const numArr = { type: "array", items: { type: "number" } };
+
+/**
+ * Runs the AI record review test method on an item before creation or update.
+ * If the item is out-of-category (belongsHere === false) and force is false,
+ * returns an error preventing invalid creation.
+ */
+async function checkWithAi(moduleSlug: string, fields: Record<string, unknown>, force?: boolean) {
+  const review = await reviewRecord(moduleSlug, fields);
+  if (review && review.belongsHere === false && !force) {
+    return {
+      error: `AI Review Failed: Content does not belong in '${moduleSlug}'. It belongs in '${review.belongsIn || "another category"}'. ${review.summary}. Pass force=true to override.`,
+      aiReview: review,
+    };
+  }
+  return { aiReview: review };
+}
 
 export const TOOLS: ToolDef[] = [
   // ── whoami / projects ──
@@ -98,27 +116,43 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "create_issue",
-    description: "Create an issue. Requires create permission in the project (Viewers cannot).",
+    description: "Create an issue. Automatically validated via AI test method to prevent out-of-category content. Set force=true to bypass AI validation.",
     inputSchema: {
       type: "object",
       properties: {
         projectId: num, title: str, type: str, description: str,
         stepsToReproduce: str, expectedResult: str, actualResult: str,
-        priority: str, dueDate: str, assigneeIds: numArr, categoryIds: numArr,
+        priority: str, dueDate: str, assigneeIds: numArr, categoryIds: numArr, force: bool,
       },
       required: ["projectId", "title"],
     },
-    handler: (a, ctx) => ctx.call("POST", "/api/issues", a),
+    handler: async ({ force, ...a }, ctx) => {
+      const aiCheck = await checkWithAi("issues", a as Record<string, unknown>, Boolean(force));
+      if (aiCheck.error) return aiCheck;
+      const res = await ctx.call("POST", "/api/issues", a);
+      if (aiCheck.aiReview) {
+        return { result: res, aiReview: aiCheck.aiReview };
+      }
+      return res;
+    },
   },
   {
     name: "update_issue",
-    description: "Update an issue (title, status, priority, description, etc.).",
+    description: "Update an issue (title, status, priority, description, etc.). Automatically validated via AI test method.",
     inputSchema: {
       type: "object",
-      properties: { issueId: num, title: str, status: str, priority: str, type: str, description: str, dueDate: str },
+      properties: { issueId: num, title: str, status: str, priority: str, type: str, description: str, dueDate: str, force: bool },
       required: ["issueId"],
     },
-    handler: ({ issueId, ...updates }, ctx) => ctx.call("PUT", `/api/issues/${issueId}`, updates),
+    handler: async ({ issueId, force, ...updates }, ctx) => {
+      const aiCheck = await checkWithAi("issues", updates as Record<string, unknown>, Boolean(force));
+      if (aiCheck.error) return aiCheck;
+      const res = await ctx.call("PUT", `/api/issues/${issueId}`, updates);
+      if (aiCheck.aiReview) {
+        return { result: res, aiReview: aiCheck.aiReview };
+      }
+      return res;
+    },
   },
   {
     name: "delete_issue",
@@ -154,24 +188,39 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "create_test_case",
-    description: "Create a test case. Set force=true to bypass duplicate detection.",
+    description: "Create a test case. Validated via AI test method. Set force=true to bypass duplicate detection and AI category checks.",
     inputSchema: {
       type: "object",
       properties: { projectId: num, title: str, description: str, steps: str, expectedResult: str, force: bool },
       required: ["projectId", "title"],
     },
-    handler: ({ projectId, ...body }, ctx) => ctx.call("POST", `/api/projects/${projectId}/test-cases`, body),
+    handler: async ({ projectId, force, ...body }, ctx) => {
+      const aiCheck = await checkWithAi("test-cases", body as Record<string, unknown>, Boolean(force));
+      if (aiCheck.error) return aiCheck;
+      const res = await ctx.call("POST", `/api/projects/${projectId}/test-cases`, { ...body, force });
+      if (aiCheck.aiReview) {
+        return { result: res, aiReview: aiCheck.aiReview };
+      }
+      return res;
+    },
   },
   {
     name: "update_test_case",
-    description: "Update a test case.",
+    description: "Update a test case. Validated via AI test method.",
     inputSchema: {
       type: "object",
-      properties: { projectId: num, testCaseId: num, title: str, description: str, steps: str, expectedResult: str },
+      properties: { projectId: num, testCaseId: num, title: str, description: str, steps: str, expectedResult: str, force: bool },
       required: ["projectId", "testCaseId"],
     },
-    handler: ({ projectId, testCaseId, ...body }, ctx) =>
-      ctx.call("PATCH", `/api/projects/${projectId}/test-cases/${testCaseId}`, body),
+    handler: async ({ projectId, testCaseId, force, ...body }, ctx) => {
+      const aiCheck = await checkWithAi("test-cases", body as Record<string, unknown>, Boolean(force));
+      if (aiCheck.error) return aiCheck;
+      const res = await ctx.call("PATCH", `/api/projects/${projectId}/test-cases/${testCaseId}`, body);
+      if (aiCheck.aiReview) {
+        return { result: res, aiReview: aiCheck.aiReview };
+      }
+      return res;
+    },
   },
   {
     name: "record_test_result",
@@ -242,32 +291,46 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "create_task",
-    description: "Create a task. Valid status: 'active' (default) | 'completed'. Valid priority: 'none' (default) | 'low' | 'medium' | 'high'. Optionally assign users and labels on create.",
+    description: "Create a task. Validated via AI test method to check category and proper details. Valid status: 'active' | 'completed'. Valid priority: 'none' | 'low' | 'medium' | 'high'.",
     inputSchema: {
       type: "object",
       properties: {
         projectId: num, listId: num, title: str, description: str,
-        priority: str, dueDate: str, status: str, assigneeIds: numArr, categoryIds: numArr,
+        priority: str, dueDate: str, status: str, assigneeIds: numArr, categoryIds: numArr, force: bool,
       },
       required: ["projectId", "listId", "title"],
     },
-    handler: ({ projectId, listId, ...body }, ctx) =>
-      ctx.call("POST", `/api/projects/${projectId}/lists/${listId}/tasks`, body),
+    handler: async ({ projectId, listId, force, ...body }, ctx) => {
+      const aiCheck = await checkWithAi("tasks", body as Record<string, unknown>, Boolean(force));
+      if (aiCheck.error) return aiCheck;
+      const res = await ctx.call("POST", `/api/projects/${projectId}/lists/${listId}/tasks`, body);
+      if (aiCheck.aiReview) {
+        return { result: res, aiReview: aiCheck.aiReview };
+      }
+      return res;
+    },
   },
   {
     name: "update_task",
-    description: "Update a task: fields, status, assignees, completers, labels, or restore a soft-deleted task. Valid status: 'active' | 'completed'. Valid priority: 'none' | 'low' | 'medium' | 'high'.",
+    description: "Update a task: fields, status, assignees, completers, labels, or restore a soft-deleted task. Validated via AI test method.",
     inputSchema: {
       type: "object",
       properties: {
         projectId: num, listId: num, taskId: num, title: str, description: str,
         priority: str, status: str, dueDate: str,
-        assigneeIds: numArr, completerIds: numArr, categoryIds: numArr, restore: bool,
+        assigneeIds: numArr, completerIds: numArr, categoryIds: numArr, restore: bool, force: bool,
       },
       required: ["projectId", "listId", "taskId"],
     },
-    handler: ({ projectId, listId, taskId, ...body }, ctx) =>
-      ctx.call("PATCH", `/api/projects/${projectId}/lists/${listId}/tasks/${taskId}`, body),
+    handler: async ({ projectId, listId, taskId, force, ...body }, ctx) => {
+      const aiCheck = await checkWithAi("tasks", body as Record<string, unknown>, Boolean(force));
+      if (aiCheck.error) return aiCheck;
+      const res = await ctx.call("PATCH", `/api/projects/${projectId}/lists/${listId}/tasks/${taskId}`, body);
+      if (aiCheck.aiReview) {
+        return { result: res, aiReview: aiCheck.aiReview };
+      }
+      return res;
+    },
   },
   {
     name: "delete_task",
@@ -376,7 +439,7 @@ export const TOOLS: ToolDef[] = [
   {
     name: "pm_create",
     description:
-      "Create a PM record. Pass module, projectId (required), and the module's fields (title/name/version/endpoint, status, priority, description, etc). Relation fields (requirementId, featureId, assigneeId, sprintId, taskId, parentId) take numeric ids.",
+      "Create a PM record. Automatically validated via AI test method to ensure content belongs in the specified module and has proper details. Pass module, projectId (required), and fields. Set force=true to bypass AI validation.",
     inputSchema: {
       type: "object",
       properties: {
@@ -393,14 +456,24 @@ export const TOOLS: ToolDef[] = [
         role: str, benefit: str, goals: str, painPoints: str, behaviors: str,
         stage: str, persona: str, touchpoints: str, opportunities: str, rationale: str,
         screen: str, url: str, trigger: str, steps: str, condition: str, action: str,
+        force: bool,
       },
       required: ["module", "projectId"],
     },
-    handler: ({ module, ...body }, ctx) => ctx.call("POST", `/api/pm/${module}`, body),
+    handler: async ({ module, force, ...body }, ctx) => {
+      const moduleSlug = String(module);
+      const aiCheck = await checkWithAi(moduleSlug, body as Record<string, unknown>, Boolean(force));
+      if (aiCheck.error) return aiCheck;
+      const res = await ctx.call("POST", `/api/pm/${moduleSlug}`, body);
+      if (aiCheck.aiReview) {
+        return { result: res, aiReview: aiCheck.aiReview };
+      }
+      return res;
+    },
   },
   {
     name: "pm_update",
-    description: "Update a PM record. Pass module, id, and any fields to change.",
+    description: "Update a PM record. Automatically validated via AI test method to ensure proper details. Pass module, id, and fields.",
     inputSchema: {
       type: "object",
       properties: {
@@ -417,10 +490,20 @@ export const TOOLS: ToolDef[] = [
         role: str, benefit: str, goals: str, painPoints: str, behaviors: str,
         stage: str, persona: str, touchpoints: str, opportunities: str, rationale: str,
         screen: str, url: str, trigger: str, steps: str, condition: str, action: str,
+        force: bool,
       },
       required: ["module", "id"],
     },
-    handler: ({ module, id, ...body }, ctx) => ctx.call("PATCH", `/api/pm/${module}/${id}`, body),
+    handler: async ({ module, id, force, ...body }, ctx) => {
+      const moduleSlug = String(module);
+      const aiCheck = await checkWithAi(moduleSlug, body as Record<string, unknown>, Boolean(force));
+      if (aiCheck.error) return aiCheck;
+      const res = await ctx.call("PATCH", `/api/pm/${moduleSlug}/${id}`, body);
+      if (aiCheck.aiReview) {
+        return { result: res, aiReview: aiCheck.aiReview };
+      }
+      return res;
+    },
   },
   {
     name: "pm_delete",
@@ -437,6 +520,20 @@ export const TOOLS: ToolDef[] = [
     description: "Multi-project PM dashboard: per-project health, completion %, open bugs, upcoming releases, tasks due today, risks, milestones, sprints, recent activity.",
     inputSchema: { type: "object", properties: {} },
     handler: (_a, ctx) => ctx.call("GET", "/api/pm/dashboard"),
+  },
+  {
+    name: "check_with_ai",
+    description:
+      "Run the 'Check with AI' test method on any record before or after saving. Evaluates whether the content belongs in the specified module category and returns field-by-field suggestions and out-of-category warnings.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        module: str,
+        fields: { type: "object" },
+      },
+      required: ["module", "fields"],
+    },
+    handler: (a, ctx) => ctx.call("POST", "/api/ai/review-record", a),
   },
 ];
 
