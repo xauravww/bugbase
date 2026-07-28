@@ -12,6 +12,7 @@ import { ModuleWorkspace } from "./ModuleWorkspace";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils/cn";
+import { formatNumber } from "@/lib/utils/format";
 
 const ICONS: Record<string, typeof Bug> = {
   FileText, Sparkles, Bug, Rocket, Code2, BookOpen,
@@ -32,37 +33,36 @@ const PANEL_MODULES = META_LIST.filter((m) => m.slug !== "dev-tasks");
 export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const active = searchParams.get("wsmod") || PANEL_MODULES[0].slug;
   const canWrite = user?.role !== "Viewer";
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  const [countsNonce, setCountsNonce] = useState(0);
 
+  // One request covers every module's badge. Counts stay null until it lands so
+  // an empty module and a not-yet-loaded one do not both render as "0".
+  // Bumping countsNonce refetches, which keeps a badge honest after the child
+  // workspace adds or removes a record.
   useEffect(() => {
+    if (!token) return;
     let mounted = true;
-    const fetchCounts = async () => {
+    (async () => {
       try {
-        const promises = PANEL_MODULES.map(async (m) => {
-          const res = await fetch(`/api/pm/${m.slug}?projectId=${projectId}&limit=1&page=1`);
-          if (res.ok) {
-            const data = await res.json();
-            return { slug: m.slug, total: data.pagination?.total || 0 };
-          }
-          return { slug: m.slug, total: 0 };
+        const res = await fetch(`/api/pm/counts?projectId=${projectId}`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        const results = await Promise.all(promises);
-        if (!mounted) return;
-        const newCounts: Record<string, number> = {};
-        results.forEach(r => {
-          newCounts[r.slug] = r.total;
-        });
-        setCounts(newCounts);
+        if (!res.ok) throw new Error(`counts request failed: ${res.status}`);
+        const data = await res.json();
+        if (mounted) setCounts(data.counts ?? {});
       } catch (err) {
-        console.error("Failed to fetch counts", err);
+        console.error("Failed to fetch workspace counts", err);
+        if (mounted) setCounts({});
       }
-    };
-    fetchCounts();
+    })();
     return () => { mounted = false; };
-  }, [projectId]);
+  }, [projectId, token, countsNonce]);
+
+  const refreshCounts = useCallback(() => setCountsNonce((n) => n + 1), []);
 
   const setActive = useCallback((slug: string) => {
     const params = new URLSearchParams(Array.from(searchParams.entries()));
@@ -78,7 +78,9 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
     router.push(`/pm/${active}/new?${q}`);
   }, [router, projectId, active]);
 
-  const chips = PANEL_MODULES.map((m) => ({ slug: m.slug, label: m.label, icon: ICONS[m.icon] ?? FileText }));
+  const chips = PANEL_MODULES.map((m) => ({
+    slug: m.slug, label: m.label, singular: m.singular, icon: ICONS[m.icon] ?? FileText,
+  }));
 
   return (
     <div className="flex flex-col md:flex-row gap-6 items-start h-full">
@@ -96,7 +98,8 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
           {chips.map((c) => {
             const Icon = c.icon;
             const on = active === c.slug;
-            const count = counts[c.slug];
+            const count = counts?.[c.slug];
+            // Dim only once counts are known to be zero, never while loading.
             const isZero = count === 0;
 
             return (
@@ -118,11 +121,16 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
                   <span>{c.label}</span>
                 </div>
                 {count !== undefined && (
-                  <span className={cn(
-                    "ml-3 text-[10px] font-medium px-1.5 py-0.5 rounded-full transition-colors",
-                    on ? "bg-bg text-fg-muted shadow-sm" : "bg-bg-hover text-fg-muted group-hover:bg-bg-subtle"
-                  )}>
-                    {count}
+                  <span
+                    // Compact form keeps a four-digit count from widening the nav;
+                    // the title carries the exact number.
+                    title={`${count.toLocaleString()} ${count === 1 ? c.singular.toLowerCase() : c.label.toLowerCase()}`}
+                    className={cn(
+                      "ml-3 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition-colors",
+                      on ? "bg-bg text-fg-muted shadow-sm" : "bg-bg-hover text-fg-muted group-hover:bg-bg-subtle"
+                    )}
+                  >
+                    {formatNumber(count)}
                   </span>
                 )}
               </button>
