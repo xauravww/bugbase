@@ -994,6 +994,165 @@ function McpSettings() {
     2
   );
 
+  const mcpGuideMarkdown = `# Bugbase MCP Server — Complete Developer & AI Agent Guide
+
+## 1. Overview & Connection Setup
+The Bugbase MCP (Model Context Protocol) Server exposes complete project management, issue tracking, QA test management, and workspace capabilities over HTTP (Streamable HTTP / SSE). Every request is authenticated via your user Access Token (\`Bearer mcp_...\`) and strictly inherits your user role and project permissions.
+
+### Client Config (\`.mcp.json\`)
+\`\`\`json
+{
+  "mcpServers": {
+    "bugbase": {
+      "type": "http",
+      "url": "${mcpUrl}",
+      "headers": {
+        "Authorization": "Bearer ${freshToken || "mcp_YOUR_ACCESS_TOKEN"}"
+      }
+    }
+  }
+}
+\`\`\`
+
+---
+
+## 2. Core Usage Rules & Principles
+
+1. **Always Scope to Project**: Most tools require \`projectId\`. Never attempt to list or create project-specific items without providing \`projectId\`.
+2. **Issue Tracker vs. Global Dashboard**:
+   - Use \`list_issues\` with \`projectId\` when you need actual issue objects for a project.
+   - Do **NOT** use \`dashboard\` to get issues for a project — \`dashboard\` returns global numerical aggregate stats and user-assigned issues only.
+3. **QA Tasks vs. Dev Tasks & Timelines**:
+   - **Task Tracker (\`list_lists\`, \`create_task\`, \`update_task\`)**: Designed primarily for **QA Tasks**, execution checklists, operational subtasks, and verification items.
+   - **Dev Tasks (\`pm_list module="dev-tasks"\`, \`pm_create module="dev-tasks"\`)**: Designed for **Development & Engineering Tasks**, complete with time estimations (\`estimatedTime\`, \`actualTime\`), dependencies (\`dev_task_deps\`), sprint mapping, and feature links.
+   - **Timelines & Sprints (\`pm_list module="sprints" | "milestones" | "releases"\`)**: Use these modules for roadmap milestones, sprint planning, and release versioning.
+4. **Detail Precision**:
+   - Provide clean, human-readable titles (minimum 2 characters).
+   - Fill in detailed descriptions, acceptance criteria, and steps to reproduce. Richer detail enables better AI validation and team collaboration.
+
+---
+
+## 3. AI Record Reviewer (\`check_with_ai\`) & Out-of-Category Validation
+
+All creation and edit operations (\`pm_create\`, \`pm_update\`, \`create_issue\`, \`update_issue\`, \`create_test_case\`, \`update_test_case\`, \`create_task\`, \`update_task\`) execute an automated **Check with AI** test before saving.
+
+### How the AI Test Method Works
+1. **Category Alignment Check**: Evaluates whether the content belongs in the specified module (e.g. Bug reports belong in \`bugs\` or \`issues\`, product specs in \`requirements\`, system design in \`arch-docs\`).
+2. **Out-of-Category Blocking**: If \`belongsHere === false\`, the MCP server blocks creation/update and returns a structured error:
+   \`\`\`json
+   {
+     "error": "AI Review Failed: Content does not belong in 'requirements'. It belongs in 'bugs'. Summary: This item describes a runtime error, not a product specification. Pass force=true to override.",
+     "aiReview": {
+       "summary": "...",
+       "belongsHere": false,
+       "belongsIn": "bugs",
+       "findings": [...]
+     }
+   }
+   \`\`\`
+3. **Overriding Validation**: If you explicitly want to bypass AI category validation, pass \`force: true\` in your tool arguments.
+4. **Explicit Evaluation Tool (\`check_with_ai\`)**:
+   Call \`check_with_ai\` at any time with \`{ "module": "<module-name>", "fields": { ... } }\` to evaluate draft content and get field-by-field suggestions before calling create/update tools.
+
+---
+
+## 4. Error Handling & Status Codes
+
+| Error Case | Response Format | Resolution |
+| :--- | :--- | :--- |
+| **Out of Category** | \`{ "error": "AI Review Failed: ...", "aiReview": {...} }\` | Re-route creation to suggested module (\`belongsIn\`), or pass \`force=true\`. |
+| **Missing Arguments** | \`{ "error": "projectId is required" }\` | Provide all mandatory fields declared in tool \`inputSchema\`. |
+| **Permission Denied** | \`{ "error": "Forbidden: Requires Admin or Member role" }\` | Ensure user access token has sufficient project permissions. |
+| **Item Not Found** | \`{ "error": "Record not found" }\` | Verify record ID and project scope. |
+| **LLM Offline** | Graceful fallback (\`aiReview: null\`) | Creation/update proceeds normally if AI review backend is unreachable. |
+
+---
+
+## 5. Complete MCP Tools Reference (40 Tools)
+
+### 👤 Identity & Global Context
+- \`whoami\`: Returns authenticated user info (\`id\`, \`name\`, \`email\`, \`role\`).
+- \`list_projects\`: Lists all projects accessible by the authenticated user.
+- \`get_project\`: Fetches a single project with its full member list and roles (\`projectId\`).
+- \`dashboard\`: Returns global aggregate stats across ALL projects (counts of open/closed/in-progress issues and top 10 user-assigned issues). *Do not use for listing project issues.*
+- \`team_progress\`: Team progress metrics (\`projectId\`, optional date ranges \`from\`/\`to\`, \`userId\`).
+
+### 🐛 Issue Tracker Tools
+- \`list_issues\`: Query project issues (\`projectId\`, \`status\`, \`priority\`, \`type\`, \`search\`, \`assignedToMe\`, \`page\`, \`limit\`).
+- \`get_issue\`: Get issue details (\`issueId\`).
+- \`create_issue\`: Create issue (\`projectId\`, \`title\`, \`type\`, \`description\`, \`stepsToReproduce\`, \`expectedResult\`, \`actualResult\`, \`priority\`, \`dueDate\`, \`assigneeIds\`, \`categoryIds\`, \`force\`). *Runs AI check.*
+- \`update_issue\`: Update issue fields (\`issueId\`, \`title\`, \`status\`, \`priority\`, \`type\`, \`description\`, \`dueDate\`, \`force\`). *Runs AI check.*
+- \`delete_issue\`: Admin-only issue deletion (\`issueId\`).
+- \`set_issue_assignees\`: Replace issue assignee IDs (\`issueId\`, \`userIds\`).
+- \`add_issue_comment\`: Add a comment (\`issueId\`, \`body\`).
+- \`list_issue_comments\`: List comments (\`issueId\`).
+
+### 🧪 Test Cases (QA Management)
+- \`list_test_cases\`: List test cases for a project (\`projectId\`).
+- \`create_test_case\`: Create test case (\`projectId\`, \`title\`, \`description\`, \`steps\`, \`expectedResult\`, \`force\`). *Runs AI check.*
+- \`update_test_case\`: Update test case (\`projectId\`, \`testCaseId\`, \`title\`, \`description\`, \`steps\`, \`expectedResult\`, \`force\`). *Runs AI check.*
+- \`record_test_result\`: Log run execution result (\`projectId\`, \`testCaseId\`, \`status\`: \`'Pass' \| 'Fail' \| 'Blocked'\`, \`notes\`).
+
+### 🏷️ Categories & Labels
+- \`list_categories\`: List project labels/categories (\`projectId\`).
+- \`create_category\`: Create label (\`projectId\`, \`name\`, \`color\`).
+
+### 📋 Task Tracker (QA & Operational Tasks)
+*Note: This section is primarily for QA tasks, checklist items, and operational execution.*
+- \`list_lists\`: List task lists in a project (\`projectId\`, \`shallow\`: boolean).
+- \`list_tasks\`: List paginated tasks in a list (\`projectId\`, \`listId\`, \`page\`, \`limit\`).
+- \`get_task\`: Get detailed task object with subtasks & checklist items (\`projectId\`, \`listId\`, \`taskId\`).
+- \`create_list\`: Create task list (\`projectId\`, \`name\`, \`description\`, \`color\`).
+- \`create_task\`: Create task (\`projectId\`, \`listId\`, \`title\`, \`description\`, \`priority\`: \`'none'\|'low'\|'medium'\|'high'\`, \`dueDate\`, \`status\`: \`'active'\|'completed'\`, \`assigneeIds\`, \`categoryIds\`, \`force\`). *Runs AI check.*
+- \`update_task\`: Update task (\`projectId\`, \`listId\`, \`taskId\`, \`title\`, \`description\`, \`priority\`, \`status\`, \`dueDate\`, \`assigneeIds\`, \`completerIds\`, \`categoryIds\`, \`restore\`, \`force\`). *Runs AI check.*
+- \`delete_task\`: Soft-delete task (\`projectId\`, \`listId\`, \`taskId\`).
+- \`create_subtask\`: Create subtask (\`projectId\`, \`listId\`, \`taskId\`, \`title\`, \`description\`).
+- \`update_subtask\`: Update subtask (\`projectId\`, \`listId\`, \`taskId\`, \`subtaskId\`, \`title\`, \`description\`, \`status\`).
+- \`add_checklist_item\`: Add item to subtask checklist (\`projectId\`, \`listId\`, \`taskId\`, \`subtaskId\`, \`content\`).
+- \`toggle_checklist\`: Toggle checklist item state (\`projectId\`, \`listId\`, \`taskId\`, \`subtaskId\`, \`itemId\`, \`done\`).
+- \`task_history\`: Task activity feed (\`projectId\`, \`taskId\`, \`action\`, \`limit\`).
+
+### ⚙️ System & Admin
+- \`activity_logs\`: Query system audit logs (\`page\`, \`limit\`, \`search\`, \`action\`, \`dateFrom\`, \`dateTo\`). *Admin only.*
+- \`email_templates\`: List system email templates. *Admin only.*
+
+### 🚀 PM Workspace Modules (19 Modules)
+*Generic CRUD tools for end-to-end Project Management & Software Architecture:*
+- \`pm_list\`: List records for any PM module (\`module\`, \`projectId\`, \`search\`, \`status\`, \`priority\`, \`severity\`, \`tags\`, \`sort\`, \`dir\`, \`page\`, \`limit\`).
+- \`pm_get\`: Retrieve single PM record (\`module\`, \`id\`).
+- \`pm_create\`: Create PM record (\`module\`, \`projectId\`, fields..., \`force\`). *Runs AI check.*
+- \`pm_update\`: Update PM record (\`module\`, \`id\`, fields..., \`force\`). *Runs AI check.*
+- \`pm_delete\`: Delete PM record (\`module\`, \`id\`).
+- \`pm_dashboard\`: Multi-project aggregate PM metrics.
+- \`check_with_ai\`: Explicitly evaluate any draft record against AI review standards (\`module\`, \`fields\`).
+
+---
+
+## 6. PM Workspace Modules Breakdown (19 Modules)
+
+| Module Slug | Label | Description & Purpose |
+| :--- | :--- | :--- |
+| \`requirements\` | Requirements | Agreed product functional/non-functional requirements with acceptance criteria. |
+| \`features\` | Features | High-level epics & product feature capabilities linked to requirements. |
+| \`dev-tasks\` | Dev Tasks | Engineering & development tasks with estimations, dependencies, and sprint links. |
+| \`bugs\` | Bugs | Defect tracking with severity, environment, steps to reproduce, and fix verification. |
+| \`releases\` | Releases | Software release versions, target release dates, and release notes. |
+| \`api-docs\` | API Docs | Endpoint specifications, HTTP methods, auth, request/response payload schemas. |
+| \`arch-docs\` | Arch Docs | System architecture documentation, design decisions, and tech diagrams. |
+| \`meeting-notes\` | Meeting Notes | Team meeting agendas, participants, summaries, decisions, and action items. |
+| \`risks\` | Risks | Project risks, impact rating, probability, and mitigation plans. |
+| \`ideas\` | Ideas | Product brainstorming, feature ideas, impact vs. effort scoring. |
+| \`milestones\` | Milestones | Project milestones, target dates, status, and completion progress %. |
+| \`sprints\` | Sprints | Sprint iterations, start/end dates, sprint goals, and status. |
+| \`user-stories\` | User Stories | Agile user stories (As a... I want... So that...). |
+| \`personas\` | Personas | User personas, roles, goals, pain points, and behavioral traits. |
+| \`user-journeys\` | User Journeys | Mapping end-to-end user workflows, touchpoints, and opportunities. |
+| \`tech-stack\` | Tech Stack | Frameworks, libraries, databases, evaluation status, and technical rationale. |
+| \`mockups\` | Mockups | Design links (Figma/images), screen names, descriptions, and UI status. |
+| \`workflows\` | Workflows | Step-by-step process flows, trigger events, and execution steps. |
+| \`business-rules\` | Business Rules | System validation rules, conditions, constraints, and enforcement actions. |
+`;
+
   return (
     <div className="max-w-full space-y-8">
       <section>
@@ -1081,7 +1240,7 @@ function McpSettings() {
           Follow these rules when interacting with Bugbase via MCP tools to ensure data accuracy, clear details, and proper categorization:
         </p>
 
-        <div className="space-y-3 text-xs text-[var(--color-text-secondary)]">
+        <div className="space-y-3 text-xs text-[var(--color-text-secondary)] mb-4">
           <div className="p-3.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] space-y-1.5">
             <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
               <span>🤖 AI Category & Content Validation</span>
@@ -1108,24 +1267,20 @@ function McpSettings() {
 
           <div className="p-3.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] space-y-1.5">
             <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
-              <span>📊 Tool Selection & Data Retrieval</span>
+              <span>📊 Tool Selection & Tasks vs Dev-Tasks</span>
             </div>
             <ul className="list-disc pl-4 space-y-1">
-              <li>Use <code>list_issues</code> with <code>projectId</code> to retrieve project issues. Do not use <code>dashboard</code> for listing project issues, as it only returns global numerical counts.</li>
-              <li>Use <code>pm_list</code> to filter and fetch workspace records for any of the 19 PM modules (requirements, features, dev-tasks, bugs, releases, api-docs, etc.).</li>
-              <li>Use <code>list_lists</code> with <code>shallow=true</code> for fast list headers and counts without full nested task trees.</li>
-            </ul>
-          </div>
-
-          <div className="p-3.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] space-y-1.5">
-            <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
-              <span>📝 Detail Quality Standards</span>
-            </div>
-            <ul className="list-disc pl-4 space-y-1">
-              <li>Provide clear, descriptive titles and complete required fields (e.g. acceptance criteria, steps to reproduce, expected results) so AI checks and team workflows remain effective.</li>
+              <li><strong>Task Tracker (QA Tasks)</strong>: <code>create_task</code> & <code>list_tasks</code> are designed primarily for QA tasks, checklist execution, and operational items.</li>
+              <li><strong>Dev Tasks (Timelines & Engineering)</strong>: Use <code>pm_create</code>/<code>pm_list</code> with <code>module=&quot;dev-tasks&quot;</code> for engineering tasks with time estimations, feature links, and dependencies. Use <code>sprints</code>, <code>milestones</code>, and <code>releases</code> for project timelines.</li>
+              <li>Use <code>list_issues</code> with <code>projectId</code> to retrieve project issues (do not use <code>dashboard</code> for project listing).</li>
             </ul>
           </div>
         </div>
+
+        <h4 className="text-xs font-semibold text-[var(--color-text-primary)] mb-1.5">
+          Full Copy-Pastable MCP Guide & System Prompt for AI Agents
+        </h4>
+        <CopyBlock text={mcpGuideMarkdown} />
       </section>
     </div>
   );
