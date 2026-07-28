@@ -1,5 +1,5 @@
 import { MODULE_HELP, FIELD_HELP } from "@/lib/modules/help";
-import { getMeta, MODULE_META } from "@/lib/modules/meta";
+import { getMeta, MODULE_META, type FieldDef, type ModuleMeta } from "@/lib/modules/meta";
 
 export interface Finding {
   field: string;
@@ -50,12 +50,70 @@ function asSeverity(v: unknown): "high" | "medium" | "low" {
   return s === "high" || s === "medium" || s === "low" ? s : "medium";
 }
 
+const EXTRA_MODULE_META: Record<string, ModuleMeta> = {
+  issues: {
+    slug: "issues", label: "Issues", singular: "Issue", icon: "Bug",
+    views: ["table", "list"],
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true },
+      { key: "type", label: "Type", type: "select", options: ["Bug", "Feature", "Task", "Improvement"], default: "Bug" },
+      { key: "status", label: "Status", type: "select", options: ["Open", "In Progress", "Closed", "Resolved"], default: "Open" },
+      { key: "priority", label: "Priority", type: "select", options: ["Low", "Medium", "High", "Critical"], default: "Medium" },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "stepsToReproduce", label: "Steps to Reproduce", type: "textarea" },
+      { key: "expectedResult", label: "Expected Result", type: "textarea" },
+      { key: "actualResult", label: "Actual Result", type: "textarea" },
+    ],
+  },
+  "test-cases": {
+    slug: "test-cases", label: "Test Cases", singular: "Test Case", icon: "CheckSquare",
+    views: ["table", "list"],
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true },
+      { key: "description", label: "Description", type: "textarea" },
+      { key: "steps", label: "Steps", type: "textarea" },
+      { key: "expectedResult", label: "Expected Result", type: "textarea" },
+    ],
+  },
+  tasks: {
+    slug: "tasks", label: "Tasks", singular: "Task", icon: "CheckSquare",
+    views: ["table", "list"],
+    fields: [
+      { key: "title", label: "Title", type: "text", required: true, isTitle: true },
+      { key: "status", label: "Status", type: "select", options: ["active", "completed"], default: "active" },
+      { key: "priority", label: "Priority", type: "select", options: ["none", "low", "medium", "high"], default: "none" },
+      { key: "description", label: "Description", type: "textarea" },
+    ],
+  },
+};
+
+const EXTRA_MODULE_HELP: Record<string, any> = {
+  issues: {
+    whatItIs: "An issue is a bug report or task in the main issue tracker.",
+    whyItMatters: "Tracks work items, bug reports, and assignment status.",
+    writeThis: ["Clear title of bug or work item", "Steps to reproduce if a bug", "Expected vs actual result"],
+    notThis: ["High-level product roadmap requirements — goes in Requirements"],
+  },
+  "test-cases": {
+    whatItIs: "A test case defines exact validation steps and expected behavior.",
+    whyItMatters: "Ensures software functionality is tested systematically before release.",
+    writeThis: ["Clear title", "Execution steps", "Expected result"],
+    notThis: ["Defect reports — goes in Bugs or Issues"],
+  },
+  tasks: {
+    whatItIs: "A task is an actionable work item inside a task list.",
+    whyItMatters: "Helps team members track daily progress and complete checklist work.",
+    writeThis: ["Action title", "Detailed description of done criteria"],
+    notThis: ["High-level architecture documentation"],
+  },
+};
+
 export async function reviewRecord(
   moduleSlug: string,
   fields: Record<string, unknown>
 ): Promise<RecordReviewResult | null> {
-  const meta = getMeta(moduleSlug);
-  const help = MODULE_HELP[moduleSlug];
+  const meta = getMeta(moduleSlug) ?? EXTRA_MODULE_META[moduleSlug];
+  const help = MODULE_HELP[moduleSlug] ?? EXTRA_MODULE_HELP[moduleSlug];
 
   // If unknown module or help metadata, return null
   if (!meta || !help) {
