@@ -5,6 +5,7 @@ import { Input, Select, Textarea } from "@/components/ui";
 import { MarkdownEditor } from "./MarkdownEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMeta, titleField, type FieldDef, type ModuleMeta } from "@/lib/modules/meta";
+import { getFieldHelp } from "@/lib/modules/help";
 
 export type Rec = Record<string, unknown>;
 export interface ProjectOpt { id: number; name: string; key: string }
@@ -72,22 +73,32 @@ export function relLabel(
   return String(rec[rm ? titleField(rm) : "id"] ?? `#${val}`);
 }
 
-/** One form control for a module field. Long text uses the MarkdownEditor. */
+/**
+ * One form control for a module field. Long text uses the MarkdownEditor.
+ *
+ * Every control renders its own label with an ℹ help button (see ui/FieldHelp).
+ * Passing `slug` lets a module supply field help specific to it — e.g. "Steps
+ * to Reproduce" on a bug — falling back to the generated copy otherwise.
+ */
 export function FieldInput({
-  field, value, onChange, users, relations,
+  field, value, onChange, users, relations, slug,
 }: {
   field: FieldDef;
   value: unknown;
   onChange: (v: unknown) => void;
   users: UserOpt[];
   relations: Record<string, Rec[]>;
+  /** Module slug, used to look up module-specific field help. */
+  slug?: string;
 }) {
   const v = value ?? "";
+  const help = slug ? getFieldHelp(slug, field.key) : undefined;
 
   if (field.type === "tags") {
     return (
       <Input
         label={field.label}
+        help={help}
         value={String(v)}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder ?? "Comma-separated tags"}
@@ -98,6 +109,7 @@ export function FieldInput({
     return (
       <Select
         label={field.label}
+        help={help}
         value={String(v)}
         onChange={(e) => onChange(e.target.value)}
         options={(field.options ?? []).map((o) => ({ value: o, label: o }))}
@@ -118,6 +130,7 @@ export function FieldInput({
     return (
       <Select
         label={field.label}
+        help={help}
         value={v ? String(v) : ""}
         onChange={(e) => onChange(e.target.value)}
         options={[{ value: "", label: "— None —" }, ...opts]}
@@ -130,6 +143,7 @@ export function FieldInput({
     return (
       <MarkdownEditor
         label={field.label}
+        help={help}
         value={String(v)}
         onChange={(nv) => onChange(nv)}
         placeholder={field.placeholder}
@@ -139,14 +153,15 @@ export function FieldInput({
     );
   }
   if (field.type === "date") {
-    return <Input type="date" label={field.label} value={String(v)} onChange={(e) => onChange(e.target.value)} />;
+    return <Input type="date" label={field.label} help={help} value={String(v)} onChange={(e) => onChange(e.target.value)} />;
   }
   if (field.type === "number") {
-    return <Input type="number" label={field.label} value={String(v)} onChange={(e) => onChange(e.target.value)} placeholder={field.placeholder} />;
+    return <Input type="number" label={field.label} help={help} value={String(v)} onChange={(e) => onChange(e.target.value)} placeholder={field.placeholder} />;
   }
   return (
     <Input
       label={field.label}
+      help={help}
       value={String(v)}
       onChange={(e) => onChange(e.target.value)}
       placeholder={field.placeholder}

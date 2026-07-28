@@ -10,7 +10,6 @@ import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
 import type { Pagination } from "@/types/issue";
 
 import { MarkdownEditor } from "@/components/pm/MarkdownEditor";
-import { TestCasesWorkspace } from "@/components/test-cases/TestCasesWorkspace";
 import { ListsWorkspace } from "@/components/lists/ListsWorkspace";
 import { ProjectWorkspacePanel } from "@/components/pm/ProjectWorkspacePanel";
 import CategoriesManager from "@/components/projects/CategoriesManager";
@@ -74,11 +73,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const t = searchParams.get("tab");
     if (t === "tasks") return "tasks";
     if (t === "workspace") return "workspace";
-    if (t === "context" || t === "test-cases") return "test-cases";
     if (t === "team") return "team";
     if (t === "settings") return "settings";
     return "issues";
-  })() as "issues" | "tasks" | "workspace" | "test-cases" | "team" | "settings";
+  })() as "issues" | "tasks" | "workspace" | "team" | "settings";
   const initialStatus = searchParams.get("status") ?? "all";
   const [project, setProject] = useState<Project | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -94,7 +92,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
-  const [activeTab, setActiveTab] = useState<"issues" | "tasks" | "workspace" | "test-cases" | "team" | "settings">(initialTab);
+  const [activeTab, setActiveTab] = useState<"issues" | "tasks" | "workspace" | "team" | "settings">(initialTab);
   const [issueStatusTab, setIssueStatusTab] = useState<string>(initialStatus);
   const [issuesPaginationState, setIssuesPaginationState] = useState<Record<string, number>>({ all: 1, Open: 1, "In Progress": 1, "In Review": 1, Closed: 1 });
   const [selectedProjectIssueIds, setSelectedProjectIssueIds] = useState<number[]>([]);
@@ -217,7 +215,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const params = new URLSearchParams(Array.from(searchParams.entries()));
     if (activeTab === "tasks") params.set("tab", "tasks");
     else if (activeTab === "workspace") params.set("tab", "workspace");
-    else if (activeTab === "test-cases") params.set("tab", "test-cases");
     else if (activeTab === "team") params.set("tab", "team");
     else if (activeTab === "settings") params.set("tab", "settings");
     else params.delete("tab");
@@ -1101,8 +1098,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         {activeTab === "tasks" && <ListsWorkspace projectId={projectId} />}
 
         {activeTab === "workspace" && <ProjectWorkspacePanel projectId={Number(projectId)} />}
-
-        {activeTab === "test-cases" && <TestCasesWorkspace projectId={projectId} />}
 
         {activeTab === "team" && <TeamProgress projectId={projectId} />}
 

@@ -61,7 +61,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "dashboard",
-    description: "Cross-project dashboard: open/closed issue counts, recent issues, activity feed.",
+    description: "Global aggregate statistics across ALL projects: open/closed/inProgress issue COUNTS (numbers, not issue objects) and up-to-10 recent issues assigned to the calling user only (myRecentAssignments). Do NOT use this to list a project's issues — use list_issues with projectId instead.",
     inputSchema: { type: "object", properties: {} },
     handler: (_a, ctx) => ctx.call("GET", "/api/dashboard"),
   },
@@ -80,7 +80,7 @@ export const TOOLS: ToolDef[] = [
   // ── issues ──
   {
     name: "list_issues",
-    description: "List issues with optional filters. Scoped to the user's accessible projects.",
+    description: "List actual issue objects with optional filters. Use this (not dashboard) when you need issues for a specific project. Pass projectId to scope to one project, status to filter by status (e.g. 'Open', 'In Progress', 'Closed').",
     inputSchema: {
       type: "object",
       properties: {

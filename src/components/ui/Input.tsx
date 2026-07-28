@@ -3,18 +3,14 @@
 import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
 import { type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { FieldHelpButton, type FieldHelpKind } from "./FieldHelp";
+import { FieldHelpButton, type FieldHelpContent, type FieldHelpKind } from "./FieldHelp";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   hint?: string;
-  help?: {
-    whatItIs?: string;
-    example?: string;
-    template?: string;
-    tip?: string;
-  };
+  /** Overrides for the ℹ help modal. Anything omitted falls back to generated copy. */
+  help?: Partial<FieldHelpContent>;
   leftIcon?: LucideIcon;
   rightIcon?: LucideIcon;
   /** Custom right-side slot (e.g. a Kbd chip). Wins over rightIcon when both set. */

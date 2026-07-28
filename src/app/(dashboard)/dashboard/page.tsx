@@ -126,7 +126,7 @@ export default function DashboardPage() {
         if (res.ok) {
           const data = await res.json();
           setStats(data.stats);
-          setRecentIssues(data.recentIssues || []);
+          setRecentIssues(data.myRecentAssignments || data.recentIssues || []);
           setActivities(data.recentActivities || []);
           setStatusChanges(data.todayStatusChanges || []);
         }

@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getMeta, titleField, listFields, type FieldDef, type ModuleMeta, type ViewKind } from "@/lib/modules/meta";
 import { enumColor } from "@/lib/modules/colors";
 import { usePmOptions, relLabel, type Rec } from "./shared";
+import { ModuleHelpButton } from "./ModuleHelpButton";
 import { cn } from "@/lib/utils/cn";
 
 const VIEW_ICON: Partial<Record<ViewKind, typeof TableIcon>> = {
@@ -264,6 +265,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
 
   const toolbar = (
     <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+      {embedded && <ModuleHelpButton slug={slug} variant="labelled" className="w-full justify-center sm:w-auto sm:shrink-0" />}
       {embedded && (
         <div className="relative w-full sm:min-w-[220px] sm:flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-muted" />
@@ -471,6 +473,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
   return (
     <>
       <Header title={meta.label} searchValue={search} onSearchChange={setSearch} searchPlaceholder={`Search ${meta.label.toLowerCase()}…`}>
+        <ModuleHelpButton slug={slug} variant="labelled" />
         {canWrite && <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate}>New {meta.singular}</Button>}
       </Header>
       <div className="p-4 md:p-6 space-y-4">{toolbar}{body}{pager}</div>

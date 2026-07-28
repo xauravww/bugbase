@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui";
-import { FieldHelpButton } from "@/components/ui/FieldHelp";
+import { FieldHelpButton, type FieldHelpContent } from "@/components/ui/FieldHelp";
 import { cn } from "@/lib/utils/cn";
 
 interface Props {
@@ -20,6 +20,8 @@ interface Props {
   minRows?: number;
   mono?: boolean;
   readOnly?: boolean;
+  /** Overrides for the ℹ help modal. Anything omitted falls back to generated copy. */
+  help?: Partial<FieldHelpContent>;
 }
 
 /**
@@ -29,7 +31,7 @@ interface Props {
  * they render in preview and anywhere react-markdown is used. Suitable for
  * long-form fields (requirements, release notes, docs).
  */
-export function MarkdownEditor({ value, onChange, label, placeholder, minRows = 10, mono, readOnly = false }: Props) {
+export function MarkdownEditor({ value, onChange, label, placeholder, minRows = 10, mono, readOnly = false, help }: Props) {
   const { token } = useAuth();
   const toast = useToast();
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -126,6 +128,7 @@ export function MarkdownEditor({ value, onChange, label, placeholder, minRows = 
             label={label}
             kind="richtext"
             placeholder={placeholder}
+            content={help}
           />
         </div>
       )}

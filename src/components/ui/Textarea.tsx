@@ -2,18 +2,14 @@
 
 import { forwardRef, useEffect, useRef, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/utils/cn";
-import { FieldHelpButton } from "./FieldHelp";
+import { FieldHelpButton, type FieldHelpContent } from "./FieldHelp";
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
   hint?: string;
-  help?: {
-    whatItIs?: string;
-    example?: string;
-    template?: string;
-    tip?: string;
-  };
+  /** Overrides for the ℹ help modal. Anything omitted falls back to generated copy. */
+  help?: Partial<FieldHelpContent>;
   /** Grow with content. */
   autoResize?: boolean;
   wrapperClassName?: string;

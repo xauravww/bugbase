@@ -3,13 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Save, Plus, ExternalLink, Sparkles, Pencil, X, CalendarClock } from "lucide-react";
+import { ArrowLeft, Trash2, Save, Plus, ExternalLink, Sparkles, Pencil, X, CalendarClock, Wand2 } from "lucide-react";
 import { Button, PageLoader, Select, Badge, useToast, ConfirmDialog } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMeta, titleField, MODULE_META, type FieldDef } from "@/lib/modules/meta";
+import { getModuleTemplates, type ModuleTemplate } from "@/lib/modules/help";
 import { usePmOptions, FieldInput, relLabel, type Rec } from "./shared";
 import { MarkdownEditor } from "./MarkdownEditor";
+import { ModuleHelpButton } from "./ModuleHelpButton";
+import { RecordReviewPanel, type RecordReview } from "./RecordReviewPanel";
 import { enumColor } from "@/lib/modules/colors";
+import { cn } from "@/lib/utils/cn";
 
 /**
  * Full-page create / edit view for a PM record. Replaces the modal:
@@ -32,7 +36,52 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
   const [backHref, setBackHref] = useState(`/pm/${slug}`);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editing, setEditing] = useState(isNew);
+  const [appliedTemplate, setAppliedTemplate] = useState<string | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const [review, setReview] = useState<RecordReview | null>(null);
   const canWrite = user?.role !== "Viewer";
+
+  const templates = useMemo(() => getModuleTemplates(slug), [slug]);
+
+  /**
+   * Applying a template overwrites only the fields that template supplies, and
+   * only where the user has not typed anything of their own yet — switching
+   * templates never silently discards real input. Fields the user filled in are
+   * left alone; the template's prompt text for them is dropped.
+   */
+  const applyTemplate = useCallback(
+    (t: ModuleTemplate) => {
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const [key, val] of Object.entries(t.fields)) {
+          const current = prev[key];
+          const isEmpty = current == null || current === "";
+          // Values still holding a previous template's prompt text are replaceable.
+          const isPriorTemplateValue =
+            appliedTemplate != null &&
+            templates.some((prior) => prior.name === appliedTemplate && prior.fields[key] === current);
+          if (isEmpty || isPriorTemplateValue) next[key] = val;
+        }
+        return next;
+      });
+      setAppliedTemplate(t.name);
+    },
+    [appliedTemplate, templates]
+  );
+
+  /** Removes only the values this template put in, leaving anything typed since. */
+  const clearTemplate = useCallback(() => {
+    const t = templates.find((x) => x.name === appliedTemplate);
+    setAppliedTemplate(null);
+    if (!t) return;
+    setForm((prev) => {
+      const next = { ...prev };
+      for (const [key, val] of Object.entries(t.fields)) {
+        if (next[key] === val) next[key] = "";
+      }
+      return next;
+    });
+  }, [appliedTemplate, templates]);
 
   // Preserve original navigation origin
   useEffect(() => {
@@ -161,25 +210,77 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
 
   const refineField = async (fieldKey: string) => {
     const content = String(form[fieldKey] ?? "").trim();
-    if (!content) {
-      toast.error(`Add content before refining with AI`);
-      return;
-    }
+    const mode = content ? "refine" : "suggest";
     setRefiningField(fieldKey);
     try {
+      // Only send the module's own fields as context, keyed by their human
+      // labels — raw form state also carries ids and timestamps the model
+      // would otherwise try to make sense of.
+      const contextFields = Object.fromEntries(
+        (meta?.fields ?? [])
+          .filter((f) => f.key !== fieldKey && !f.relation && form[f.key])
+          .map((f) => [f.label, String(form[f.key])])
+      );
       const res = await fetch("/api/ai/refine", {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ content, field: fieldKey, context: { module: meta?.label, project: form.projectId } }),
+        body: JSON.stringify({ 
+          content, 
+          field: fieldKey, 
+          mode, 
+          context: { 
+            module: slug,
+            project: form.projectId,
+            ...contextFields
+          } 
+        }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.refinedContent) throw new Error(data.error || "AI refinement failed");
+      if (!res.ok || !data.refinedContent) throw new Error(data.error || "AI failed");
       setField(fieldKey, data.refinedContent);
-      toast.success("Refined with AI");
+      toast.success(mode === "suggest" ? "Generated suggestion" : "Refined with AI");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "AI refinement failed");
+      toast.error(error instanceof Error ? error.message : "AI action failed");
     } finally {
       setRefiningField(null);
+    }
+  };
+
+  /**
+   * Asks the AI to check the whole record against what this module is for.
+   * The response is suggestions only — nothing is written to the form until the
+   * user applies a finding in the panel, and nothing is saved until they press
+   * Save. Deliberately non-destructive: fixing is the user's call.
+   */
+  const runReview = async () => {
+    if (!meta) return;
+    const filled = (meta.fields ?? []).filter((f) => String(form[f.key] ?? "").trim() !== "");
+    if (filled.length === 0) {
+      toast.error("Fill something in first, then ask the AI to check it");
+      return;
+    }
+    setReviewing(true);
+    try {
+      const fields = Object.fromEntries(
+        meta.fields
+          .filter((f) => !f.relation && form[f.key] != null && form[f.key] !== "")
+          .map((f) => [f.key, String(form[f.key])])
+      );
+      const res = await fetch("/api/ai/review-record", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ module: slug, fields }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "AI review failed");
+      setReview(data as RecordReview);
+      if ((data.findings?.length ?? 0) === 0 && data.belongsHere !== false) {
+        toast.success("Looks fine — nothing to fix");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "AI review failed");
+    } finally {
+      setReviewing(false);
     }
   };
 
@@ -256,6 +357,7 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
             <span className="text-xs font-semibold px-2 py-0.5 rounded bg-bg-subtle text-fg-muted uppercase tracking-wider">
               {meta.singular}
             </span>
+            <ModuleHelpButton slug={slug} />
             <span className="truncate text-sm font-semibold text-fg">
               {titleVal}
             </span>
@@ -302,10 +404,26 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px]">
             {/* Form Mode */}
             <div className="space-y-5 rounded-lg border border-border bg-surface p-5">
-              <h2 className="text-base font-bold text-fg border-b border-border pb-3">
-                {isNew ? `Create ${meta.singular}` : `Edit ${meta.singular}`}
-              </h2>
-              
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+                <h2 className="text-base font-bold text-fg">
+                  {isNew ? `Create ${meta.singular}` : `Edit ${meta.singular}`}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <ModuleHelpButton slug={slug} variant="labelled" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    leftIcon={Wand2}
+                    loading={reviewing}
+                    onClick={runReview}
+                    title={`Check this ${meta.singular.toLowerCase()} against what ${meta.label} are for`}
+                  >
+                    Check with AI
+                  </Button>
+                </div>
+              </div>
+
               <Select
                 label="Project"
                 value={form.projectId ? String(form.projectId) : ""}
@@ -314,6 +432,45 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
                 placeholder="Select target project"
                 searchable
               />
+
+              {isNew && templates.length > 0 && (
+                <div className="space-y-2.5 pt-1 pb-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-fg">Start from a template</h3>
+                    {appliedTemplate && (
+                      <button
+                        type="button"
+                        onClick={clearTemplate}
+                        className="text-xs text-fg-muted hover:text-fg underline cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-fg-muted">
+                    Fills the form with prompts you replace with your own words. Optional.
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {templates.map((t) => (
+                      <button
+                        key={t.name}
+                        type="button"
+                        onClick={() => applyTemplate(t)}
+                        aria-pressed={appliedTemplate === t.name}
+                        className={cn(
+                          "rounded-lg border p-3 text-left transition-colors cursor-pointer",
+                          appliedTemplate === t.name
+                            ? "border-accent bg-accent/5"
+                            : "border-border bg-surface hover:border-border-strong hover:bg-bg-hover"
+                        )}
+                      >
+                        <div className="text-sm font-medium text-fg">{t.name}</div>
+                        <div className="mt-1 text-xs text-fg-muted leading-relaxed">{t.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {meta.fields.map((f) => {
                 const aiEligible = ["text", "textarea", "richtext", "tags"].includes(f.type);
@@ -325,6 +482,7 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
                       onChange={(v) => setField(f.key, v)}
                       users={users}
                       relations={relations}
+                      slug={slug}
                     />
                     {aiEligible && (
                       <div className="flex justify-end">
@@ -334,11 +492,11 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
                           size="xs"
                           leftIcon={Sparkles}
                           loading={refiningField === f.key}
-                          disabled={!form[f.key] || refiningField !== null}
+                          disabled={refiningField !== null}
                           onClick={() => refineField(f.key)}
                           className="text-accent"
                         >
-                          Refine with AI
+                          {form[f.key] ? "Refine with AI" : "Suggest AI"}
                         </Button>
                       </div>
                     )}
@@ -802,6 +960,14 @@ export function RecordDetail({ slug, id }: { slug: string; id: string }) {
         onConfirm={confirmDelete}
         title={`Delete ${meta?.singular ?? "Record"}`}
         message={`Are you sure you want to delete this ${meta?.singular.toLowerCase()}? This action cannot be undone.`}
+      />
+
+      <RecordReviewPanel
+        open={review !== null}
+        onClose={() => setReview(null)}
+        review={review}
+        onApply={setField}
+        onUndo={setField}
       />
     </div>
   );

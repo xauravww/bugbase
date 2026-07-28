@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       stats,
-      recentIssues,
+      myRecentAssignments: recentIssues,
       recentActivities,
       todayStatusChanges,
     });

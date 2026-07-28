@@ -1,3 +1,9 @@
+## Documentation & Planning
+
+**All plans, documentation, and notes MUST be written to the Obsidian vault at `/media/saurav/PROJECTS1/Obsidian Vaults/bugbase/`, NOT to the agent artifact directory.** This is the single source of truth for project documentation.
+
+---
+
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph
 

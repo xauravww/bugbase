@@ -12,7 +12,7 @@ import {
 import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Dropdown, DropdownItem } from "./Dropdown";
-import { FieldHelpButton } from "./FieldHelp";
+import { FieldHelpButton, type FieldHelpContent } from "./FieldHelp";
 
 export interface SelectOption {
   value: string;
@@ -30,12 +30,8 @@ export interface SelectProps
   label?: string;
   error?: string;
   hint?: string;
-  help?: {
-    whatItIs?: string;
-    example?: string;
-    template?: string;
-    tip?: string;
-  };
+  /** Overrides for the ℹ help modal. Anything omitted falls back to generated copy. */
+  help?: Partial<FieldHelpContent>;
   options: SelectOption[];
   value?: string;
   defaultValue?: string;
