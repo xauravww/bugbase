@@ -3,6 +3,7 @@ import { getAuthUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   issues, activityLog, projects, projectMembers, workLogs, users,
+  lists, tasks,
 } from "@/lib/db/schema";
 import { devTasks, bugs as pmBugs, features, requirements } from "@/lib/db/pm-schema";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     const authUser = getAuthUser(request);
     if (!authUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { projectId, sections, startDate, endDate, targetUserId } = await request.json();
+    const { projectId, sections, startDate, endDate, targetUserId, skipEmpty = false } = await request.json();
 
     if (!projectId || !Array.isArray(sections) || sections.length === 0) {
       return NextResponse.json(
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
           return `- Issue #${act.issue?.id} "${act.issue?.title}" → ${a.newValue}${act.user?.name ? ` (by ${act.user.name})` : ""}`;
         });
         sectionBlocks.push(`## Issues Completed\n${lines.join("\n")}`);
-      } else {
+      } else if (!skipEmpty) {
         sectionBlocks.push("## Issues Completed\nNo issues were closed in this period.");
       }
     }
@@ -114,25 +115,52 @@ export async function POST(request: NextRequest) {
           return `- #${i.id} "${i.title}" [${i.status}] [${i.priority}]${names ? ` — ${names}` : ""}`;
         });
         sectionBlocks.push(`## Remaining Work (${openIssues.length} open)\n${lines.join("\n")}`);
-      } else {
+      } else if (!skipEmpty) {
         sectionBlocks.push("## Remaining Work\nNo open issues. All clear!");
       }
     }
 
     // ── TASKS (TickTick-style) ────────────────────────────────────────────────
     if (sections.includes("tasks")) {
-      const completedTasks = await db.query.tasks.findMany({
+      // Fetch all non-deleted tasks for this project via lists join
+      const projectLists = await db.query.lists.findMany({
         where: and(
-          eq(sql`(SELECT project_id FROM lists WHERE lists.id = ${sql.raw("tasks.list_id")})`, projectId),
-          eq(sql`tasks.status`, "completed"),
-          gte(sql`tasks.completed_at`, rangeStart)
+          eq(lists.projectId, projectId),
+          sql`${lists.deletedAt} IS NULL`
         ),
-        limit: 40,
+        with: {
+          tasks: {
+            where: sql`${tasks.deletedAt} IS NULL`,
+            orderBy: [desc(tasks.updatedAt)],
+            limit: 60,
+          },
+        },
       }).catch(() => []);
 
-      if (completedTasks.length > 0) {
-        const lines = completedTasks.map((t) => `- "${t.title}" [completed]`);
-        sectionBlocks.push(`## Tasks Completed\n${lines.join("\n")}`);
+      const allTasks = projectLists.flatMap((l) => l.tasks.map((t) => ({ ...t, listName: l.name })));
+
+      const completedInRange = allTasks.filter(
+        (t) => t.status === "completed" && t.completedAt && t.completedAt >= rangeStart
+      );
+      const activeTasks = allTasks.filter((t) => t.status === "active");
+
+      const taskLines: string[] = [];
+      if (completedInRange.length > 0) {
+        taskLines.push(`### Tasks Completed`);
+        completedInRange.forEach((t) => taskLines.push(`- "${t.title}" [completed] (list: ${t.listName})`));
+      }
+      if (activeTasks.length > 0) {
+        taskLines.push(`### Active Tasks`);
+        activeTasks.forEach((t) => {
+          const prio = t.priority !== "none" ? ` [${t.priority}]` : "";
+          taskLines.push(`- "${t.title}"${prio} (list: ${t.listName})`);
+        });
+      }
+
+      if (taskLines.length > 0) {
+        sectionBlocks.push(`## Tasks\n${taskLines.join("\n")}`);
+      } else if (!skipEmpty) {
+        sectionBlocks.push("## Tasks\nNo tasks found for this project in the selected period.");
       }
     }
 
@@ -208,6 +236,8 @@ export async function POST(request: NextRequest) {
 
       if (wsBlocks.length > 0) {
         sectionBlocks.push(`## Workspace Items\n${wsBlocks.join("\n\n")}`);
+      } else if (!skipEmpty) {
+        sectionBlocks.push("## Workspace Items\nNo workspace items were updated in this period.");
       }
     }
 
@@ -233,6 +263,8 @@ export async function POST(request: NextRequest) {
           return `- [${d}] ${l.content}`;
         });
         sectionBlocks.push(`## Manual Work Log\n${lines.join("\n")}`);
+      } else if (!skipEmpty) {
+        sectionBlocks.push("## Manual Work Log\nNo manual work logs found for this period.");
       }
     }
 
@@ -249,7 +281,9 @@ export async function POST(request: NextRequest) {
       ? `${rangeStart.toLocaleDateString()} – ${rangeEnd.toLocaleDateString()}`
       : rangeStart.toLocaleDateString();
 
-    const dataContext = sectionBlocks.join("\n\n");
+    const dataContext = sectionBlocks.length > 0
+      ? sectionBlocks.join("\n\n")
+      : "No data was found for the selected sections and date range.";
 
     const userPrompt = `Project: ${project.name} (${project.key})
 Team member: ${targetUser?.name ?? "Unknown"}

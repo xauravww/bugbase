@@ -52,6 +52,7 @@ export default function WorkUpdatePage() {
   const [memberSearch, setMemberSearch] = useState("");
   const [genLoading, setGenLoading]   = useState(false);
   const [genOutput, setGenOutput]     = useState("");
+  const [skipEmpty, setSkipEmpty]     = useState(false);
   const [genMeta, setGenMeta]         = useState<{ name: string; time: string } | null>(null);
   const [copied, setCopied]           = useState(false);
 
@@ -191,7 +192,7 @@ export default function WorkUpdatePage() {
     try {
       const body: Record<string, unknown> = {
         projectId: Number(genProject), sections, startDate: genStart,
-        endDate: genEnd || undefined,
+        endDate: genEnd || undefined, skipEmpty,
       };
       if (isAdmin && targetUser) body.targetUserId = Number(targetUser);
       const res = await fetch("/api/ai/work-update", {
@@ -333,6 +334,30 @@ export default function WorkUpdatePage() {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Skip empty sections toggle */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={skipEmpty}
+                  onClick={() => { setSkipEmpty(v => !v); setGenOutput(""); }}
+                  className={cn(
+                    "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2",
+                    skipEmpty ? "bg-accent" : "bg-border"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                      skipEmpty ? "translate-x-4" : "translate-x-0"
+                    )}
+                  />
+                </button>
+                <label className="text-sm text-fg-muted cursor-pointer" onClick={() => { setSkipEmpty(v => !v); setGenOutput(""); }}>
+                  Skip empty sections
+                </label>
               </div>
 
               {isAdmin && genProject && members.length > 0 && (
