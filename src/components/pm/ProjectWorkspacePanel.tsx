@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   FileText, Sparkles, Bug, Rocket, Code2, BookOpen,
-  CalendarClock, AlertTriangle, Lightbulb, Flag, Timer, FlaskConical, Plus,
+  CalendarClock, AlertTriangle, Lightbulb, Flag, Timer, Plus, Download,
   ScrollText, Users, Route, Layers, Frame, GitBranch, Scale,
 } from "lucide-react";
 import { META_LIST, getMeta } from "@/lib/modules/meta";
 import { ModuleWorkspace } from "./ModuleWorkspace";
+import { WorkspaceExportModal } from "./WorkspaceExportModal";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils/cn";
@@ -38,6 +39,7 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
   const canWrite = user?.role !== "Viewer";
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
   const [countsNonce, setCountsNonce] = useState(0);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // One request covers every module's badge. Counts stay null until it lands so
   // an empty module and a not-yet-loaded one do not both render as "0".
@@ -86,13 +88,22 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
     <div className="flex flex-col md:flex-row gap-6 items-start h-full">
       {/* Sidebar Navigation */}
       <div className="w-full md:w-[220px] md:shrink-0 flex flex-col gap-4">
-        {canWrite && activeMeta && (
-          <div className="px-1 md:px-0 hidden md:block">
+        <div className="px-1 md:px-0 hidden md:flex flex-col gap-2">
+          {canWrite && activeMeta && (
             <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate} className="w-full justify-center">
               New {activeMeta.singular}
             </Button>
-          </div>
-        )}
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={Download}
+            onClick={() => setExportOpen(true)}
+            className="w-full justify-center"
+          >
+            Export workspace
+          </Button>
+        </div>
 
         <div className="flex md:flex-col overflow-x-auto md:overflow-x-visible md:overflow-y-auto md:max-h-[calc(100vh-150px)] gap-1 pb-2 md:pb-0 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
           {chips.map((c) => {
@@ -142,15 +153,31 @@ export function ProjectWorkspacePanel({ projectId }: { projectId: number }) {
       {/* Main Workspace Area */}
       <div className="flex-1 min-w-0 w-full">
         {/* Mobile Header / Create Button */}
-        {canWrite && activeMeta && (
-          <div className="mb-4 md:hidden">
-            <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate} className="w-full justify-center">
+        <div className="mb-4 md:hidden flex gap-2">
+          {canWrite && activeMeta && (
+            <Button variant="primary" size="sm" leftIcon={Plus} onClick={goCreate} className="flex-1 justify-center">
               New {activeMeta.singular}
             </Button>
-          </div>
-        )}
-        <ModuleWorkspace key={active} slug={active} fixedProjectId={projectId} embedded />
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={Download}
+            onClick={() => setExportOpen(true)}
+            className="flex-1 justify-center"
+          >
+            Export
+          </Button>
+        </div>
+        <ModuleWorkspace key={active} slug={active} fixedProjectId={projectId} embedded onRecordsChanged={refreshCounts} />
       </div>
+
+      <WorkspaceExportModal
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        projectId={projectId}
+        counts={counts}
+      />
     </div>
   );
 }

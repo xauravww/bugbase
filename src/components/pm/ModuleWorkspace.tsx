@@ -38,9 +38,11 @@ interface Props {
   fixedProjectId?: number;
   /** Hide the page Header (embedded mode supplies its own). */
   embedded?: boolean;
+  /** Notify the embedder that the record set changed, so badges can refetch. */
+  onRecordsChanged?: () => void;
 }
 
-export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
+export function ModuleWorkspace({ slug, fixedProjectId, embedded, onRecordsChanged }: Props) {
   const meta = getMeta(slug);
   const { token, user } = useAuth();
   const toast = useToast();
@@ -218,6 +220,7 @@ export function ModuleWorkspace({ slug, fixedProjectId, embedded }: Props) {
       if (!res.ok) throw new Error();
       toast.success("Deleted");
       setRecords((r) => r.filter((x) => x.id !== rec.id));
+      onRecordsChanged?.();
     } catch {
       toast.error("Delete failed");
     }
