@@ -5,8 +5,10 @@ import {
   Sparkles, ClipboardCopy, Check, RefreshCw, ChevronLeft, ChevronRight,
   Pencil, Trash2, Wand2, Plus, X,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Header } from "@/components/layout";
-import { Button, Card, DatePicker, PageLoader, Select, Textarea } from "@/components/ui";
+import { Button, Card, DatePicker, PageLoader, Select, Switch, Textarea } from "@/components/ui";
+import { ProjectAskPanel } from "@/components/pm/ProjectAskPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils/cn";
 
@@ -19,26 +21,65 @@ interface WorkLog {
   user?: { id: number; name: string; email: string } | null;
 }
 
+/**
+ * Report sections. The first group describes work; the second is the manager
+ * context the old report never included — blockers, workload, upcoming goals
+ * and open risks. `blockers` and `upcoming` are on by default because their
+ * absence was the actual complaint about the generated update.
+ */
 const SECTIONS = [
-  { id: "issues_done", label: "Issues Completed" },
-  { id: "issues_left", label: "Remaining Issues" },
-  { id: "tasks",       label: "Tasks" },
-  { id: "workspace",   label: "Workspace Items" },
-  { id: "manual_log",  label: "Manual Log" },
+  { id: "issues_done", label: "Issues Completed", hint: "Everything closed or verified in the period" },
+  { id: "issues_left", label: "Remaining Work",   hint: "All open work, with exact totals" },
+  { id: "blockers",    label: "Blockers & Risks", hint: "Overdue, stalled, unassigned or parked items" },
+  { id: "tasks",       label: "Tasks",            hint: "List tasks and dev tasks" },
+  { id: "workspace",   label: "Workspace Items",  hint: "Per-module totals and status breakdown" },
+  { id: "team",        label: "Team Workload",    hint: "Open, overdue and completed per person" },
+  { id: "upcoming",    label: "Upcoming Goals",   hint: "Milestones, sprints and releases ahead" },
+  { id: "risks",       label: "Open Risks",       hint: "Recorded risks and their mitigation plans" },
+  { id: "manual_log",  label: "Manual Log",       hint: "What the team wrote in their own words" },
 ] as const;
 type SectionId = typeof SECTIONS[number]["id"];
 
-function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
+const DEFAULT_SECTIONS: SectionId[] = [
+  "issues_done", "issues_left", "blockers", "team", "upcoming", "risks",
+];
+
+/** Headline numbers returned alongside the report. */
+interface GenStats {
+  openWork: number;
+  completedInRange: number;
+  overdue: number;
+  dueSoon: number;
+  unassigned: number;
+  stale: number;
+  blockedOrOnHold: number;
+  criticalOpen: number;
+  completionRate: number;
+  velocityPerWeek: number;
+}
+
+/**
+ * Local YYYY-MM-DD. Deliberately not toISOString(): that converts to UTC first,
+ * so east of UTC a local date lands on the previous day, which made the calendar
+ * grid and the day detail panel disagree about which day a log belonged to.
+ */
+function isoDate(d: Date) {
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
 function todayIso() { return isoDate(new Date()); }
+/** Date-only strings are parsed as local midnight, not UTC, for the same reason. */
 function parseLogDate(v: string | number) {
-  return typeof v === "number" ? new Date(v * 1000) : new Date(v);
+  if (typeof v === "number") return new Date(v * 1000);
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(`${v}T00:00:00`) : new Date(v);
 }
 
 export default function WorkUpdatePage() {
   const { token, user } = useAuth();
   const isAdmin = (user as { role?: string } | null)?.role === "Admin";
 
-  const [tab, setTab] = useState<"generate" | "log" | "calendar">("generate");
+  const [tab, setTab] = useState<"generate" | "log" | "calendar" | "ask">("generate");
   const [projects, setProjects]               = useState<ProjectOption[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
 
@@ -46,7 +87,7 @@ export default function WorkUpdatePage() {
   const [genProject, setGenProject]   = useState("");
   const [genStart, setGenStart]       = useState(todayIso);
   const [genEnd, setGenEnd]           = useState("");
-  const [sections, setSections]       = useState<SectionId[]>(["issues_done", "issues_left"]);
+  const [sections, setSections]       = useState<SectionId[]>(DEFAULT_SECTIONS);
   const [members, setMembers]         = useState<MemberOption[]>([]);
   const [targetUser, setTargetUser]   = useState("");
   const [memberSearch, setMemberSearch] = useState("");
@@ -54,6 +95,7 @@ export default function WorkUpdatePage() {
   const [genOutput, setGenOutput]     = useState("");
   const [skipEmpty, setSkipEmpty]     = useState(false);
   const [genMeta, setGenMeta]         = useState<{ name: string; time: string } | null>(null);
+  const [genStats, setGenStats]       = useState<GenStats | null>(null);
   const [copied, setCopied]           = useState(false);
 
   // log tab — form
@@ -188,7 +230,7 @@ export default function WorkUpdatePage() {
   // generate
   const generate = useCallback(async () => {
     if (!genProject || !token || sections.length === 0) return;
-    setGenLoading(true); setGenOutput("");
+    setGenLoading(true); setGenOutput(""); setGenStats(null);
     try {
       const body: Record<string, unknown> = {
         projectId: Number(genProject), sections, startDate: genStart,
@@ -203,6 +245,7 @@ export default function WorkUpdatePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
       setGenOutput(data.update);
+      setGenStats(data.stats ?? null);
       setGenMeta({
         name: data.targetUser?.name ?? "All",
         time: new Date(data.generatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
@@ -210,7 +253,7 @@ export default function WorkUpdatePage() {
     } catch (e) {
       setGenOutput(`Error: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally { setGenLoading(false); }
-  }, [genProject, sections, genStart, genEnd, isAdmin, targetUser, token]);
+  }, [genProject, sections, genStart, genEnd, skipEmpty, isAdmin, targetUser, token]);
 
   const handleCopy = async () => {
     if (!genOutput) return;
@@ -290,13 +333,16 @@ export default function WorkUpdatePage() {
       <Header title="Work Update" hideSearch />
       <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6">
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-border">
-          {(["generate", "log", "calendar"] as const).map(t => (
+        <div className="flex gap-1 border-b border-border overflow-x-auto">
+          {(["generate", "ask", "log", "calendar"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={cn("px-4 py-2 text-sm font-medium capitalize transition-colors cursor-pointer",
+              className={cn("px-4 py-2 text-sm font-medium capitalize transition-colors cursor-pointer whitespace-nowrap",
                 tab === t ? "border-b-2 border-accent text-accent" : "text-fg-muted hover:text-fg"
               )}>
-              {t === "generate" ? "🤖 Generate" : t === "log" ? "📝 My Log" : "📅 Calendar"}
+              {t === "generate" ? "🤖 Generate"
+                : t === "ask" ? "💬 Ask"
+                : t === "log" ? "📝 My Log"
+                : "📅 Calendar"}
             </button>
           ))}
         </div>
@@ -320,12 +366,28 @@ export default function WorkUpdatePage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-fg">Include sections</label>
+                <div className="flex items-center justify-between gap-3">
+                  <label className="block text-sm font-medium text-fg">Include sections</label>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button
+                      onClick={() => { setSections(SECTIONS.map(s => s.id)); setGenOutput(""); }}
+                      className="text-fg-muted hover:text-accent cursor-pointer">
+                      Select all
+                    </button>
+                    <span className="text-border">|</span>
+                    <button
+                      onClick={() => { setSections(DEFAULT_SECTIONS); setGenOutput(""); }}
+                      className="text-fg-muted hover:text-accent cursor-pointer">
+                      Reset
+                    </button>
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {SECTIONS.map(s => {
                     const active = sections.includes(s.id);
                     return (
-                      <button key={s.id} onClick={() => { setSections(prev => active ? prev.filter(x => x !== s.id) : [...prev, s.id]); setGenOutput(""); }}
+                      <button key={s.id} title={s.hint}
+                        onClick={() => { setSections(prev => active ? prev.filter(x => x !== s.id) : [...prev, s.id]); setGenOutput(""); }}
                         className={cn("px-3 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer",
                           active ? "bg-accent text-accent-fg border-accent" : "bg-surface text-fg-muted border-border hover:border-accent"
                         )}>
@@ -338,24 +400,9 @@ export default function WorkUpdatePage() {
 
               {/* Skip empty sections toggle */}
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={skipEmpty}
-                  onClick={() => { setSkipEmpty(v => !v); setGenOutput(""); }}
-                  className={cn(
-                    "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2",
-                    skipEmpty ? "bg-accent" : "bg-border"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                      skipEmpty ? "translate-x-4" : "translate-x-0"
-                    )}
-                  />
-                </button>
-                <label className="text-sm text-fg-muted cursor-pointer" onClick={() => { setSkipEmpty(v => !v); setGenOutput(""); }}>
+                <Switch checked={skipEmpty} onCheckedChange={v => { setSkipEmpty(v); setGenOutput(""); }} />
+                <label className="text-sm text-fg-muted cursor-pointer"
+                  onClick={() => { setSkipEmpty(v => !v); setGenOutput(""); }}>
                   Skip empty sections
                 </label>
               </div>
@@ -397,6 +444,27 @@ export default function WorkUpdatePage() {
               </Button>
             </Card>
 
+            {genStats && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                {([
+                  { label: "Open", value: genStats.openWork, warn: false },
+                  { label: "Completed", value: genStats.completedInRange, warn: false },
+                  { label: "Overdue", value: genStats.overdue, warn: genStats.overdue > 0 },
+                  { label: "Unassigned", value: genStats.unassigned, warn: genStats.unassigned > 0 },
+                  { label: "Stale", value: genStats.stale, warn: genStats.stale > 0 },
+                  { label: "Critical", value: genStats.criticalOpen, warn: genStats.criticalOpen > 0 },
+                ]).map(s => (
+                  <div key={s.label}
+                    className={cn("rounded-lg border px-3 py-2",
+                      s.warn ? "border-danger/40 bg-danger/5" : "border-border bg-surface")}>
+                    <div className={cn("text-lg font-semibold tabular-nums",
+                      s.warn ? "text-danger" : "text-fg")}>{s.value}</div>
+                    <div className="text-[11px] text-fg-muted">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {genOutput && (
               <Card variant="default" className="p-0 overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-bg-subtle">
@@ -419,11 +487,24 @@ export default function WorkUpdatePage() {
                   </div>
                 </div>
                 <div className="px-5 py-4">
-                  <pre className="whitespace-pre-wrap text-sm text-fg leading-relaxed font-sans">{genOutput}</pre>
+                  {/* Rendered as markdown because the report uses "## " headings.
+                      Copy still yields the raw markdown, which pastes cleanly. */}
+                  <div className="text-sm text-fg leading-relaxed [&_p]:my-1.5 [&_ol]:my-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:my-1 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h2:first-child]:mt-0 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3">
+                    <ReactMarkdown>{genOutput}</ReactMarkdown>
+                  </div>
                 </div>
               </Card>
             )}
           </div>
+        )}
+
+        {/* ── ASK TAB ── */}
+        {tab === "ask" && (
+          <ProjectAskPanel
+            projects={projects}
+            projectId={genProject}
+            onProjectChange={id => { setGenProject(id); setGenOutput(""); setGenStats(null); }}
+          />
         )}
 
         {/* ── LOG TAB ── */}
@@ -494,7 +575,7 @@ export default function WorkUpdatePage() {
                 <Card key={log.id} variant="default" className="p-4">
                   {editingLog?.id === log.id ? (
                     <div className="space-y-2">
-                      <Textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={3} />
+                      <Textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={8} autoResize />
                       <div className="flex gap-2">
                         <Button variant="primary" size="sm" onClick={saveEdit}>Save</Button>
                         <Button variant="ghost" size="sm" leftIcon={Wand2} loading={editRefining}
@@ -519,7 +600,9 @@ export default function WorkUpdatePage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-fg whitespace-pre-wrap">{log.content}</p>
+                        <div className="markdown-body text-sm text-fg">
+                          <ReactMarkdown>{log.content}</ReactMarkdown>
+                        </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button onClick={() => { setEditingLog(log); setEditContent(log.content); }}
@@ -610,7 +693,9 @@ export default function WorkUpdatePage() {
                           {l.project && <span className="text-xs px-2 py-0.5 rounded-full bg-accent-subtle text-accent">{l.project.key} · {l.project.name}</span>}
                           {isAdmin && l.user && <span className="text-xs text-fg-muted">{l.user.name} · {l.user.email}</span>}
                         </div>
-                        <p className="text-sm text-fg whitespace-pre-wrap">{l.content}</p>
+                        <div className="markdown-body text-sm text-fg">
+                          <ReactMarkdown>{l.content}</ReactMarkdown>
+                        </div>
                       </div>
                     ))}
                   </Card>
