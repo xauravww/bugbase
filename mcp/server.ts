@@ -37,10 +37,11 @@ function toZodShape(schema: { properties: Record<string, unknown>; required?: st
   const required = new Set(schema.required || []);
   for (const [key, def] of Object.entries(schema.properties)) {
     const t = (def as { type?: string; items?: { type?: string } }).type;
+    const itemType = (def as { items?: { type?: string } }).items?.type;
     let zt: z.ZodTypeAny;
     if (t === "number") zt = z.number();
     else if (t === "boolean") zt = z.boolean();
-    else if (t === "array") zt = z.array(z.number());
+    else if (t === "array") zt = itemType === "string" ? z.array(z.string()) : z.array(z.number());
     else zt = z.string();
     shape[key] = required.has(key) ? zt : zt.optional();
   }

@@ -40,6 +40,7 @@ const num = { type: "number" };
 const str = { type: "string" };
 const bool = { type: "boolean" };
 const numArr = { type: "array", items: { type: "number" } };
+const strArr = { type: "array", items: { type: "string" } };
 
 /**
  * Runs the AI record review test method on an item before creation or update.
@@ -58,6 +59,18 @@ async function checkWithAi(moduleSlug: string, fields: Record<string, unknown>, 
 }
 
 export const TOOLS: ToolDef[] = [
+  // ── uploads ──
+  {
+    name: "upload_image",
+    description: "Upload a JPEG, PNG, GIF, WebP, or SVG image to the configured image host. Pass base64-encoded image bytes (or a data URL), filename, and mimeType. Returns a public URL, thumbnail, provider, and deleteHash. Upload first, then use the returned url in imageUrls when creating/updating an issue or add_issue_images.",
+    inputSchema: {
+      type: "object",
+      properties: { imageBase64: str, filename: str, mimeType: str },
+      required: ["imageBase64", "filename", "mimeType"],
+    },
+    handler: (a, ctx) => ctx.call("POST", "/api/upload", a),
+  },
+
   // ── whoami / projects ──
   {
     name: "whoami",
@@ -116,13 +129,13 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "create_issue",
-    description: "Create an issue. Automatically validated via AI test method to prevent out-of-category content. Set force=true to bypass AI validation.",
+    description: "Create an issue. Pass imageUrls to attach public image URLs at creation. Automatically validated via AI test method to prevent out-of-category content. Set force=true to bypass AI validation.",
     inputSchema: {
       type: "object",
       properties: {
         projectId: num, title: str, type: str, description: str,
         stepsToReproduce: str, expectedResult: str, actualResult: str,
-        priority: str, dueDate: str, assigneeIds: numArr, categoryIds: numArr, force: bool,
+        priority: str, dueDate: str, assigneeIds: numArr, categoryIds: numArr, imageUrls: strArr, force: bool,
       },
       required: ["projectId", "title"],
     },
@@ -138,10 +151,10 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: "update_issue",
-    description: "Update an issue (title, status, priority, description, etc.). Automatically validated via AI test method.",
+    description: "Update an issue (title, status, priority, description, etc.). Pass imageUrls to add public image URLs without replacing existing attachments. Automatically validated via AI test method.",
     inputSchema: {
       type: "object",
-      properties: { issueId: num, title: str, status: str, priority: str, type: str, description: str, dueDate: str, force: bool },
+      properties: { issueId: num, title: str, status: str, priority: str, type: str, description: str, dueDate: str, imageUrls: strArr, force: bool },
       required: ["issueId"],
     },
     handler: async ({ issueId, force, ...updates }, ctx) => {
@@ -171,6 +184,24 @@ export const TOOLS: ToolDef[] = [
     description: "Add a comment to an issue.",
     inputSchema: { type: "object", properties: { issueId: num, body: str }, required: ["issueId", "body"] },
     handler: (a, ctx) => ctx.call("POST", `/api/issues/${a.issueId}/comments`, { body: a.body }),
+  },
+  {
+    name: "add_issue_images",
+    description: "Attach one or more public image URLs to an issue or, with commentId, to an existing comment on that issue. URLs are saved as attachments; no binary upload is required.",
+    inputSchema: {
+      type: "object",
+      properties: { issueId: num, imageUrls: strArr, commentId: num },
+      required: ["issueId", "imageUrls"],
+    },
+    handler: async ({ issueId, imageUrls, commentId }, ctx) => {
+      const urls = imageUrls as string[];
+      return Promise.all(urls.map((url) =>
+        ctx.call("POST", `/api/issues/${issueId}/attachments`, {
+          url,
+          ...(commentId !== undefined ? { commentId } : {}),
+        })
+      ));
+    },
   },
   {
     name: "list_issue_comments",

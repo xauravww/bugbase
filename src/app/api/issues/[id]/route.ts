@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { issues, projectMembers, activityLog } from "@/lib/db/schema";
+import { issues, projectMembers, activityLog, attachments } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
@@ -26,6 +26,7 @@ const updateIssueSchema = z.object({
     ISSUE_PRIORITIES.HIGH,
     ISSUE_PRIORITIES.CRITICAL,
   ]).optional(),
+  imageUrls: z.array(z.string().url()).max(20).optional(),
 });
 
 // GET /api/issues/[id] - Get issue details
@@ -195,7 +196,7 @@ export async function PUT(
       );
     }
 
-    const updates = validation.data;
+    const { imageUrls, ...updates } = validation.data;
 
     // Log activity for status changes
     if (updates.status && updates.status !== existingIssue.status) {
@@ -226,6 +227,17 @@ export async function PUT(
       })
       .where(eq(issues.id, issueId))
       .returning();
+
+    if (imageUrls && imageUrls.length > 0) {
+      await db.insert(attachments).values(
+        imageUrls.map((url) => ({ issueId, url, uploadedBy: authUser.id }))
+      );
+      await db.insert(activityLog).values({
+        issueId,
+        userId: authUser.id,
+        action: `added ${imageUrls.length} image attachment${imageUrls.length === 1 ? "" : "s"}`,
+      });
+    }
 
     return NextResponse.json({ issue: updatedIssue });
 

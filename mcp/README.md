@@ -62,6 +62,17 @@ URL resolution: `BUGBASE_URL`, else `http://localhost:$PORT`, else
 for the session. `tsx` is a dev dependency — if you deployed with
 `--production`, run a full `npm install` or `npm i -g tsx`.
 
+## Image URLs
+
+Use `upload_image` to send a JPEG, PNG, GIF, WebP, or SVG to the configured
+image host. Pass `imageBase64` (base64-encoded bytes or a data URL), `filename`,
+and `mimeType`; the result includes a public `url`. Images are limited to 10 MB.
+Then include the returned URL in `imageUrls` when calling `create_issue` or
+`update_issue`; update URLs are added without replacing existing attachments.
+To attach URLs after creating an issue, use `add_issue_images` with `issueId`
+and `imageUrls`. Include `commentId` to attach them to a specific existing issue
+comment. The app requires `IMGBB_API_KEY` or `FREEIMAGE_API_KEY` to be configured.
+
 ## Architecture
 
 Both transports share one tool registry (`src/lib/mcp/tools.ts`). Every tool

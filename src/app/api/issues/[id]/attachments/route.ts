@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { attachments, issues, activityLog, projectMembers } from "@/lib/db/schema";
+import { attachments, comments, issues, activityLog, projectMembers } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
@@ -79,6 +79,18 @@ export async function POST(
     }
 
     const { url, deleteHash, commentId } = validation.data;
+
+    if (commentId !== undefined) {
+      const comment = await db.query.comments.findFirst({
+        where: and(eq(comments.id, commentId), eq(comments.issueId, issueId)),
+      });
+      if (!comment) {
+        return NextResponse.json(
+          { error: "Comment not found on this issue", code: "NOT_FOUND" },
+          { status: 404 }
+        );
+      }
+    }
 
     const [attachment] = await db.insert(attachments).values({
       issueId,

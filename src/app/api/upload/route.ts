@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/lib/auth";
+import { z } from "zod";
 
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
@@ -10,6 +11,13 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"];
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+const base64UploadSchema = z.object({
+  imageBase64: z.string().min(1),
+  filename: z.string().min(1).max(255),
+  mimeType: z.string().min(1),
+});
 
 function getFileExtension(filename: string): string {
   return filename.toLowerCase().slice(filename.lastIndexOf("."));
@@ -18,6 +26,12 @@ function getFileExtension(filename: string): string {
 function isValidImageType(mimeType: string, filename: string): boolean {
   const ext = getFileExtension(filename);
   return ALLOWED_MIME_TYPES.includes(mimeType) || ALLOWED_EXTENSIONS.includes(ext);
+}
+
+function decodeBase64Image(value: string): Buffer | null {
+  const base64 = value.replace(/^data:[^;]+;base64,/i, "").replace(/\s/g, "");
+  if (!base64 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64) || base64.length % 4 !== 0) return null;
+  return Buffer.from(base64, "base64");
 }
 
 async function uploadToImgBB(image: File, apiKey: string) {
@@ -99,8 +113,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const formData = await request.formData();
-    const image = formData.get("image");
+    let image: File | null = null;
+    if (request.headers.get("content-type")?.includes("application/json")) {
+      const parsed = base64UploadSchema.safeParse(await request.json());
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: parsed.error.issues[0].message, code: "VALIDATION_ERROR" },
+          { status: 400 }
+        );
+      }
+      const bytes = decodeBase64Image(parsed.data.imageBase64);
+      if (!bytes) {
+        return NextResponse.json(
+          { error: "imageBase64 must be valid base64 data", code: "VALIDATION_ERROR" },
+          { status: 400 }
+        );
+      }
+      image = new File([Uint8Array.from(bytes)], parsed.data.filename, { type: parsed.data.mimeType });
+    } else {
+      const formData = await request.formData();
+      const formImage = formData.get("image");
+      image = formImage instanceof File ? formImage : null;
+    }
 
     if (!image) {
       return NextResponse.json(
@@ -110,19 +144,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    if (!(image instanceof File)) {
-      return NextResponse.json(
-        { error: "Invalid file", code: "VALIDATION_ERROR" },
-        { status: 400 }
-      );
-    }
-
     const mimeType = image.type;
     const filename = image.name;
 
     if (!isValidImageType(mimeType, filename)) {
       return NextResponse.json(
         { error: "Invalid file type. Only images (JPEG, PNG, GIF, WebP, SVG) are allowed", code: "INVALID_FILE_TYPE" },
+        { status: 400 }
+      );
+    }
+
+    if (image.size > MAX_IMAGE_BYTES) {
+      return NextResponse.json(
+        { error: "Image must be 10 MB or smaller", code: "FILE_TOO_LARGE" },
         { status: 400 }
       );
     }

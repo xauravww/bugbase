@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { issues, issueAssignees, issueVerifiers, projectMembers, activityLog, projects, issueCategories } from "@/lib/db/schema";
+import { issues, issueAssignees, issueVerifiers, projectMembers, activityLog, projects, issueCategories, attachments } from "@/lib/db/schema";
 import { getAuthUser } from "@/lib/auth";
 import { eq, desc, and, inArray, like, or, sql } from "drizzle-orm";
 import { ISSUE_STATUSES, ISSUE_PRIORITIES, ISSUE_TYPES } from "@/constants";
@@ -20,6 +20,7 @@ const createIssueSchema = z.object({
   assigneeIds: z.array(z.number()).optional(),
   verifierIds: z.array(z.number()).optional(),
   categoryIds: z.array(z.number()).optional(),
+  imageUrls: z.array(z.string().url()).max(20).optional(),
 });
 
 // GET /api/issues - List issues with search, filters, and pagination
@@ -206,7 +207,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { projectId, title, type, description, stepsToReproduce, expectedResult, actualResult, priority, startDate, dueDate, assigneeIds, verifierIds, categoryIds } = validation.data;
+    const { projectId, title, type, description, stepsToReproduce, expectedResult, actualResult, priority, startDate, dueDate, assigneeIds, verifierIds, categoryIds, imageUrls } = validation.data;
 
     const membership = await db.query.projectMembers.findFirst({
       where: and(
@@ -253,6 +254,12 @@ export async function POST(request: NextRequest) {
       if (categoryIds && categoryIds.length > 0) {
         tx.insert(issueCategories).values(
           categoryIds.map(categoryId => ({ issueId: insertedIssue.id, categoryId }))
+        ).run();
+      }
+
+      if (imageUrls && imageUrls.length > 0) {
+        tx.insert(attachments).values(
+          imageUrls.map((url) => ({ issueId: insertedIssue.id, url, uploadedBy: authUser.id }))
         ).run();
       }
 

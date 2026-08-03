@@ -12,11 +12,13 @@ import { GET as getProjects } from "@/app/api/projects/route";
 import { GET as getProject } from "@/app/api/projects/[id]/route";
 import { GET as getDashboard } from "@/app/api/dashboard/route";
 import { GET as getTeamProgress } from "@/app/api/projects/[id]/team-progress/route";
+import { POST as uploadImage } from "@/app/api/upload/route";
 
 import { GET as getIssues, POST as createIssue } from "@/app/api/issues/route";
 import { GET as getIssue, PUT as updateIssue, DELETE as deleteIssue } from "@/app/api/issues/[id]/route";
 import { POST as setAssignees } from "@/app/api/issues/[id]/assignees/route";
 import { GET as getComments, POST as addComment } from "@/app/api/issues/[id]/comments/route";
+import { POST as addAttachment } from "@/app/api/issues/[id]/attachments/route";
 
 import { GET as getTestCases, POST as createTestCase } from "@/app/api/projects/[id]/test-cases/route";
 import { PATCH as updateTestCase } from "@/app/api/projects/[id]/test-cases/[testCaseId]/route";
@@ -54,6 +56,9 @@ interface Route {
 }
 
 const ROUTES: Route[] = [
+  // uploads
+  { pattern: /^\/api\/upload$/, paramNames: [], methods: { POST: uploadImage } },
+
   // auth
   { pattern: /^\/api\/auth\/me$/, paramNames: [], methods: { GET: authMe } },
 
@@ -72,6 +77,7 @@ const ROUTES: Route[] = [
   { pattern: /^\/api\/issues\/(\d+)$/, paramNames: ["id"], methods: { GET: getIssue, PUT: updateIssue, DELETE: deleteIssue } },
   { pattern: /^\/api\/issues\/(\d+)\/assignees$/, paramNames: ["id"], methods: { POST: setAssignees } },
   { pattern: /^\/api\/issues\/(\d+)\/comments$/, paramNames: ["id"], methods: { GET: getComments, POST: addComment } },
+  { pattern: /^\/api\/issues\/(\d+)\/attachments$/, paramNames: ["id"], methods: { POST: addAttachment } },
 
   // test cases
   { pattern: /^\/api\/projects\/(\d+)\/test-cases$/, paramNames: ["id"], methods: { GET: getTestCases, POST: createTestCase } },

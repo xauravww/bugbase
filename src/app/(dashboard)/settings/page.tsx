@@ -1068,9 +1068,10 @@ All creation and edit operations (\`pm_create\`, \`pm_update\`, \`create_issue\`
 
 ---
 
-## 5. Complete MCP Tools Reference (40 Tools)
+## 5. Complete MCP Tools Reference (42 Tools)
 
 ### 👤 Identity & Global Context
+- \`upload_image\`: Upload base64 image data and return a public image-host URL (\`imageBase64\`, \`filename\`, \`mimeType\`). Use its returned \`url\` in issue \`imageUrls\`.
 - \`whoami\`: Returns authenticated user info (\`id\`, \`name\`, \`email\`, \`role\`).
 - \`list_projects\`: Lists all projects accessible by the authenticated user.
 - \`get_project\`: Fetches a single project with its full member list and roles (\`projectId\`).
@@ -1080,12 +1081,13 @@ All creation and edit operations (\`pm_create\`, \`pm_update\`, \`create_issue\`
 ### 🐛 Issue Tracker Tools
 - \`list_issues\`: Query project issues (\`projectId\`, \`status\`, \`priority\`, \`type\`, \`search\`, \`assignedToMe\`, \`page\`, \`limit\`).
 - \`get_issue\`: Get issue details (\`issueId\`).
-- \`create_issue\`: Create issue (\`projectId\`, \`title\`, \`type\`, \`description\`, \`stepsToReproduce\`, \`expectedResult\`, \`actualResult\`, \`priority\`, \`dueDate\`, \`assigneeIds\`, \`categoryIds\`, \`force\`). *Runs AI check.*
-- \`update_issue\`: Update issue fields (\`issueId\`, \`title\`, \`status\`, \`priority\`, \`type\`, \`description\`, \`dueDate\`, \`force\`). *Runs AI check.*
+- \`create_issue\`: Create issue (\`projectId\`, \`title\`, \`type\`, \`description\`, \`stepsToReproduce\`, \`expectedResult\`, \`actualResult\`, \`priority\`, \`dueDate\`, \`assigneeIds\`, \`categoryIds\`, \`imageUrls\`, \`force\`). *Runs AI check.*
+- \`update_issue\`: Update issue fields (\`issueId\`, \`title\`, \`status\`, \`priority\`, \`type\`, \`description\`, \`dueDate\`, \`imageUrls\`, \`force\`). *Runs AI check.*
 - \`delete_issue\`: Admin-only issue deletion (\`issueId\`).
 - \`set_issue_assignees\`: Replace issue assignee IDs (\`issueId\`, \`userIds\`).
 - \`add_issue_comment\`: Add a comment (\`issueId\`, \`body\`).
 - \`list_issue_comments\`: List comments (\`issueId\`).
+- \`add_issue_images\`: Attach public image URLs to an issue or existing comment (\`issueId\`, \`imageUrls\`, optional \`commentId\`).
 
 ### 🧪 Test Cases (QA Management)
 - \`list_test_cases\`: List test cases for a project (\`projectId\`).
@@ -1257,6 +1259,21 @@ All creation and edit operations (\`pm_create\`, \`pm_update\`, \`create_issue\`
 
           <div className="p-3.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] space-y-1.5">
             <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
+              <span>🖼️ Image URLs in Issue Reports</span>
+            </div>
+            <p>
+              First call <code>upload_image</code> with base64 image data, a filename, and MIME type to upload a screenshot to the configured image host. It returns a public <code>url</code>. Pass that URL in <code>imageUrls</code> when calling <code>create_issue</code> or <code>update_issue</code>; updates add attachments without removing existing ones.
+            </p>
+            <ul className="list-disc pl-4 space-y-1">
+              <li><code>upload_image</code> accepts JPEG, PNG, GIF, WebP, and SVG images up to 10 MB. The server must have an ImgBB or FreeImage.host API key configured.</li>
+              <li>Use <code>add_issue_images</code> with <code>{`{ issueId, imageUrls }`}</code> to add images after an issue exists.</li>
+              <li>Pass <code>commentId</code> to attach images to a specific existing issue comment.</li>
+              <li>Only use publicly reachable direct image URLs; MCP stores the URL and does not download the file.</li>
+            </ul>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-subtle)] space-y-1.5">
+            <div className="font-semibold text-[var(--color-text-primary)] flex items-center gap-1.5">
               <span>🎯 Project Scoping & Permissions</span>
             </div>
             <ul className="list-disc pl-4 space-y-1">
@@ -1285,4 +1302,3 @@ All creation and edit operations (\`pm_create\`, \`pm_update\`, \`create_issue\`
     </div>
   );
 }
-
