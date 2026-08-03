@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; img-src 'self' https://*.imgbb.com https://i.ibb.co https://freeimage.host https://*.freeimage.host data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
+            value: "default-src 'self'; img-src 'self' https://*.imgbb.com https://i.ibb.co https://iili.io https://*.iili.io https://freeimage.host https://*.freeimage.host data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
           }
         ]
       }
@@ -44,6 +44,14 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "i.ibb.co",
+      },
+      {
+        protocol: "https",
+        hostname: "iili.io",
+      },
+      {
+        protocol: "https",
+        hostname: "*.iili.io",
       },
       {
         protocol: "https",
